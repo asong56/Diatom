@@ -65,25 +65,37 @@ impl WarReport {
 fn block_narrative(n: i64) -> String {
     match n {
         0 => "The trackers are eerily quiet this week. Maybe they've given up?".to_owned(),
-        1..=99 => format!("Diatom intercepted {n} monitoring probes this week, neutralizing them before they could reach the renderer."),
+        1..=99 => format!(
+            "Diatom intercepted {n} monitoring probes this week, neutralizing them before they could reach the renderer."
+        ),
         100..=999 => {
-            format!("This week, {n} tracking requests were severed at the protocol layer. Each one was data harvesting you never had to experience.")
+            format!(
+                "This week, {n} tracking requests were severed at the protocol layer. Each one was data harvesting you never had to experience."
+            )
         }
         1000..=9999 => {
-            format!("{n} times. That is {n} attempts to build a profile on you. Diatom made every single one of them futile.")
+            format!(
+                "{n} times. That is {n} attempts to build a profile on you. Diatom made every single one of them futile."
+            )
         }
-        _ => format!("{n} surveillance vectors — all neutralised. The data economy hit a wall at your device boundary this week."),
+        _ => format!(
+            "{n} surveillance vectors — all neutralised. The data economy hit a wall at your device boundary this week."
+        ),
     }
 }
 
 fn noise_narrative(n: i64) -> String {
     match n {
         0 => "Fingerprint noise injection was paused this week. Check your privacy settings to re-enable it.".to_owned(),
-        1..=999 => format!("Your device broadcast {n} synthetic identities to the outside world this week. The real you never appeared."),
+        1..=999 => format!(
+            "Your device broadcast {n} synthetic identities to the outside world this week. The real you never appeared."
+        ),
         1000..=99_999 => format!(
             "{n} random noise injections. Each one plants a corrupted Canvas fingerprint and a false WebGL signature. What trackers harvested was a phantom city."
         ),
-        _ => format!("{n} noise injections — your digital fingerprint was never consistent between any two requests. This is the last line of privacy defence."),
+        _ => format!(
+            "{n} noise injections — your digital fingerprint was never consistent between any two requests. This is the last line of privacy defence."
+        ),
     }
 }
 
@@ -115,7 +127,9 @@ fn time_narrative(min: f64) -> String {
         return "Time saved by filtering this week was negligible — perhaps your browsing habits were already quite disciplined.".to_owned();
     }
     if min < 10.0 {
-        return format!("Blocking trackers and content farms saved you approximately {min:.0} minutes of loading and noise.");
+        return format!(
+            "Blocking trackers and content farms saved you approximately {min:.0} minutes of loading and noise."
+        );
     }
     if min < 60.0 {
         return format!(
@@ -139,7 +153,9 @@ fn summary_headline(blocks: i64, noise: i64) -> String {
         return format!("{total} adversarial events this week. Digital boundaries held firm.");
     }
     if total < 5000 {
-        return format!("{total} blocks and noise injections. The data economy failed to reach you.");
+        return format!(
+            "{total} blocks and noise injections. The data economy failed to reach you."
+        );
     }
     format!("{total} attempts. They have not stopped trying. Neither have you.")
 }
