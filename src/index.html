@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Diatom</title>
+  <link rel="stylesheet" href="/diatom.css">
+</head>
+<body>
+
+  <!-- Tab bar -->
+  <div id="tab-bar" role="tablist" aria-label="Browser tabs">
+    <div id="tab-list"></div>
+    <button id="btn-new-tab" title="New tab (⌘T)" aria-label="Open new tab">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Address bar -->
+  <div id="omnibox-wrap" role="search">
+    <div id="omnibox-left">
+      <button id="btn-back"  title="Back (⌘[)" aria-label="Go back">‹</button>
+      <button id="btn-fwd"   title="Forward (⌘])" aria-label="Go forward">›</button>
+      <button id="btn-reload" title="Reload (⌘R)" aria-label="Reload page">↺</button>
+    </div>
+    <div id="omnibox-field-wrap">
+      <span id="omnibox-shield" title="Privacy active" aria-hidden="true">⬡</span>
+      <input id="omnibox"
+             type="text"
+             placeholder="Search or enter address"
+             autocomplete="off"
+             spellcheck="false"
+             aria-label="Address bar"
+             aria-live="polite">
+      <button id="btn-zen" title="Zen mode (⌘⇧Z)" aria-label="Toggle zen mode">◯</button>
+    </div>
+    <div id="omnibox-right">
+      <button id="btn-ai" title="AI panel (⌘/)" aria-label="Toggle AI panel">✦</button>
+      <button id="btn-freeze" title="Freeze page" aria-label="Save page to Museum">❄</button>
+      <button id="btn-menu" title="Menu" aria-label="Open menu">⋯</button>
+    </div>
+  </div>
+
+  <!-- Content area -->
+  <div id="content-area">
+    <webview id="main-webview"
+             src="about:blank"
+             allowpopups
+             webpreferences="contextIsolation=true, nodeIntegration=false"
+             aria-label="Page content">
+    </webview>
+
+    <!-- New tab page (shown when webview is about:blank) -->
+    <div id="new-tab-page" hidden>
+      <div class="ntp-inner">
+        <div class="ntp-logo" aria-hidden="true">⬡</div>
+        <p class="ntp-tagline">Nothing shared. Nothing tracked.</p>
+        <input class="ntp-search"
+               type="text"
+               placeholder="Search or enter an address"
+               aria-label="Quick search">
+        <div id="ntp-bookmarks" aria-label="Bookmarks"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notes zone (right panel) -->
+  <div id="notes-zone" hidden aria-label="Workspace notes"></div>
+
+  <!-- AI panel -->
+  <div id="ai-panel" hidden role="complementary" aria-label="AI assistant">
+    <div class="ai-panel-header">
+      <span class="ai-model-label" id="aiModelLabel">diatom-balanced</span>
+      <button class="ai-close" id="btnAiClose" aria-label="Close AI panel">×</button>
+    </div>
+    <div class="ai-messages" id="aiMessages" aria-live="polite"></div>
+    <div class="ai-input-row">
+      <textarea class="ai-input"
+                id="aiInput"
+                placeholder="Ask anything about this page…"
+                rows="1"
+                aria-label="AI prompt"></textarea>
+      <button class="ai-send" id="aiSend" aria-label="Send">↑</button>
+    </div>
+  </div>
+
+  <!-- Budget indicator (subtle, shown when approaching limit) -->
+  <div id="budget-indicator" hidden aria-live="polite" aria-atomic="true"></div>
+
+  <!-- ARIA live region for announcements -->
+  <div id="aria-live" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
+
+  <!-- Bootstrap -->
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
