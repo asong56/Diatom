@@ -1,0 +1,286 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>About Diatom</title>
+  <style>
+    :root {
+      --bg:    #0a0a10;
+      --fg:    #e2e8f0;
+      --muted: #64748b;
+      --blue:  #60a5fa;
+      --teal:  #2dd4bf;
+      --amber: #fbbf24;
+      --line:  rgba(255,255,255,.07);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--fg);
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 15px; line-height: 1.7;
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      opacity: .15;
+    }
+
+    .page { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; padding: 5rem 2rem 6rem; }
+
+    .glyph-wrap { display: flex; justify-content: center; margin-bottom: 3rem; }
+    .glyph-wrap canvas { border-radius: 50%; }
+
+    h1 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 2.4rem; font-weight: 700;
+      color: var(--fg); margin-bottom: .4rem;
+    }
+    .version { color: var(--muted); font-size: .82rem; letter-spacing: .08em; margin-bottom: 3.5rem; }
+
+    section { margin-bottom: 3rem; }
+    h2 {
+      font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--muted); border-bottom: 1px solid var(--line);
+      padding-bottom: .5rem; margin-bottom: 1.2rem;
+    }
+    p { color: #94a3b8; margin-bottom: .9rem; }
+    p strong { color: var(--fg); font-weight: 600; }
+
+    .limits { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    .limits th {
+      text-align: left; padding: .5rem .75rem;
+      background: rgba(255,255,255,.04); color: var(--muted);
+      font-weight: 500; border-bottom: 1px solid var(--line);
+    }
+    .limits td { padding: .5rem .75rem; border-bottom: 1px solid var(--line); }
+    .limits tr:last-child td { border-bottom: none; }
+    .limits .badge {
+      display: inline-block; padding: .15rem .5rem; border-radius: 3px;
+      font-size: .72rem; font-weight: 600; letter-spacing: .04em;
+    }
+    .badge-never  { background: rgba(239,68,68,.15);  color: #f87171; }
+    .badge-always { background: rgba(96,165,250,.12); color: #60a5fa; }
+
+    .axiom { display: flex; gap: 1rem; margin-bottom: 1.2rem; align-items: flex-start; }
+    .axiom-num {
+      flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
+      background: rgba(96,165,250,.1); color: var(--blue);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .78rem; font-weight: 700; margin-top: .15rem;
+    }
+    .axiom-body { color: #94a3b8; font-size: .9rem; }
+    .axiom-body strong { color: var(--fg); }
+
+    .meta { font-size: .78rem; color: var(--muted); margin-top: 3rem; }
+    .meta span { display: inline-block; margin-right: 1.5rem; }
+    #build-hash { font-family: 'Courier New', monospace; }
+
+    hr { border: none; border-top: 1px solid var(--line); margin: 2.5rem 0; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <div class="glyph-wrap">
+    <canvas id="about-glyph" width="80" height="80"></canvas>
+  </div>
+
+  <h1>Diatom</h1>
+  <div class="version" id="version-line">v0.9.0 · local-first · digital sovereignty</div>
+
+  <section>
+    <h2>Why this browser exists</h2>
+    <p>
+      Most browsers are a <strong>window</strong> that lets you see the internet.
+      Diatom is a <strong>filter</strong> that keeps the internet from seeing you.
+    </p>
+    <p>
+      It is not trying to replace Chrome. It is for people who have noticed
+      that every scroll, every click, and every pause is being quietly recorded
+      by dozens of third-party systems — and who have decided their attention
+      is worth more than that.
+    </p>
+    <p>
+      The diatom is a single-celled alga that builds precise geometric shells from silica.
+      In nature's smallest things, the most rigorous architecture. The name is a reminder:
+      <strong>restraint is a form of strength</strong>.
+    </p>
+  </section>
+
+  <hr>
+
+  <section>
+    <h2>Product axioms (non-negotiable)</h2>
+
+    <div class="axiom">
+      <div class="axiom-num">1</div>
+      <div class="axiom-body">
+        <strong>Zero data upload, no exceptions.</strong>
+        Diatom has no servers. No accounts. No telemetry.
+        No "anonymous data collection to improve your experience."
+        Your data stays on your device. If it ever leaves, you chose to send it.
+      </div>
+    </div>
+
+    <div class="axiom">
+      <div class="axiom-num">2</div>
+      <div class="axiom-body">
+        <strong>Zen Mode's 50-character unlock will never be removed.</strong>
+        Interrupting focus has a cost. The cost is writing down why.
+        This is not punishment — it is ritual. Ritual makes behaviour conscious.
+      </div>
+    </div>
+
+    <div class="axiom">
+      <div class="axiom-num">3</div>
+      <div class="axiom-body">
+        <strong>No centralised sync server. Ever.</strong>
+        Even if it means cross-device sync requires physical proximity (Mesh P2P).
+        The price of cloud convenience is that your data becomes the cloud's data.
+      </div>
+    </div>
+
+    <div class="axiom">
+      <div class="axiom-num">4</div>
+      <div class="axiom-body">
+        <strong>Ad tracking systems do not deserve politeness.</strong>
+        Decoy traffic, fingerprint noise, Referer sanitisation — these are not radicalism.
+        They are a systematic defence against systematic violation.
+      </div>
+    </div>
+
+    <div class="axiom">
+      <div class="axiom-num">5</div>
+      <div class="axiom-body">
+        <strong>The Echo tells you the truth, even when it is uncomfortable.</strong>
+        If 80% of your time today went to shallow content, it will say so.
+        This is not judgement — it is a mirror. You are entitled to dislike
+        what you see, but Diatom will not smash the mirror for you.
+      </div>
+    </div>
+
+    <div class="axiom">
+      <div class="axiom-num">6</div>
+      <div class="axiom-body">
+        <strong>Accessibility is a moral baseline, not a feature checkbox.</strong>
+        Screen reader users should not lose access because we pursue minimalism.
+        The cost of accessibility is borne by Diatom, not by users.
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <section>
+    <h2>Hard limits (enforced in code)</h2>
+    <table class="limits">
+      <thead>
+        <tr><th>Constraint</th><th>Value</th><th>Type</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Binary size ceiling</td>
+          <td>15 MB</td>
+          <td><span class="badge badge-always">Hard limit</span></td>
+        </tr>
+        <tr>
+          <td>Memory target at 10 tabs</td>
+          <td>150 MB</td>
+          <td><span class="badge badge-always">Target</span></td>
+        </tr>
+        <tr>
+          <td>Cold start target</td>
+          <td>&lt; 80 ms</td>
+          <td><span class="badge badge-always">Target</span></td>
+        </tr>
+        <tr>
+          <td>Decoy request rate</td>
+          <td>Max 1 per 8s per domain</td>
+          <td><span class="badge badge-always">Code enforced</span></td>
+        </tr>
+        <tr>
+          <td>Build a centralised sync server</td>
+          <td>Never</td>
+          <td><span class="badge badge-never">Never</span></td>
+        </tr>
+        <tr>
+          <td>Upload any user data to a Diatom server</td>
+          <td>Never</td>
+          <td><span class="badge badge-never">Never</span></td>
+        </tr>
+        <tr>
+          <td>Send real fingerprint to ad platforms</td>
+          <td>Never</td>
+          <td><span class="badge badge-never">Never</span></td>
+        </tr>
+        <tr>
+          <td>WebExtensions API compatibility layer</td>
+          <td>Never</td>
+          <td><span class="badge badge-never">Never</span></td>
+        </tr>
+        <tr>
+          <td>Bundle Blink / Chromium</td>
+          <td>Never (exceeds size budget)</td>
+          <td><span class="badge badge-never">Never</span></td>
+        </tr>
+        <tr>
+          <td>Skip button in Zen Mode</td>
+          <td>Never</td>
+          <td><span class="badge badge-never">Never</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <hr>
+
+  <section>
+    <h2>Honest limitations</h2>
+    <p>
+      Diatom cannot play 4K DRM video on Linux.
+      It does not support hardware security tokens, WebUSB, or WebMIDI.
+      On some government sites and legacy enterprise systems it will prompt
+      you to open in your system browser.
+    </p>
+    <p>
+      These are not bugs. They are boundaries.
+      <strong>A tool with clear edges is more trustworthy than a tool that claims to do everything.</strong>
+    </p>
+    <p>
+      We will tell you where the edges are. We will not pretend they do not exist.
+    </p>
+  </section>
+
+  <div class="meta">
+    <span>Version: <strong id="about-version">0.9.0</strong></span>
+    <span>Build: <span id="build-hash">—</span></span>
+    <span>Arch: <span id="about-arch">—</span></span>
+    <span>Platform: <span id="about-os">—</span></span>
+  </div>
+</div>
+
+<script type="module">
+  import { renderDiatomSvg } from '/features/diatom-engine.js';
+  import { invoke } from '/browser/ipc.js';
+
+  const canvas = document.getElementById('about-glyph');
+  renderDiatomSvg(canvas, { focus: 0.7, breadth: 0.5, density: 0.6 });
+
+  try {
+    const info = await invoke('cmd_system_info');
+    document.getElementById('about-version').textContent = info.version ?? '0.9.0';
+    document.getElementById('about-arch').textContent    = info.arch   ?? '—';
+    document.getElementById('about-os').textContent      = info.os     ?? '—';
+    document.getElementById('version-line').textContent  = `v${info.version} · local-first · digital sovereignty`;
+    const enc = new TextEncoder();
+    const buf = await crypto.subtle.digest('SHA-256', enc.encode(info.ua ?? ''));
+    const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    document.getElementById('build-hash').textContent = hex.slice(0, 8);
+  } catch { /* outside Tauri — defaults are fine */ }
+</script>
+</body>
+</html>
