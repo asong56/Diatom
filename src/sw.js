@@ -1,5 +1,5 @@
 /**
- * diatom/src/sw.js  — v7
+ * diatom/src/sw.js  — v0.9.0
  *
  * Service Worker — last line of defence before bytes hit the renderer.
  *
