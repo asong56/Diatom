@@ -6,7 +6,7 @@
 [![Rust](https://img.shields.io/badge/Rust-1.78+-orange.svg)](https://rustup.rs)
 [![Tauri](https://img.shields.io/badge/Tauri-2.0-purple.svg)](https://tauri.app)
 [![Binary](https://img.shields.io/badge/binary-%E2%89%A415MB-green.svg)](#)
-[![Status](https://img.shields.io/badge/status-v0.9.0_pre--release-yellow.svg)](CHANGELOG.md)
+[![Status](https://img.shields.io/badge/status-v0.9.2-yellow.svg)](CHANGELOG.md)
 
 Most browsers are a window that lets you see the internet. Diatom is a filter that keeps the internet from seeing you.
 
@@ -68,6 +68,11 @@ Diatom has edges. We tell you where they are.
 - WebExtensions API — incompatible with the binary size budget and security model
 - Bank U-Shield / NPAPI plugins — non-standard proprietary interfaces
 
+**Filter rules (v0.9.2+):**
+Diatom ships a minimal built-in blocklist. For broader coverage, use the Privacy Presets
+button (or `diatom://onboarding`) to subscribe to EasyList, EasyPrivacy, or URLhaus.
+Diatom is the downloader; you choose the lists.
+
 **System browser handoff** — for these cases, `cmd_compat_handoff` strips tracking parameters before yielding the render:
 - Legacy enterprise intranets with broken layout
 - Banking pages requiring hardware token plugins
@@ -103,6 +108,16 @@ sudo apt install libwebkit2gtk-4.1-dev build-essential curl \
 # Install WebView2 Runtime (built into Windows 11)
 # https://developer.microsoft.com/microsoft-edge/webview2/
 ```
+
+### First run
+
+On first launch, Diatom opens the **Onboarding Wizard** (`diatom://onboarding`):
+1. Checks for Ollama (local AI)
+2. Sets your privacy posture (Balanced / Strict / Minimal)
+3. Subscribes to filter lists with one click
+4. Shows active features
+
+You can re-open it at any time via `diatom://onboarding`.
 
 ### Development
 

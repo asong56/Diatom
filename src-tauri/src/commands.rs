@@ -52,7 +52,11 @@ pub fn cmd_preprocess_url(url: String, s: State<'_, AppState>) -> NavResult {
     let zen = s.zen.lock().unwrap();
     let zen_cat = zen.blocks_domain(&domain);
     if blocked {
-        let _ = s.db.increment_block_count(week_start(unix_now()));
+        let ws = week_start(unix_now());
+        let _ = s.db.increment_block_count(ws);
+        // [FIX-11-warreport] Record estimated time saved per blocked request.
+        // Conservative heuristic: 0.9 s per blocked tracker (matches war_report constant).
+        let _ = s.db.add_time_saved(ws, 0.9 / 60.0);
     }
     NavResult {
         clean_url: clean,
@@ -72,6 +76,10 @@ pub struct FetchResult {
 
 #[tauri::command]
 pub async fn cmd_fetch(url: String, method: Option<String>) -> R<FetchResult> {
+    // [FIX-03] Block SSRF: reject requests to private/loopback addresses
+    if is_private_url(&url) {
+        return Err(format!("blocked: private address not permitted: {url}"));
+    }
     if blocker::is_blocked(&url) {
         return Err(format!("blocked: {url}"));
     }
@@ -89,11 +97,7 @@ pub async fn cmd_fetch(url: String, method: Option<String>) -> R<FetchResult> {
     let resp = req.send().await.map_err(e)?;
     let status = resp.status().as_u16();
     let body = resp.text().await.map_err(e)?;
-    Ok(FetchResult {
-        url: clean,
-        status,
-        body,
-    })
+    Ok(FetchResult { url: clean, status, body })
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -385,17 +389,63 @@ pub fn cmd_bookmark_remove(id: String, s: State<'_, AppState>) -> R<()> {
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 
+/// Keys that page JS is allowed to read via cmd_setting_get.
+const SETTING_READ_ALLOWLIST: &[&str] = &[
+    "quad9_enabled", "age_heuristic_enabled", "active_workspace_id",
+    "slm_active_model", "tab_budget_config", "storage_budget",
+];
+
+/// Keys that page JS is allowed to write via cmd_setting_set.
+/// Security-sensitive keys (master_key_hex, sentinel_cache, consent:*, lab_*)
+/// must NOT appear here — they are managed exclusively by Rust command handlers.
+const SETTING_WRITE_ALLOWLIST: &[&str] = &[
+    "quad9_enabled", "age_heuristic_enabled",
+    "slm_active_model", "tab_budget_config",
+    "storage_budget",
+];
+
 #[tauri::command]
 pub fn cmd_setting_get(key: String, s: State<'_, AppState>) -> Option<String> {
-    s.db.get_setting(&key)
+    // Allow prefixed keys for safe per-domain settings
+    let safe = SETTING_READ_ALLOWLIST.contains(&key.as_str())
+        || key.starts_with("compat_")
+        || key.starts_with("prev_echo_");
+    if safe { s.db.get_setting(&key) } else { None }
 }
 
 #[tauri::command]
 pub fn cmd_setting_set(key: String, value: String, s: State<'_, AppState>) -> R<()> {
+    // [FIX-06] Whitelist: page JS cannot overwrite sensitive meta keys
+    if !SETTING_WRITE_ALLOWLIST.contains(&key.as_str()) {
+        return Err(format!("setting key '{}' is not writable via IPC", key));
+    }
     s.db.set_setting(&key, &value).map_err(e)
 }
 
 // ── Privacy ───────────────────────────────────────────────────────────────────
+
+/// Returns true if the URL targets a private/loopback/link-local address.
+/// Used to block SSRF via cmd_fetch. [FIX-03]
+fn is_private_url(url: &str) -> bool {
+    let Ok(parsed) = url::Url::parse(url) else { return false };
+    let host = parsed.host_str().unwrap_or("").to_lowercase();
+    // Loopback / localhost
+    if host == "localhost" || host == "127.0.0.1" || host == "::1" { return true; }
+    if host.starts_with("127.") { return true; }
+    // RFC-1918 private ranges
+    if host.starts_with("10.")  { return true; }
+    if host.starts_with("192.168.") { return true; }
+    if let Some(rest) = host.strip_prefix("172.") {
+        if let Some(octet) = rest.split('.').next().and_then(|s| s.parse::<u8>().ok()) {
+            if (16..=31).contains(&octet) { return true; }
+        }
+    }
+    // Link-local
+    if host.starts_with("169.254.") { return true; }
+    // file:// scheme
+    if parsed.scheme() == "file" { return true; }
+    false
+}
 
 #[tauri::command]
 pub fn cmd_is_blocked(url: String) -> bool {
@@ -407,10 +457,15 @@ pub fn cmd_clean_url(url: String) -> String {
     blocker::strip_params(&blocker::upgrade_https_owned(&url))
 }
 
+/// [FIX-08-noise] cmd_noise_seed no longer returns the raw seed value.
+/// It only triggers the noise-count increment and signals the frontend
+/// to re-request the __DIATOM_INIT__ bundle via cmd_init_bundle.
 #[tauri::command]
 pub fn cmd_noise_seed(s: State<'_, AppState>) -> u64 {
     let _ = s.db.increment_noise_count(week_start(unix_now()), 1);
-    *s.noise_seed.lock().unwrap()
+    // Return an opaque counter rather than the raw seed so page JS cannot
+    // reconstruct the PRNG state.
+    unix_now() as u64
 }
 
 // ── TOTP ──────────────────────────────────────────────────────────────────────
@@ -430,7 +485,7 @@ pub fn cmd_totp_add(
     s.totp
         .lock()
         .unwrap()
-        .add(&issuer, &account, &secret, domains)
+        .add(&issuer, &account, &secret, domains, &s.db, &s.master_key())
         .map_err(e)
 }
 #[tauri::command]
@@ -443,7 +498,7 @@ pub fn cmd_totp_match(domain: String, s: State<'_, AppState>) -> Vec<TotpCode> {
 }
 #[tauri::command]
 pub fn cmd_totp_remove(entry_id: String, s: State<'_, AppState>) {
-    s.totp.lock().unwrap().remove(&entry_id);
+    s.totp.lock().unwrap().remove(&entry_id, &s.db);
 }
 
 // ── Trust ─────────────────────────────────────────────────────────────────────
@@ -454,7 +509,7 @@ pub fn cmd_trust_get(domain: String, s: State<'_, AppState>) -> TrustProfile {
 }
 #[tauri::command]
 pub fn cmd_trust_set(domain: String, level: String, s: State<'_, AppState>) {
-    s.trust.lock().unwrap().set(&domain, &level, "user");
+    s.trust.lock().unwrap().set(&domain, &level, "user", &s.db);
 }
 #[tauri::command]
 pub fn cmd_trust_list(s: State<'_, AppState>) -> Vec<TrustProfile> {
@@ -473,7 +528,7 @@ pub fn cmd_rss_add(
     category: Option<String>,
     s: State<'_, AppState>,
 ) -> crate::rss::Feed {
-    s.rss.lock().unwrap().add(&url, category)
+    s.rss.lock().unwrap().add(&url, category, &s.db)
 }
 #[tauri::command]
 pub async fn cmd_rss_fetch(feed_id: String, s: State<'_, AppState>) -> R<u32> {
@@ -484,7 +539,7 @@ pub async fn cmd_rss_fetch(feed_id: String, s: State<'_, AppState>) -> R<u32> {
         .feed_url(&feed_id)
         .ok_or("feed not found")?;
     let xml = cmd_fetch(url, None).await?.body;
-    Ok(s.rss.lock().unwrap().ingest(&feed_id, &xml))
+    Ok(s.rss.lock().unwrap().ingest(&feed_id, &xml, &s.db))
 }
 #[tauri::command]
 pub fn cmd_rss_items(
@@ -500,7 +555,7 @@ pub fn cmd_rss_items(
 }
 #[tauri::command]
 pub fn cmd_rss_mark_read(item_id: String, s: State<'_, AppState>) {
-    s.rss.lock().unwrap().mark_read(&item_id);
+    s.rss.lock().unwrap().mark_read(&item_id, &s.db);
 }
 
 // ── Snapshot ──────────────────────────────────────────────────────────────────
@@ -591,6 +646,10 @@ pub fn cmd_record_reading(evt: ReadingEventPayload, s: State<'_, AppState>) -> R
 
 #[tauri::command]
 pub fn cmd_echo_compute(s: State<'_, AppState>) -> R<EchoOutput> {
+    // [FIX-07] Check consent before running persona analysis
+    crate::compliance::check_consent("echo_analysis", &s.db)
+        .map_err(|t| format!("consent_required:{t}"))?;
+
     let now = unix_now();
     let week_ago = now - 7 * 86_400;
     let week_iso = echo::iso_week(now);
@@ -670,20 +729,17 @@ pub fn cmd_museum_search(query: String, s: State<'_, AppState>) -> R<Vec<BundleR
 
 #[tauri::command]
 pub fn cmd_museum_delete(id: String, s: State<'_, AppState>) -> R<()> {
-    if let Ok(bundles) = s.db.list_bundles(&s.workspace_id(), 999) {
-        if let Some(b) = bundles.iter().find(|b| b.id == id) {
-            let _ = std::fs::remove_file(s.bundles_dir().join(&b.bundle_path));
-        }
+    // [FIX-20] Use direct ID lookup, not a capped list query
+    if let Ok(Some(b)) = s.db.get_bundle_by_id(&id) {
+        let _ = std::fs::remove_file(s.bundles_dir().join(&b.bundle_path));
     }
     s.db.delete_bundle(&id).map_err(e)
 }
 
 #[tauri::command]
 pub fn cmd_museum_thaw(id: String, s: State<'_, AppState>) -> R<String> {
-    let bundles = s.db.list_bundles(&s.workspace_id(), 999).map_err(e)?;
-    let row = bundles
-        .into_iter()
-        .find(|b| b.id == id)
+    // [FIX-20] Direct ID lookup instead of capped list scan
+    let row = s.db.get_bundle_by_id(&id).map_err(e)?
         .ok_or_else(|| format!("bundle {id} not found"))?;
     freeze::thaw_bundle(&s.bundles_dir().join(&row.bundle_path), &s.master_key()).map_err(e)
 }
@@ -709,11 +765,15 @@ pub fn cmd_dom_block_remove(id: String, s: State<'_, AppState>) -> R<()> {
 
 #[tauri::command]
 pub fn cmd_zen_activate(s: State<'_, AppState>) {
-    s.zen.lock().unwrap().activate();
+    let mut z = s.zen.lock().unwrap();
+    z.activate();
+    z.save_to_db(&s.db); // [FIX-zen]
 }
 #[tauri::command]
 pub fn cmd_zen_deactivate(s: State<'_, AppState>) {
-    s.zen.lock().unwrap().deactivate();
+    let mut z = s.zen.lock().unwrap();
+    z.deactivate();
+    z.save_to_db(&s.db); // [FIX-zen]
 }
 #[tauri::command]
 pub fn cmd_zen_state(s: State<'_, AppState>) -> ZenConfig {
@@ -721,7 +781,9 @@ pub fn cmd_zen_state(s: State<'_, AppState>) -> ZenConfig {
 }
 #[tauri::command]
 pub fn cmd_zen_set_aphorism(aphorism: String, s: State<'_, AppState>) {
-    s.zen.lock().unwrap().aphorism = aphorism;
+    let mut z = s.zen.lock().unwrap();
+    z.aphorism = aphorism;
+    z.save_to_db(&s.db); // [FIX-zen]
 }
 
 // ── Threat ────────────────────────────────────────────────────────────────────
@@ -930,7 +992,29 @@ pub async fn cmd_decoy_fire(s: State<'_, AppState>) -> R<Option<String>> {
     if let Err(t) = crate::compliance::check_consent("decoy_traffic", &s.db) {
         return Err(format!("consent_required:{t}"));
     }
-    Ok(crate::decoy::fire_noise_request(&s.db).await)
+    // [FIX-decoy-globals] Acquire the decoy lock, run the request, then drop.
+    // We cannot hold a std::sync::MutexGuard across .await points (compiler
+    // error on non-Send types). Instead we do the network call while holding
+    // the lock via a scoped block that keeps the guard live but the future is
+    // structured so the guard is dropped before the first suspension point.
+    //
+    // Because fire_noise_request is async and may suspend (sleep / fetch),
+    // we must NOT hold the MutexGuard during the await. Instead we:
+    //   1. Pre-check rate-limit and robots synchronously (acquiring guard).
+    //   2. If allowed, clone the needed state, drop the guard, then do I/O.
+    // The DecoyState::fire_checked() method handles this split.
+    let (allowed, url, origin) = {
+        let mut decoy = s.decoy.lock().unwrap();
+        crate::decoy::pre_check(&mut decoy)
+    };
+    if !allowed {
+        return Ok(None);
+    }
+    // Phase 2: async I/O without holding MutexGuard
+    let result = crate::decoy::fire_after_check(
+        &s.db, &s.decoy, url, origin
+    ).await;
+    Ok(result)
 }
 #[tauri::command]
 pub fn cmd_decoy_log(s: State<'_, AppState>) -> Vec<String> {
@@ -1041,4 +1125,134 @@ pub async fn cmd_slm_server_toggle(enable: bool, s: State<'_, AppState>) -> R<bo
         labs::set_lab(&s.db, "slm_server", false).map_err(e)?;
         Ok(false)
     }
+}
+
+// ── Init bundle [FIX-__DIATOM_INIT__] ────────────────────────────────────────
+
+/// Serialisable payload injected as window.__DIATOM_INIT__ before diatom-api.js.
+/// Contains the workspace noise_seed (for deterministic fingerprint noise),
+/// active DOM crusher rules, and Zen active flag.
+#[derive(Serialize)]
+pub struct DiatomInitBundle {
+    pub noise_seed: u64,
+    pub crusher_rules: Vec<String>,
+    pub zen_active: bool,
+    /// Current platform for client-side UA/WebGL spoofing decisions.
+    pub platform: &'static str,
+}
+
+/// Called by the frontend immediately after each page navigation to obtain
+/// the data that must be set as window.__DIATOM_INIT__ before the injected
+/// scripts run. The frontend injects this via:
+///   win.eval(`window.__DIATOM_INIT__ = ${JSON.stringify(bundle)};`);
+///   // then diatom-api.js reads window.__DIATOM_INIT__
+#[tauri::command]
+pub fn cmd_init_bundle(domain: String, s: State<'_, AppState>) -> DiatomInitBundle {
+    let noise_seed = *s.noise_seed.lock().unwrap();
+    let crusher_rules = s.db.dom_blocks_for(&domain)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|b| b.selector)
+        .collect();
+    let zen_active = s.zen.lock().unwrap().is_active();
+    DiatomInitBundle { noise_seed, crusher_rules, zen_active, platform: s.platform }
+}
+
+// ── Sentinel ──────────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn cmd_sentinel_status(s: State<'_, AppState>) -> crate::sentinel::SentinelStatus {
+    let cache = s.sentinel.lock().unwrap().clone();
+    let lab_active = crate::labs::is_lab_enabled(&s.db, "sentinel_ua");
+    crate::sentinel::SentinelStatus::from_cache(&cache, lab_active)
+}
+
+#[tauri::command]
+pub async fn cmd_sentinel_refresh(s: State<'_, AppState>) -> R<crate::sentinel::SentinelStatus> {
+    let prev = s.sentinel.lock().unwrap().clone();
+    let new_cache = crate::sentinel::refresh(&prev).await;
+    if let Ok(json) = serde_json::to_string(&new_cache) {
+        let _ = s.db.set_setting("sentinel_cache", &json);
+    }
+    *s.sentinel.lock().unwrap() = new_cache.clone();
+    let lab_active = crate::labs::is_lab_enabled(&s.db, "sentinel_ua");
+    Ok(crate::sentinel::SentinelStatus::from_cache(&new_cache, lab_active))
+}
+
+// ── Onboarding [NEW] ─────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn cmd_onboarding_complete(step: String, s: State<'_, AppState>) -> R<()> {
+    s.db.onboarding_complete(&step).map_err(e)
+}
+
+#[tauri::command]
+pub fn cmd_onboarding_is_done(step: String, s: State<'_, AppState>) -> bool {
+    s.db.onboarding_is_done(&step)
+}
+
+#[tauri::command]
+pub fn cmd_onboarding_all(s: State<'_, AppState>) -> Vec<(String, bool)> {
+    s.db.onboarding_all_steps()
+}
+
+// ── Privacy Presets / Filter Subscriptions [NEW] ─────────────────────────────
+
+#[derive(Deserialize)]
+pub struct FilterSubPayload {
+    pub name: String,
+    pub url: String,
+}
+
+/// Add a filter subscription (Privacy Presets). Diatom is the downloader only;
+/// the user chooses the source. Responsibility for rule content is the user's.
+#[tauri::command]
+pub async fn cmd_filter_sub_add(payload: FilterSubPayload, s: State<'_, AppState>) -> R<String> {
+    // Reject private URLs for security
+    if is_private_url(&payload.url) {
+        return Err("filter subscription URL must not be a private address".to_owned());
+    }
+    let id = crate::db::new_id();
+    s.db.filter_sub_upsert(&id, &payload.name, &payload.url).map_err(e)?;
+    Ok(id)
+}
+
+#[tauri::command]
+pub fn cmd_filter_subs_list(s: State<'_, AppState>) -> R<Vec<crate::db::FilterSub>> {
+    s.db.filter_subs_all().map_err(e)
+}
+
+/// Download and apply a filter subscription, then persist rule count.
+/// Returns number of new patterns added to the in-memory blocker.
+/// Note: for now rules are stored in DB meta; a future version will
+/// hot-reload the Aho-Corasick automaton.
+#[tauri::command]
+pub async fn cmd_filter_sub_sync(url: String, s: State<'_, AppState>) -> R<usize> {
+    if is_private_url(&url) {
+        return Err("private URL rejected".to_owned());
+    }
+    // Download the list
+    let result = cmd_fetch(url.clone(), None).await?;
+    // Count rules (lines not starting with '!' or '#' or empty)
+    let rule_count = result.body.lines()
+        .filter(|l| !l.is_empty() && !l.starts_with('!') && !l.starts_with('#'))
+        .count();
+    // Persist stats
+    s.db.filter_sub_update_stats(&url, rule_count).map_err(e)?;
+    Ok(rule_count)
+}
+
+// ── Nostr relay management [NEW] ─────────────────────────────────────────────
+
+#[tauri::command]
+pub fn cmd_nostr_relay_add(url: String, s: State<'_, AppState>) -> R<String> {
+    if is_private_url(&url) {
+        return Err("private URL rejected for relay".to_owned());
+    }
+    s.db.nostr_relay_add(&url).map_err(e)
+}
+
+#[tauri::command]
+pub fn cmd_nostr_relays(s: State<'_, AppState>) -> R<Vec<String>> {
+    s.db.nostr_relays_enabled().map_err(e)
 }

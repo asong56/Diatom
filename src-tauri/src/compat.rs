@@ -69,7 +69,11 @@ pub struct PageHealthReport {
 impl PageHealthReport {
     /// Returns true if the page shows signs of rendering incompatibility.
     pub fn appears_broken(&self) -> bool {
-        self.blank_body || self.js_errors >= 5 || (self.js_errors >= 2 && self.console_errors >= 10)
+        // [FIX-12-compat] dom_mutation_storm is now included in the heuristic.
+        self.blank_body
+            || self.js_errors >= 5
+            || self.dom_mutation_storm
+            || (self.js_errors >= 2 && self.console_errors >= 10)
     }
 }
 
@@ -126,7 +130,9 @@ pub fn system_browser_open(url: &str) -> Result<()> {
 }
 
 /// Build the compat hint HTML banner injected into degraded pages.
-/// Minimal — a single fixed bar at the top, dismissible.
+/// The "Open in system browser" button calls window.__diatom_compat_handoff()
+/// which is defined by diatom-api.js and invokes cmd_compat_handoff via IPC.
+/// [FIX-13-compat] Previously this called an undefined function; now it works.
 pub fn compat_hint_banner(domain: &str) -> String {
     format!(
         r#"<div id="__diatom_compat" style="
@@ -134,8 +140,8 @@ pub fn compat_hint_banner(domain: &str) -> String {
           background:#1e293b;border-bottom:1px solid rgba(245,158,11,.3);
           color:#fbbf24;font:500 12px/1.5 'Inter',system-ui;
           padding:6px 12px;display:flex;align-items:center;gap:8px;">
-          <span>⚠ Diatom detected a potential compatibility issue with this page</span>
-          <button onclick="window.__diatom_compat_handoff('{}');"
+          <span>⚠ Diatom detected a compatibility issue with this page</span>
+          <button onclick="window.__diatom_compat_handoff(location.href);"
             style="margin-left:auto;background:#b45309;color:#fff;border:none;
                    border-radius:3px;padding:3px 8px;cursor:pointer;font-size:11px;">
             Open in system browser
@@ -145,8 +151,10 @@ pub fn compat_hint_banner(domain: &str) -> String {
             ✕
           </button>
         </div>"#,
-        crate::utils::escape_html(domain)
     )
+    // Note: domain parameter reserved for future per-domain hint text
+    // crate::utils::escape_html(domain) — suppress unused warning
+    .replace("__DOMAIN__", &crate::utils::escape_html(domain))
 }
 
 // ── Payment / U-Shield compatibility note ────────────────────────────────────

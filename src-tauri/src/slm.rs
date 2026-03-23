@@ -550,20 +550,48 @@ async fn handle_connection(server: Arc<SlmServer>, mut stream: tokio::net::TcpSt
         String::from_utf8_lossy(&body)
     );
 
+    // [FIX-SLM-CSRF] Validate Origin header — only allow requests from
+    // localhost origins (the Diatom UI, VS Code, Obsidian, CLI tools).
+    // Reject requests from any external origin to prevent cross-site attacks
+    // against the local SLM endpoint.
+    let origin = header_str.lines()
+        .find(|l| l.to_lowercase().starts_with("origin:"))
+        .and_then(|l| l.splitn(2, ':').nth(1))
+        .map(|v| v.trim().to_lowercase())
+        .unwrap_or_default();
+
+    let origin_allowed = origin.is_empty()
+        || origin.starts_with("http://localhost")
+        || origin.starts_with("http://127.0.0.1")
+        || origin.starts_with("tauri://")
+        || origin.starts_with("https://tauri.localhost");
+
+    if !origin_allowed {
+        use tokio::io::AsyncWriteExt;
+        let body = r#"{"error":{"message":"forbidden origin","type":"auth_error"}}"#;
+        let resp = format!(
+            "HTTP/1.1 403 Forbidden\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            body.len(), body
+        );
+        let _ = stream.write_all(resp.as_bytes()).await;
+        return;
+    }
+
     let (status, resp_body) = handle_request(&server, &full_request).await;
 
+    // CORS: only reflect the Origin back if it's a trusted localhost origin
+    let cors_origin = if origin.is_empty() { "null".to_owned() } else { origin.clone() };
     let response = format!(
         "HTTP/1.1 {}\r\n\
          Content-Type: application/json\r\n\
          Content-Length: {}\r\n\
-         Access-Control-Allow-Origin: *\r\n\
+         Access-Control-Allow-Origin: {}\r\n\
          Access-Control-Allow-Headers: Content-Type, Authorization\r\n\
          Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
+         Vary: Origin\r\n\
          Connection: close\r\n\
          \r\n{}",
-        status,
-        resp_body.len(),
-        resp_body
+        status, resp_body.len(), cors_origin, resp_body
     );
     use tokio::io::AsyncWriteExt;
     let _ = stream.write_all(response.as_bytes()).await;

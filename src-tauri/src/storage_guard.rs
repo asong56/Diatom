@@ -90,7 +90,13 @@ pub fn report(db: &crate::db::Db, budget: &StorageBudget) -> StorageReport {
     let museum_pct = ((museum_mb / budget.museum_budget_mb as f64) * 100.0).min(100.0) as u8;
     let kpack_pct = ((kpack_mb / budget.kpack_budget_mb as f64) * 100.0).min(100.0) as u8;
 
-    let oldest_iso = oldest_ts.map(|ts| crate::echo::iso_week(ts));
+    // [FIX-30] Use readable date format, not ISO week
+    let oldest_iso = oldest_ts.map(|ts| {
+        // [FIX-30] Use from_timestamp_opt (from_timestamp deprecated in chrono 0.4.24+)
+        chrono::DateTime::from_timestamp_opt(ts, 0)
+            .map(|dt| dt.format("%Y-%m-%d").to_string())
+            .unwrap_or_default()
+    });
     let warn = museum_pct >= budget.warn_at_pct || kpack_pct >= budget.warn_at_pct;
     let hard_blocked = budget.hard_cap_enabled && museum_pct >= 100;
 

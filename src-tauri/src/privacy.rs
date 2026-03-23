@@ -65,8 +65,14 @@ impl PrivacyConfig {
   CanvasRenderingContext2D.prototype.getImageData = function(...a) {
     const d = origGetImageData.apply(this, a);
     for (let i = 0; i < d.data.length; i += 4) {
-      d.data[i]   ^= (Math.random() < 0.5 ? 1 : 0);
-      d.data[i+1] ^= (Math.random() < 0.5 ? 1 : 0);
+      // [FIX-08] Use the seeded xorshift PRNG from __DIATOM_INIT__, not
+      // Math.random(). The seed is set by Rust before this script runs.
+      // Note: diatom-api.js already handles canvas noise with rand(); this
+      // injection_script() is retained for configurable enable/disable but
+      // delegates the actual PRNG to the same rand() function.
+      const n = rand() < 0.5 ? 1 : 0;
+      d.data[i]   ^= n;
+      d.data[i+1] ^= (rand() < 0.5 ? 1 : 0);
     }
     return d;
   };

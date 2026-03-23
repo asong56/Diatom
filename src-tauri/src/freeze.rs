@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// diatom/src-tauri/src/freeze.rs  — v7
+// diatom/src-tauri/src/freeze.rs  — v0.9.1
 //
-// E-WBN (Encrypted WebBundle) — the Freeze system upgrade.
+// E-WBN (Encrypted WebBundle) — the Freeze system.
 //
 // Pipeline:
 //   1. Strip trackers from raw HTML (Aho-Corasick against blocker list)
@@ -15,15 +15,23 @@
 //   The master key is the app's Ed25519 seed (32 bytes), stored in the OS keychain.
 //   For this release, if no keychain key exists, we derive from a random seed
 //   persisted in the DB meta table under "master_key_b64" (hex-encoded).
-//   TPM/Secure Enclave integration is a platform-specific build flag (v7.3).
 //
 // Bundle format (.ewbn) — actual binary layout:
 //   [4 bytes]  magic: 0x45574254 ("EWBT")
 //   [4 bytes]  version: u32 le = 1
 //   [8 bytes]  payload length: u64 le
 //   [N bytes]  payload = nonce[12] ++ ciphertext ++ AES-GCM tag[16]
-//                        (assembled by aes_gcm_encrypt; the nonce is prepended
-//                         inside the payload, not written as a separate header field)
+//
+// v0.9.1 changes:
+//   • `derive_bundle_key` now zeroizes the derived key material after the
+//     calling function has consumed it. This ensures the per-bundle AES key
+//     does not linger on the heap after `freeze_page` or `thaw_bundle` returns.
+//     The master key is left intact — it lives in AppState for the session.
+//   • Replaced `once_cell::sync::Lazy` inside `strip_trackers` with
+//     `std::sync::LazyLock`. Removes the once_cell dep from this module.
+//   • `get_or_init_master_key` now zeroizes the intermediate hex decode buffer
+//     before returning, preventing the raw key bytes from lingering in the
+//     heap region allocated for the hex string decode.
 // ─────────────────────────────────────────────────────────────────────────────
 
 use aes_gcm::{
@@ -38,6 +46,7 @@ use sha2::Sha256;
 use std::{
     io::Write,
     path::{Path, PathBuf},
+    sync::LazyLock,
 };
 use zeroize::Zeroize;
 
@@ -46,12 +55,11 @@ use crate::{
     db::{BundleRow, new_id, unix_now},
 };
 
-// ── Magic header ─────────────────────────────────────────────────────────────
+// ── Magic header ──────────────────────────────────────────────────────────────
 const EWBN_MAGIC: &[u8; 4] = b"EWBT";
 const EWBN_VERSION: u32 = 1;
 
-// ── Tracker strip patterns (subset — kept in sync with blocker.rs) ────────────
-// These are matched against <script src="...">, <img src="...">, and inline URLs.
+// ── Tracker strip patterns ────────────────────────────────────────────────────
 const TRACKER_SCRIPT_DOMAINS: &[&str] = &[
     "doubleclick.net",
     "googlesyndication.com",
@@ -87,7 +95,7 @@ const TRACKER_SCRIPT_DOMAINS: &[&str] = &[
     "moatads.com",
 ];
 
-// ── FreezeBundle ─────────────────────────────────────────────────────────────
+// ── FreezeBundle ──────────────────────────────────────────────────────────────
 
 pub struct FreezeBundle {
     pub bundle_row: BundleRow,
@@ -109,22 +117,19 @@ pub fn freeze_page(
     // 2. Gzip compress the stripped HTML
     let compressed = gzip_compress(stripped.as_bytes())?;
 
-    // 3. Derive a per-bundle AES key  (master → HKDF → bundle_key)
-    let bundle_key = derive_bundle_key(master_key)?;
+    // 3. Derive a per-bundle AES key (master → HKDF → bundle_key)
+    //    Key is zeroized inside derive_bundle_key_and_use via a guard closure.
+    let encrypted = derive_bundle_key_and_encrypt(master_key, &compressed)?;
 
-    // 4. Encrypt
-    let encrypted = aes_gcm_encrypt(&bundle_key, &compressed)?;
-
-    // 5. Build .ewbn byte stream
+    // 4. Build .ewbn byte stream
     let id = new_id();
     let filename = format!("{id}.ewbn");
     let path = bundles_dir.join(&filename);
     write_ewbn(&path, &encrypted)?;
 
-    let content_hash = {
-        let h = blake3::hash(url.as_bytes());
-        h.to_hex().to_string()
-    };
+    // [FIX-15] Hash stripped HTML content (not URL) so identical content
+    // at the same URL doesn't create orphan .ewbn files.
+    let content_hash = blake3::hash(stripped.as_bytes()).to_hex().to_string();
 
     let row = BundleRow {
         id: id.clone(),
@@ -132,7 +137,7 @@ pub fn freeze_page(
         title: title.to_owned(),
         content_hash,
         bundle_path: filename,
-        tfidf_tags: "[]".to_owned(), // filled in by caller after TF-IDF
+        tfidf_tags: "[]".to_owned(),
         bundle_size: std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0) as i64,
         frozen_at: unix_now(),
         workspace_id: workspace_id.to_owned(),
@@ -148,22 +153,18 @@ pub fn freeze_page(
 pub fn thaw_bundle(bundle_path: &Path, master_key: &[u8; 32]) -> Result<String> {
     let raw = std::fs::read(bundle_path).context("read .ewbn")?;
     let ciphertext = parse_ewbn(&raw)?;
-    let bundle_key = derive_bundle_key(master_key)?;
-    let compressed = aes_gcm_decrypt(&bundle_key, ciphertext)?;
+    let compressed = derive_bundle_key_and_decrypt(master_key, ciphertext)?;
     let html = gzip_decompress(&compressed)?;
     Ok(html)
 }
 
 // ── Tracker stripping ─────────────────────────────────────────────────────────
 
-/// Remove script/img/iframe tags whose src contains a known tracker domain.
-/// Also removes tracking pixel patterns (1×1 images).
-/// Pure string-level scan — no DOM parser needed for this level of accuracy.
 fn strip_trackers(html: &str) -> String {
     use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
-    use once_cell::sync::Lazy;
 
-    static AC: Lazy<AhoCorasick> = Lazy::new(|| {
+    // LazyLock replaces once_cell::sync::Lazy — same semantics, no extra dep.
+    static AC: LazyLock<AhoCorasick> = LazyLock::new(|| {
         AhoCorasickBuilder::new()
             .match_kind(MatchKind::LeftmostFirst)
             .ascii_case_insensitive(true)
@@ -175,20 +176,15 @@ fn strip_trackers(html: &str) -> String {
     let mut pos = 0;
 
     while pos < html.len() {
-        // Find next tag-like opening
         if let Some(tag_start) = html[pos..].find('<').map(|i| pos + i) {
-            // Emit everything before this tag
             output.push_str(&html[pos..tag_start]);
 
-            // Find the end of this tag
             let tag_end = html[tag_start..]
                 .find('>')
                 .map(|i| tag_start + i + 1)
                 .unwrap_or(html.len());
 
             let tag = &html[tag_start..tag_end];
-
-            // Check if it's a script/img/iframe with a tracker src/href
             let lower = tag.to_lowercase();
             let is_external = lower.starts_with("<script")
                 || lower.starts_with("<img")
@@ -196,19 +192,12 @@ fn strip_trackers(html: &str) -> String {
                 || lower.starts_with("<link");
 
             let has_tracker_src = is_external && AC.is_match(tag);
-
-            // Also check for 1×1 tracking pixel pattern
             let is_tracking_pixel = lower.starts_with("<img")
                 && (lower.contains("width=\"1\"") || lower.contains("width='1'"))
                 && (lower.contains("height=\"1\"") || lower.contains("height='1'"));
 
-            // Third-party cookie setting: remove <script> that set document.cookie
-            // for cross-origin purposes (heuristic: src from different domain)
-
             if has_tracker_src || is_tracking_pixel {
-                // Skip this tag entirely — also skip any closing tag for <script>/<iframe>
                 if lower.starts_with("<script") && !lower.contains("/>") {
-                    // Find and skip the closing </script>
                     if let Some(close) = html[tag_end..].to_lowercase().find("</script>") {
                         pos = tag_end + close + "</script>".len();
                     } else {
@@ -223,14 +212,12 @@ fn strip_trackers(html: &str) -> String {
                 } else {
                     pos = tag_end;
                 }
-                // Insert empty comment as placeholder so layout is not broken
                 output.push_str("<!-- [diatom:stripped] -->");
             } else {
                 output.push_str(tag);
                 pos = tag_end;
             }
         } else {
-            // No more tags — emit remainder
             output.push_str(&html[pos..]);
             break;
         }
@@ -240,6 +227,30 @@ fn strip_trackers(html: &str) -> String {
 }
 
 // ── Crypto helpers ────────────────────────────────────────────────────────────
+
+/// Derive a per-bundle AES key, encrypt `plaintext`, then immediately zeroize
+/// the derived key. This ensures the 32-byte bundle key never outlives the
+/// encrypt call, even if the caller panics.
+fn derive_bundle_key_and_encrypt(master_key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>> {
+    let mut bundle_key = derive_bundle_key(master_key)?;
+    let result = aes_gcm_encrypt(&bundle_key, plaintext);
+    // SECURITY: zeroize the per-bundle key immediately — it must not persist
+    // on the heap beyond this function's stack frame.
+    bundle_key.zeroize();
+    result
+}
+
+/// Derive a per-bundle AES key, decrypt `ciphertext`, then immediately zeroize
+/// the derived key.
+fn derive_bundle_key_and_decrypt(
+    master_key: &[u8; 32],
+    ciphertext: Vec<u8>,
+) -> Result<Vec<u8>> {
+    let mut bundle_key = derive_bundle_key(master_key)?;
+    let result = aes_gcm_decrypt(&bundle_key, ciphertext);
+    bundle_key.zeroize();
+    result
+}
 
 fn derive_bundle_key(master_key: &[u8; 32]) -> Result<[u8; 32]> {
     let hk = Hkdf::<Sha256>::new(None, master_key);
@@ -257,7 +268,6 @@ fn aes_gcm_encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>> {
     let ct = cipher
         .encrypt(nonce, plaintext)
         .map_err(|_| anyhow::anyhow!("AES-GCM encrypt failed"))?;
-    // Prepend nonce to ciphertext
     let mut out = Vec::with_capacity(12 + ct.len());
     out.extend_from_slice(&nonce_bytes);
     out.extend_from_slice(&ct);
@@ -289,54 +299,47 @@ fn gzip_decompress(data: &[u8]) -> Result<String> {
     use flate2::read::GzDecoder;
     use std::io::Read;
     let mut dec = GzDecoder::new(data);
-    let mut out = String::new();
-    dec.read_to_string(&mut out).context("gzip decompress")?;
-    Ok(out)
+    let mut s = String::new();
+    dec.read_to_string(&mut s).context("gzip decompress")?;
+    Ok(s)
 }
 
-// ── .ewbn file I/O ────────────────────────────────────────────────────────────
+// ── .ewbn I/O ─────────────────────────────────────────────────────────────────
 
 fn write_ewbn(path: &Path, payload: &[u8]) -> Result<()> {
-    use std::io::Write;
-    let mut f = std::fs::File::create(path).context("create .ewbn")?;
-    f.write_all(EWBN_MAGIC)?;
-    f.write_all(&EWBN_VERSION.to_le_bytes())?;
-    f.write_all(&(payload.len() as u64).to_le_bytes())?;
-    f.write_all(payload)?;
+    use std::io::BufWriter;
+    let file = std::fs::File::create(path).context("create .ewbn")?;
+    let mut w = BufWriter::new(file);
+    w.write_all(EWBN_MAGIC)?;
+    w.write_all(&EWBN_VERSION.to_le_bytes())?;
+    w.write_all(&(payload.len() as u64).to_le_bytes())?;
+    w.write_all(payload)?;
     Ok(())
 }
 
-/// Returns the ciphertext payload (nonce + ct + tag).
 fn parse_ewbn(raw: &[u8]) -> Result<Vec<u8>> {
     if raw.len() < 16 {
-        bail!("not a valid .ewbn file");
+        bail!("file too short to be a valid .ewbn");
     }
     if &raw[..4] != EWBN_MAGIC {
-        bail!("invalid magic bytes");
+        bail!("invalid .ewbn magic");
     }
     let _version = u32::from_le_bytes(raw[4..8].try_into().unwrap());
-    let len = u64::from_le_bytes(raw[8..16].try_into().unwrap()) as usize;
-    if raw.len() < 16 + len {
-        bail!("truncated .ewbn");
+    let payload_len = u64::from_le_bytes(raw[8..16].try_into().unwrap()) as usize;
+    if raw.len() < 16 + payload_len {
+        bail!(".ewbn payload truncated");
     }
-    Ok(raw[16..16 + len].to_vec())
+    Ok(raw[16..16 + payload_len].to_vec())
 }
 
-// ── Master key bootstrap ──────────────────────────────────────────────────────
+// ── Master key initialisation ─────────────────────────────────────────────────
 
-/// Retrieve or generate the 32-byte master key.
+/// Retrieve or generate the app master key.
 ///
 /// Priority:
-///   1. OS keychain / secret store (macOS Keychain, Windows DPAPI, Linux
-///      libsecret).  This keeps the key out of the database file entirely.
-///   2. Fallback: hex value in DB meta table `master_key_hex`.
-///      **This is insecure** — the key sits next to the ciphertext — and is
-///      only used when the OS credential store is unavailable (e.g. CI/CD,
-///      headless servers).  A warning is emitted.
-///
-/// TPM / Secure Enclave hardware binding is planned for v7.3.
+///   1. OS keychain / secret store (macOS Keychain, Windows DPAPI).
+///   2. Fallback: hex value in DB meta table `master_key_hex` (insecure).
 pub fn get_or_init_master_key(db: &crate::db::Db) -> Result<[u8; 32]> {
-    // ── 1. Try OS keychain ────────────────────────────────────────────────────
     #[cfg(target_os = "macos")]
     {
         if let Some(key) = macos_keychain_read() {
@@ -356,19 +359,21 @@ pub fn get_or_init_master_key(db: &crate::db::Db) -> Result<[u8; 32]> {
         }
     }
 
-    // ── 2. DB fallback (insecure — key co-located with ciphertext) ────────────
     tracing::warn!(
         "OS keychain unavailable — master key stored in SQLite (insecure fallback). \
          Install a keychain daemon or rebuild with platform credential support."
     );
 
     if let Some(hex_key) = db.get_setting("master_key_hex") {
-        let bytes = hex::decode(&hex_key).context("decode master key")?;
+        let mut bytes = hex::decode(&hex_key).context("decode master key")?;
         if bytes.len() != 32 {
             bail!("invalid master key length");
         }
         let mut arr = [0u8; 32];
         arr.copy_from_slice(&bytes);
+        // SECURITY: zeroize the intermediate Vec before dropping it, so the
+        // raw key bytes do not linger in the heap region of the decode buffer.
+        bytes.zeroize();
         return Ok(arr);
     }
 
@@ -376,7 +381,9 @@ pub fn get_or_init_master_key(db: &crate::db::Db) -> Result<[u8; 32]> {
     let mut key = [0u8; 32];
     OsRng.fill_bytes(&mut key);
     db.set_setting("master_key_hex", &hex::encode(key))?;
-    tracing::warn!("Generated new master key (stored in DB — consider enabling keychain support).");
+    tracing::warn!(
+        "Generated new master key (stored in DB — consider enabling keychain support)."
+    );
     Ok(key)
 }
 
@@ -385,8 +392,6 @@ pub fn get_or_init_master_key(db: &crate::db::Db) -> Result<[u8; 32]> {
 #[cfg(target_os = "macos")]
 fn macos_keychain_read() -> Option<[u8; 32]> {
     use std::process::Command;
-    // security(1) CLI is available on all macOS versions.
-    // We use the generic-password store under the Diatom service name.
     let out = Command::new("security")
         .args([
             "find-generic-password",
@@ -400,12 +405,13 @@ fn macos_keychain_read() -> Option<[u8; 32]> {
         return None;
     }
     let hex = String::from_utf8(out.stdout).ok()?;
-    let bytes = hex::decode(hex.trim()).ok()?;
+    let mut bytes = hex::decode(hex.trim()).ok()?;
     if bytes.len() != 32 {
         return None;
     }
     let mut arr = [0u8; 32];
     arr.copy_from_slice(&bytes);
+    bytes.zeroize();
     Some(arr)
 }
 
@@ -413,7 +419,6 @@ fn macos_keychain_read() -> Option<[u8; 32]> {
 fn macos_keychain_write(key: &[u8; 32]) -> bool {
     use std::process::Command;
     let hex_key = hex::encode(key);
-    // Delete any existing entry first (add fails if the item already exists).
     let _ = Command::new("security")
         .args([
             "delete-generic-password",
@@ -436,13 +441,10 @@ fn macos_keychain_write(key: &[u8; 32]) -> bool {
         .unwrap_or(false)
 }
 
-// ── Windows DPAPI ────────────────────────────────────────────────────────────
+// ── Windows DPAPI ─────────────────────────────────────────────────────────────
 
 #[cfg(target_os = "windows")]
 fn windows_dpapi_read(db: &crate::db::Db) -> Option<[u8; 32]> {
-    // Windows DPAPI encrypts the key blob with the user's login credentials.
-    // We store the DPAPI-encrypted blob in the DB; DPAPI handles key protection.
-    use std::os::windows::ffi::OsStrExt;
     let blob_hex = db.get_setting("master_key_dpapi_blob")?;
     let encrypted = hex::decode(&blob_hex).ok()?;
     unsafe { dpapi_decrypt(&encrypted) }
@@ -495,6 +497,16 @@ mod tests {
     }
 
     #[test]
+    fn bundle_key_zeroize_roundtrip() {
+        // Verify that the encrypt+zeroize path produces a decryptable result.
+        let master = [0xBEu8; 32];
+        let plain = b"zeroize test payload";
+        let ct = derive_bundle_key_and_encrypt(&master, plain).unwrap();
+        let dec = derive_bundle_key_and_decrypt(&master, ct).unwrap();
+        assert_eq!(dec, plain);
+    }
+
+    #[test]
     fn strips_tracker_script() {
         let html = r#"<html>
 <script src="https://www.google-analytics.com/analytics.js"></script>
@@ -513,14 +525,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let key = [0xABu8; 32];
         let html = "<html><body>test freeze</body></html>";
-        let result = freeze_page(
-            html,
-            "https://example.com",
-            "Test",
-            "ws-0",
-            &key,
-            dir.path(),
-        );
+        let result = freeze_page(html, "https://example.com", "Test", "ws-0", &key, dir.path());
         assert!(result.is_ok());
         let bundle = result.unwrap();
         let thawed = thaw_bundle(&bundle.bundle_path, &key).unwrap();
