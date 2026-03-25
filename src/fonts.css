@@ -1,0 +1,97 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   diatom/src/fonts.css — v0.9.4 "Lumière"
+   Canonical font-loading layer. Loaded by every HTML page.
+   All fonts are OFL-licensed and bundled locally — zero outbound requests.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ══ DM Sans — Interface sans-serif (300–500 variable) ══════════════════════ */
+@font-face {
+  font-family: 'DM Sans';
+  font-style:  normal;
+  font-weight: 300 500;
+  font-display: swap;
+  src: url('asset://fonts/DM-Sans-variable.woff2') format('woff2');
+}
+
+/* ══ DM Mono — Developer / monospace (300–500) ══════════════════════════════ */
+@font-face {
+  font-family: 'DM Mono';
+  font-style:  normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('asset://fonts/DM-Mono-Light.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'DM Mono';
+  font-style:  italic;
+  font-weight: 300;
+  font-display: swap;
+  src: url('asset://fonts/DM-Mono-LightItalic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'DM Mono';
+  font-style:  normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('asset://fonts/DM-Mono-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'DM Mono';
+  font-style:  normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('asset://fonts/DM-Mono-Medium.woff2') format('woff2');
+}
+
+/* ══ Playfair Display — Serif / titles / quotes (OFL) ══════════════════════
+   Used for: UI display titles, reading-mode headings, Zen aphorisms,
+             About page pull-quotes. Specified in 《视觉艺术》 design doc.  */
+@font-face {
+  font-family: 'Playfair Display';
+  font-style:  normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('asset://fonts/PlayfairDisplay-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Playfair Display';
+  font-style:  italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('asset://fonts/PlayfairDisplay-Italic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Playfair Display';
+  font-style:  normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('asset://fonts/PlayfairDisplay-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Playfair Display';
+  font-style:  italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url('asset://fonts/PlayfairDisplay-BoldItalic.woff2') format('woff2');
+}
+
+/* ══ Inter — Body copy / long-form reading (OFL) ════════════════════════════
+   Specified in design doc as the primary reading-mode typeface.
+   Fallback to DM Sans in UI contexts where Inter isn't yet bundled.       */
+@font-face {
+  font-family: 'Inter';
+  font-style:  normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('asset://fonts/Inter-variable.woff2') format('woff2');
+}
+
+/* ══ CSS font-stack tokens (consumed by every page via :root) ═══════════════
+   These mirror --f-sans / --f-mono in diatom.css and are re-declared here
+   so standalone pages (labs, about, onboarding) get the same stacks.     */
+:root {
+  --f-sans:  'DM Sans',         -apple-system, BlinkMacSystemFont, sans-serif;
+  --f-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --f-body:  'Inter',            'DM Sans', system-ui, sans-serif;
+  --f-mono:  'DM Mono',          'Fira Code', 'SF Mono', monospace;
+}

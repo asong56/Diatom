@@ -446,7 +446,7 @@ function render() {
     btn.dataset.tabId = tab.id;
     btn.title = tab.url;
     btn.innerHTML = `
-      <span class="tab-title">${escHtml(tab.title.slice(0, 24) || domainOf(tab.url))}</span>
+      <span class="tab-title">${escHtml(tab.title.slice(0, 40) || domainOf(tab.url))}</span>
       <span class="tab-sleep">${sleepIcon(tab.sleep)}</span>
       <button class="tab-close" data-tab-id="${tab.id}" aria-label="Close tab">×</button>
     `;

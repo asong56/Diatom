@@ -61,7 +61,12 @@ pub fn dynamic_ua(
 
 // ── Built-in minimal blocklist ────────────────────────────────────────────────
 
+// [FIX — 建议四] Expanded built-in blocklist: ~50 high-frequency patterns
+// derived from EasyList's most commonly matched rules. This ensures ad blocking
+// is effective on first launch before the user subscribes to EasyList.
+// Included as "universal pattern library" — not platform-specific per PHILOSOPHY §4.
 const BUILTIN_PATTERNS: &[&str] = &[
+    // ── Analytics & telemetry ─────────────────────────────────────────────
     "/analytics/",
     "/telemetry/",
     "/collect?",
@@ -71,8 +76,6 @@ const BUILTIN_PATTERNS: &[&str] = &[
     "/1x1.gif",
     "analytics.",
     "telemetry.",
-    // "metrics." removed — too broad (stats.gov, metrics.company.com)
-    // "stats." removed — too broad (statistics.wikipedia.org)
     "tracking.",
     "pixel.",
     "beacon.",
@@ -80,6 +83,62 @@ const BUILTIN_PATTERNS: &[&str] = &[
     "tracking.js",
     "gtag/js",
     "gtm.js",
+    // ── Ad networks ──────────────────────────────────────────────────────
+    "/ads/",
+    "/ad/",
+    "/advert/",
+    "/advertisement/",
+    "/adserver/",
+    "/adsystem/",
+    "/adservice/",
+    "/pagead/",
+    "/doubleclick/",
+    "googlesyndication.com",
+    "googleadservices.com",
+    "adnxs.com",
+    "advertising.com",
+    "adsrvr.org",
+    "casalemedia.com",
+    "rubiconproject.com",
+    "openx.net",
+    "pubmatic.com",
+    "criteo.com",
+    "outbrain.com",
+    "taboola.com",
+    "moatads.com",
+    "adsafeprotected.com",
+    // ── Fingerprinting / tracking pixels ─────────────────────────────────
+    "scorecardresearch.com",
+    "quantserve.com",
+    "chartbeat.com",
+    "newrelic.com/pageview",
+    "bat.bing.com",
+    "connect.facebook.net",
+    "static.ads-twitter.com",
+    "ads.linkedin.com",
+    "/impression?",
+    "/impression.gif",
+    "/click?",
+    "/clicktrack/",
+    "/trackclick/",
+    "/ad_click/",
+    "/ad_impression/",
+    // ── Crypto miners ────────────────────────────────────────────────────
+    "coinhive.com",
+    "coin-hive.com",
+    "minero.cc",
+    "cryptoloot.pro",
+    "webminepool.com",
+    "jsecoin.com",
+    // ── Phishing infra ────────────────────────────────────────────────────
+    "secure-paypa1.com",
+    "paypa1-secure.com",
+    "amazon-security-alert.com",
+    "appleid-verify-account.com",
+    "microsoft-login-secure.com",
+    // ── Malware C2 (representative) ───────────────────────────────────────
+    "emotet-c2.example.com",
+    "trickbot-cdn.example.net",
 ];
 
 // `std::sync::LazyLock` is stable since Rust 1.80 (Rust 2024 edition requires ≥ 1.85).

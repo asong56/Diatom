@@ -640,7 +640,8 @@ mod tests {
             channel: "stable".to_owned(),
         });
         let ua = cache.chrome_ua_windows();
-        assert!(ua.contains("Chrome/124.0.0.0"));
+        // [FIX-25] full 4-part version, not truncated major.0.0.0
+        assert!(ua.contains("Chrome/124.0.6367.207"), "UA should use full version: {ua}");
         assert!(ua.contains("Windows NT 10.0"));
     }
 

@@ -126,6 +126,7 @@ pub fn cmd_tab_update(
     url: Option<String>,
     title: Option<String>,
     dwell_ms: Option<u64>,
+    mem_bytes: Option<u64>,
     s: State<'_, AppState>,
 ) -> R<()> {
     let ws = s.workspace_id();
@@ -133,17 +134,23 @@ pub fn cmd_tab_update(
     {
         let mut tabs = s.tabs.lock().unwrap();
         if let Some(t) = tabs.get_mut(&tab_id) {
-            if let Some(u) = &url {
-                t.url = u.clone();
-            }
-            if let Some(ti) = &title {
-                t.title = ti.clone();
+            if let Some(u) = &url { t.url = u.clone(); }
+            if let Some(ti) = &title { t.title = ti.clone(); }
+            // [FIX-06] Update mem_weight if frontend reports actual heap
+            if let Some(mb) = mem_bytes {
+                if mb >= 10 * 1024 * 1024 && mb <= 2 * 1024 * 1024 * 1024 {
+                    t.mem_weight = mb;
+                }
+            } else {
+                let age_s = crate::db::unix_now() - t.last_active;
+                if age_s > 300 && t.mem_weight < 500 * 1024 * 1024 {
+                    t.mem_weight += 10 * 1024 * 1024;
+                }
             }
         }
     }
     if let (Some(u), Some(ti)) = (url_c, title) {
-        s.db.upsert_history(&ws, &u, &ti, dwell_ms.unwrap_or(0))
-            .map_err(e)?;
+        s.db.upsert_history(&ws, &u, &ti, dwell_ms.unwrap_or(0)).map_err(e)?;
     }
     Ok(())
 }
@@ -700,15 +707,17 @@ pub struct FreezePayload {
 
 #[tauri::command]
 pub fn cmd_freeze_page(payload: FreezePayload, s: State<'_, AppState>) -> R<BundleRow> {
-    let result = freeze::freeze_page(
-        &payload.raw_html,
-        &payload.url,
-        &payload.title,
-        &s.workspace_id(),
-        &s.master_key(),
-        &s.bundles_dir(),
-    )
-    .map_err(e)?;
+    // [FIX-MASTERKEY] Key never leaves the Mutex guard scope
+    let result = s.with_master_key(|key| {
+        freeze::freeze_page(
+            &payload.raw_html,
+            &payload.url,
+            &payload.title,
+            &s.workspace_id(),
+            key,
+            &s.bundles_dir(),
+        )
+    }).map_err(e)?;
     let mut row = result.bundle_row;
     row.tfidf_tags = serde_json::to_string(&payload.tfidf_tags).unwrap_or_else(|_| "[]".to_owned());
     s.db.insert_bundle(&row).map_err(e)?;
@@ -741,7 +750,7 @@ pub fn cmd_museum_thaw(id: String, s: State<'_, AppState>) -> R<String> {
     // [FIX-20] Direct ID lookup instead of capped list scan
     let row = s.db.get_bundle_by_id(&id).map_err(e)?
         .ok_or_else(|| format!("bundle {id} not found"))?;
-    freeze::thaw_bundle(&s.bundles_dir().join(&row.bundle_path), &s.master_key()).map_err(e)
+    s.with_master_key(|key| freeze::thaw_bundle(&s.bundles_dir().join(&row.bundle_path), key)).map_err(e)
 }
 
 // ── DOM Crusher ───────────────────────────────────────────────────────────────
@@ -1040,11 +1049,37 @@ pub fn cmd_lab_is_enabled(id: String, s: State<'_, AppState>) -> bool {
 
 // ── SLM microkernel — v0.9.0 ──────────────────────────────────────────────────
 
+
+// ── SLM cache helper [FIX-SLM-CACHE] ─────────────────────────────────────────
+
+/// Return a cached `SlmServer`, or detect + create one if the cache is empty.
+/// Privacy mode is read fresh from labs on every call so toggling
+/// `slm_extreme_privacy` always takes effect on the next message.
+async fn get_or_init_slm(s: &AppState) -> Arc<slm::SlmServer> {
+    let privacy = labs::is_lab_enabled(&s.db, "slm_extreme_privacy");
+    let mut cache = s.slm_cache.lock().await;
+
+    // Invalidate if privacy_mode changed
+    if let Some(ref cached) = *cache {
+        if cached.privacy_mode != privacy {
+            *cache = None;
+        }
+    }
+
+    if let Some(ref srv) = *cache {
+        return Arc::clone(srv);
+    }
+
+    let model = s.db.get_setting("slm_active_model");
+    let srv = Arc::new(slm::SlmServer::new(privacy, model.as_deref()).await);
+    *cache = Some(Arc::clone(&srv));
+    srv
+}
+
 #[tauri::command]
 pub async fn cmd_slm_status(s: State<'_, AppState>) -> R<slm::SlmStatus> {
-    let privacy = labs::is_lab_enabled(&s.db, "slm_extreme_privacy");
-    let model = s.db.get_setting("slm_active_model");
-    let server = slm::SlmServer::new(privacy, model.as_deref()).await;
+    // [FIX-SLM-CACHE] Use cached server — no backend probe on every call
+    let server = get_or_init_slm(&s).await;
     Ok(server.status())
 }
 
@@ -1058,12 +1093,11 @@ pub struct SlmChatPayload {
 
 #[tauri::command]
 pub async fn cmd_slm_chat(payload: SlmChatPayload, s: State<'_, AppState>) -> R<slm::ChatResponse> {
-    let privacy = labs::is_lab_enabled(&s.db, "slm_extreme_privacy");
-    let model = payload
-        .model
+    // [FIX-SLM-CACHE] Single cached server — no repeated backend detection
+    let server = get_or_init_slm(&s).await;
+    let model = payload.model
         .or_else(|| s.db.get_setting("slm_active_model"))
         .unwrap_or_else(|| "diatom-balanced".to_owned());
-    let server = slm::SlmServer::new(privacy, Some(&model)).await;
     let req = slm::ChatRequest {
         model,
         messages: payload.messages,
@@ -1097,6 +1131,16 @@ pub fn cmd_slm_set_model(model_id: String, s: State<'_, AppState>) -> R<()> {
         return Err(format!("unknown model: {model_id}"));
     }
     s.db.set_setting("slm_active_model", &model_id).map_err(e)
+}
+
+
+/// [FIX-SLM-CACHE] Clear the cached SlmServer so the next call re-detects the backend.
+/// Call this after starting/stopping Ollama mid-session.
+#[tauri::command]
+pub async fn cmd_slm_reset(s: State<'_, AppState>) -> R<()> {
+    *s.slm_cache.lock().await = None;
+    tracing::info!("SLM cache cleared — backend will re-detect on next request");
+    Ok(())
 }
 
 /// Toggle the SLM server on/off at runtime without a full restart.
@@ -1255,4 +1299,31 @@ pub fn cmd_nostr_relay_add(url: String, s: State<'_, AppState>) -> R<String> {
 #[tauri::command]
 pub fn cmd_nostr_relays(s: State<'_, AppState>) -> R<Vec<String>> {
     s.db.nostr_relays_enabled().map_err(e)
+}
+
+// ── Nostr bookmark sync [NEW] ─────────────────────────────────────────────────
+
+/// Publish bookmarks for the current workspace to all enabled Nostr relays.
+/// Returns number of relays that accepted the event.
+#[tauri::command]
+pub async fn cmd_nostr_sync_bookmarks(s: State<'_, AppState>) -> R<usize> {
+    let ws = s.workspace_id();
+    let key = s.master_key();
+    crate::nostr::sync_bookmarks_publish(&s.db, &key, &ws)
+        .await.map_err(e)
+}
+
+// ── Local authentication [NEW] ────────────────────────────────────────────────
+
+/// Request platform biometric / local authentication before a sensitive operation.
+/// Returns true if authenticated or if biometrics are unavailable (graceful degradation).
+#[tauri::command]
+pub async fn cmd_local_auth(reason: String) -> bool {
+    crate::passkey::cmd_local_auth_impl(reason).await
+}
+
+/// Check if platform biometric authentication is available.
+#[tauri::command]
+pub fn cmd_biometric_available() -> bool {
+    crate::passkey::is_biometric_available()
 }

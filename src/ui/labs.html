@@ -4,25 +4,74 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Diatom Labs</title>
+  <!-- P0 fix: remove Google Fonts external link → load fonts locally via fonts.css -->
+  <link rel="stylesheet" href="../fonts.css">
+  <!-- P1 fix: dark-mode auto-detection -->
+  <script>
+    (function () {
+      var stored = localStorage.getItem('diatom-theme');
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.setAttribute('data-theme', stored || (prefersDark ? 'dark' : 'light'));
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+        if (!localStorage.getItem('diatom-theme'))
+          document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+      });
+    })();
+  </script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap');
 
     :root {
-      --ink:      #0e0e0e;
-      --ink-2:    #3a3a3a;
-      --ink-3:    #7a7a7a;
-      --ink-4:    #b0b0b0;
-      --paper:    #f5f3ef;
-      --paper-2:  #edeae4;
-      --paper-3:  #e2ddd6;
-      --accent:   #1a472a;
-      --accent-l: #2d6a40;
-      --amber:    #b85c00;
-      --red:      #8b1a1a;
-      --gold:     #8a6800;
-      --rule:     rgba(0,0,0,0.08);
-      --shadow:   0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+      /* ── Lumière palette ── */
+      --ink:      #23233C;
+      --ink-2:    #42425E;
+      --ink-3:    #747490;
+      --ink-4:    #AEAEC6;
+      --paper:    #EBF2FA;
+      --paper-2:  #DCE9F7;
+      --paper-3:  #CDD9F2;
+      --accent:   #C4A468;
+      --accent-l: #D4B880;
+      --amber:    #C07830;
+      --red:      #C44848;
+      --gold:     #A8803C;
+      --glass:    rgba(196,186,240,0.52);
+      --glass-border: rgba(255,255,255,0.70);
+      --glass-inset:  rgba(255,255,255,0.52);
+      --rule:     rgba(120,120,190,0.12);
+      --shadow:   0 1px 3px rgba(74,62,30,0.08), 0 4px 12px rgba(100,80,40,0.04);
+      --shadow-gold: 0 2px 10px rgba(196,164,104,0.22), 0 6px 20px rgba(196,164,104,0.10);
       --r:        6px;
+      /* Serif stack — now that fonts.css is loaded */
+      --f-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
+      --f-sans:  'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --f-mono:  'DM Mono', 'Fira Code', 'SF Mono', monospace;
+    }
+
+    /* P1 fix: dark-mode tokens for labs.html */
+    [data-theme="dark"] {
+      --ink:      #F2EFF8;
+      --ink-2:    #CAC6D8;
+      --ink-3:    #8A8698;
+      --ink-4:    #4C4860;
+      --paper:    #171620;
+      --paper-2:  #1F1E2C;
+      --paper-3:  #272638;
+      --accent:   #C49248;
+      --accent-l: #D4A85E;
+      --glass:    rgba(64,56,102,0.60);
+      --glass-border: rgba(130,120,200,0.24);
+      --glass-inset:  rgba(160,150,225,0.14);
+      --rule:     rgba(160,150,225,0.08);
+      --shadow:   0 1px 4px rgba(0,0,0,0.28), 0 4px 16px rgba(0,0,0,0.14);
+    }
+
+    /* P2 fix: prefers-reduced-motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -45,7 +94,7 @@
       gap: 32px;
       position: sticky;
       top: 0;
-      background: rgba(245,243,239,0.92);
+      background: rgba(220,233,247,0.82);
       backdrop-filter: blur(12px);
       z-index: 100;
     }
@@ -62,7 +111,7 @@
     }
 
     .header-title {
-      font-family: 'Instrument Serif', serif;
+      font-family: 'Playfair Display', Georgia, serif;
       font-size: 28px;
       font-weight: 400;
       line-height: 1;
@@ -361,7 +410,7 @@
     }
 
     .empty-state-glyph {
-      font-family: 'Instrument Serif', serif;
+      font-family: 'Playfair Display', Georgia, serif;
       font-size: 48px;
       color: var(--paper-3);
       display: block;

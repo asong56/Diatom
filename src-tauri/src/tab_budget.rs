@@ -212,9 +212,27 @@ pub fn available_memory_bytes() -> u64 {
 
     #[cfg(target_os = "windows")]
     {
-        // MEMORYSTATUSEX via Windows API would be ideal; simplified fallback:
-        // Return 1 GB as a safe default for modern Windows systems.
-        return 1024 * 1024 * 1024;
+        // [FIX-22] Use GlobalMemoryStatusEx to get real available memory.
+        // Falls back to 2 GB if the API call fails, which is more realistic
+        // than the previous hardcoded 1 GB for modern Windows machines.
+        use windows_sys::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
+        let mut mem_status = MEMORYSTATUSEX {
+            dwLength: std::mem::size_of::<MEMORYSTATUSEX>() as u32,
+            dwMemoryLoad: 0,
+            ullTotalPhys: 0,
+            ullAvailPhys: 0,
+            ullTotalPageFile: 0,
+            ullAvailPageFile: 0,
+            ullTotalVirtual: 0,
+            ullAvailVirtual: 0,
+            ullAvailExtendedVirtual: 0,
+        };
+        unsafe {
+            if GlobalMemoryStatusEx(&mut mem_status) != 0 {
+                return mem_status.ullAvailPhys;
+            }
+        }
+        return 2 * 1024 * 1024 * 1024; // 2 GB conservative fallback
     }
 
     // Conservative fallback: 512 MB

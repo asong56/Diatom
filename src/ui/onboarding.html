@@ -4,158 +4,321 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Welcome to Diatom</title>
+<!-- P3 fix: load canonical fonts locally — no @font-face declarations in page CSS -->
+<link rel="stylesheet" href="../fonts.css">
+<!-- P1 fix: dark-mode auto-detection -->
+<script>
+  (function () {
+    var stored = localStorage.getItem('diatom-theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', stored || (prefersDark ? 'dark' : 'light'));
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+      if (!localStorage.getItem('diatom-theme'))
+        document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+    });
+  })();
+</script>
 <style>
+  /* ─── Lumière palette — matches diatom.css tokens ─────────────────────── */
   :root {
-    --bg: #0f1117; --surface: #1a1e2a; --border: rgba(255,255,255,.07);
-    --accent: #00d4ff; --accent-dim: rgba(0,212,255,.15);
-    --text: #e2e8f0; --text-dim: #64748b; --warn: #f59e0b;
-    --green: #10b981; --red: #ef4444;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: var(--bg); color: var(--text);
-    font: 14px/1.6 'Inter', system-ui, sans-serif;
-    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    --c-paper:       #EBF2FA;
+    --c-paper-2:     #DCE9F7;
+    --c-ink:         #23233C;
+    --c-ink-2:       #42425E;
+    --c-ink-3:       #747490;
+    --c-ink-4:       #AEAEC6;
+    --c-accent:      #C4A468;
+    --c-accent-l:    #D4B880;
+    --c-accent-xd:   #A8803C;
+    --c-accent-glow: rgba(196, 164, 104, 0.22);
+    --c-amber:       rgba(74, 62, 30, 0.08);
+    --c-glass:       rgba(196, 186, 240, 0.52);
+    --c-glass-heavy: rgba(208, 200, 245, 0.72);
+    --c-glass-border:rgba(255, 255, 255, 0.70);
+    --c-glass-inset: rgba(255, 255, 255, 0.52);
+    --c-sage:        #BCC8BC;
+    --c-rule:        rgba(120, 120, 190, 0.12);
+    --c-danger:      #C44848;
+    --c-warn:        #C07830;
+    --blur-md: blur(24px) saturate(180%) brightness(1.01);
+    --r-sm: 5px; --r-md: 8px; --r-lg: 14px; --r-pill: 100px;
+    --t-fast: 110ms cubic-bezier(0.4,0,0.2,1);
+    --t-slow: 380ms cubic-bezier(0.34,1.56,0.64,1);
+    --f-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --f-mono: 'DM Mono', 'Fira Code', monospace;
+    --shadow-gold: 0 2px 10px var(--c-accent-glow), 0 6px 20px rgba(196,164,104,0.10);
+    --shadow-md: 0 2px 8px var(--c-amber), 0 8px 24px rgba(100,80,40,0.04);
+    --shadow-lg: 0 8px 40px rgba(74,62,30,0.10), 0 32px 80px rgba(100,80,40,0.06);
   }
 
-  /* ── Bloom animation ── */
-  .bloom {
-    position: fixed; inset: 0; display: flex; align-items: center;
-    justify-content: center; pointer-events: none; z-index: 0; opacity: .25;
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background:
+      radial-gradient(ellipse 70% 55% at 50% 44%,
+        rgba(196, 186, 240, 0.32) 0%,
+        rgba(196, 186, 240, 0.06) 52%,
+        transparent 68%),
+      radial-gradient(ellipse 44% 32% at 26% 74%,
+        rgba(196, 164, 104, 0.08) 0%,
+        transparent 56%),
+      var(--c-paper);
+    color: var(--c-ink);
+    font: 14px/1.6 var(--f-sans);
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-font-smoothing: antialiased;
   }
-  .bloom svg { width: 600px; height: 600px; animation: spin 60s linear infinite; }
+
+  /* ── Bloom animation — diatom radial signature ── */
+  .bloom {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none; z-index: 0; opacity: 0.18;
+  }
+  .bloom svg { width: 560px; height: 560px; animation: spin 80s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ── Layout ── */
+  /* ── Shell: lavender glass card ── */
   .shell {
     position: relative; z-index: 1; width: 560px;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 40px; box-shadow: 0 32px 80px rgba(0,0,0,.6);
+    background: var(--c-glass-heavy);
+    backdrop-filter: var(--blur-md);
+    -webkit-backdrop-filter: var(--blur-md);
+    border: 0.5px solid var(--c-glass-border);
+    border-radius: 18px;
+    padding: 40px;
+    box-shadow:
+      var(--shadow-lg),
+      inset 0 1px 1px var(--c-glass-inset),
+      inset 0 0 0 0.5px rgba(255,255,255,0.40);
   }
-  .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-  .logo-mark { width: 28px; height: 28px; }
-  .logo-name { font-size: 18px; font-weight: 600; letter-spacing: -.3px; }
-  .tagline { color: var(--text-dim); font-size: 13px; margin-bottom: 32px; }
 
-  /* ── Steps ── */
-  .steps { display: flex; gap: 6px; margin-bottom: 32px; }
-  .step-dot {
-    flex: 1; height: 3px; border-radius: 2px; background: var(--border);
-    transition: background .3s;
+  /* ── Logo ── */
+  .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .logo-mark { width: 28px; height: 28px; }
+  .logo-name {
+    font-size: 18px; font-weight: 500; letter-spacing: -0.3px;
+    color: var(--c-ink);
   }
-  .step-dot.done { background: var(--green); }
-  .step-dot.active { background: var(--accent); }
+  .tagline {
+    color: var(--c-ink-3); font-size: 12.5px; margin-bottom: 30px;
+    letter-spacing: 0.02em;
+  }
+
+  /* ── Progress dots ── */
+  .steps { display: flex; gap: 6px; margin-bottom: 30px; }
+  .step-dot {
+    flex: 1; height: 2.5px; border-radius: 2px;
+    background: var(--c-rule);
+    transition: background 0.3s;
+  }
+  .step-dot.done   { background: var(--c-sage); }
+  .step-dot.active {
+    background: linear-gradient(90deg, var(--c-accent-l), var(--c-accent));
+    box-shadow: 0 0 6px var(--c-accent-glow);
+  }
 
   /* ── Step panels ── */
-  .panel { display: none; }
+  .panel { display: none; animation: panel-in 0.28s var(--t-slow) both; }
   .panel.active { display: block; }
-  .panel h2 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
-  .panel p { color: var(--text-dim); font-size: 13px; line-height: 1.7; margin-bottom: 18px; }
-
-  /* ── Status indicator ── */
-  .status {
-    display: flex; align-items: center; gap: 10px; padding: 12px 14px;
-    background: rgba(255,255,255,.04); border: 1px solid var(--border);
-    border-radius: 8px; margin-bottom: 18px; font-size: 13px;
+  @keyframes panel-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); }
-  .dot.ok { background: var(--green); }
-  .dot.warn { background: var(--warn); animation: pulse .8s ease-in-out infinite alternate; }
-  @keyframes pulse { to { opacity: .4; } }
-  .status-label { color: var(--text-dim); font-size: 12px; margin-left: auto; }
+  .panel h2 { font-size: 16px; font-weight: 500; margin-bottom: 8px; color: var(--c-ink); }
+  .panel p  { color: var(--c-ink-3); font-size: 13px; line-height: 1.75; margin-bottom: 18px; }
+  .panel p strong { color: var(--c-ink-2); font-weight: 500; }
+
+  /* ── Status card: glass ── */
+  .status {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.32);
+    border: 0.5px solid var(--c-glass-border);
+    border-radius: var(--r-md);
+    margin-bottom: 18px; font-size: 13px;
+    box-shadow: inset 0 1px 1px var(--c-glass-inset), var(--shadow-md);
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--c-ink-4); flex-shrink: 0;
+  }
+  .dot.ok   { background: var(--c-sage); box-shadow: 0 0 5px rgba(188,200,188,0.60); }
+  .dot.warn { background: var(--c-warn); animation: pulse 0.8s ease-in-out infinite alternate; }
+  @keyframes pulse { to { opacity: 0.38; } }
+  .status-label { color: var(--c-ink-4); font-size: 11.5px; font-family: var(--f-mono); margin-left: auto; }
 
   /* ── Privacy level selector ── */
   .levels { display: grid; gap: 8px; margin-bottom: 20px; }
   .level {
-    padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px;
-    cursor: pointer; transition: border-color .2s, background .2s;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.28);
+    border: 0.5px solid var(--c-glass-border);
+    border-radius: var(--r-md); cursor: pointer;
+    transition: border-color var(--t-fast), background var(--t-fast), box-shadow var(--t-fast);
+    box-shadow: inset 0 1px 1px var(--c-glass-inset);
   }
-  .level:hover { border-color: var(--accent); background: var(--accent-dim); }
-  .level.selected { border-color: var(--accent); background: var(--accent-dim); }
-  .level-name { font-weight: 600; font-size: 13px; }
-  .level-desc { color: var(--text-dim); font-size: 12px; margin-top: 3px; }
+  .level:hover {
+    background: rgba(255,255,255,0.44);
+    border-color: rgba(196,164,104,0.50);
+    box-shadow: inset 0 1px 1px var(--c-glass-inset), 0 0 0 2px var(--c-accent-glow);
+  }
+  .level.selected {
+    background: rgba(255,255,255,0.48);
+    border-color: var(--c-accent);
+    box-shadow: inset 0 1px 1px var(--c-glass-inset), 0 0 0 2px var(--c-accent-glow);
+  }
+  .level-name { font-weight: 500; font-size: 13px; color: var(--c-ink-2); }
+  .level-desc { color: var(--c-ink-3); font-size: 12px; margin-top: 3px; }
 
-  /* ── Action row ── */
+  /* ── Actions row ── */
   .actions {
-    display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px;
+    display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;
   }
   button {
-    padding: 9px 18px; border-radius: 6px; border: none;
-    font-size: 13px; font-weight: 500; cursor: pointer; transition: opacity .15s;
+    padding: 9px 18px; border-radius: var(--r-md);
+    border: none; font-family: var(--f-sans);
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: opacity var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
   }
-  button:hover { opacity: .85; }
-  .btn-primary { background: var(--accent); color: #000; }
-  .btn-secondary { background: rgba(255,255,255,.07); color: var(--text); }
-  button:disabled { opacity: .35; cursor: not-allowed; }
+  button:active { transform: scale(0.97); }
 
-  /* ── Checkbox row ── */
+  .btn-primary {
+    background: linear-gradient(140deg, var(--c-accent-l) 0%, var(--c-accent) 55%, var(--c-accent-xd) 100%);
+    color: rgba(255,252,236,0.97);
+    box-shadow: var(--shadow-gold);
+  }
+  .btn-primary:hover { opacity: 0.88; box-shadow: var(--shadow-gold), 0 0 16px var(--c-accent-glow); }
+
+  .btn-secondary {
+    background: rgba(255,255,255,0.36);
+    border: 0.5px solid var(--c-glass-border);
+    color: var(--c-ink-2);
+    box-shadow: inset 0 1px 1px var(--c-glass-inset);
+  }
+  .btn-secondary:hover { background: rgba(255,255,255,0.52); color: var(--c-ink); }
+
+  button:disabled { opacity: 0.32; cursor: not-allowed; }
+
+  /* ── Checkbox rows ── */
   .check-row {
     display: flex; align-items: flex-start; gap: 10px;
-    padding: 10px 0; border-bottom: 1px solid var(--border);
+    padding: 10px 0;
+    border-bottom: 0.5px solid var(--c-rule);
     font-size: 13px;
   }
   .check-row:last-child { border-bottom: none; }
-  .check-row input[type=checkbox] { margin-top: 2px; accent-color: var(--accent); }
-  .check-row label { color: var(--text-dim); }
-  .check-row strong { color: var(--text); display: block; margin-bottom: 2px; }
+  .check-row input[type=checkbox] { margin-top: 3px; accent-color: var(--c-accent); flex-shrink: 0; }
+  .check-row label { color: var(--c-ink-3); }
+  .check-row strong { color: var(--c-ink-2); display: block; margin-bottom: 2px; font-weight: 500; }
 
-  /* ── Final screen ── */
-  .done-icon { font-size: 48px; text-align: center; margin: 12px 0 20px; }
-  .feature-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px;
+  /* ── Done screen ── */
+  .done-icon {
+    font-size: 48px; text-align: center; margin: 12px 0 20px;
+    color: var(--c-accent);
+    filter: drop-shadow(0 2px 14px var(--c-accent-glow));
+    animation: bloom-icon 0.8s cubic-bezier(0.34,1.56,0.64,1) both;
   }
+  @keyframes bloom-icon {
+    from { opacity: 0; transform: scale(0.55) rotate(-20deg); }
+    to   { opacity: 1; transform: scale(1) rotate(0deg); }
+  }
+
+  .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
   .feature-card {
-    padding: 10px 12px; background: rgba(255,255,255,.04);
-    border: 1px solid var(--border); border-radius: 8px; font-size: 12px;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.28);
+    border: 0.5px solid var(--c-glass-border);
+    border-radius: var(--r-md); font-size: 12px;
+    box-shadow: inset 0 1px 1px var(--c-glass-inset);
   }
-  .feature-card strong { color: var(--accent); display: block; margin-bottom: 2px; }
+  .feature-card strong {
+    color: var(--c-accent); display: block; margin-bottom: 2px;
+    font-weight: 500; font-size: 11.5px; letter-spacing: 0.01em;
+  }
+
+  /* P1 fix: dark-mode tokens for onboarding */
+  [data-theme="dark"] {
+    --c-paper:        #171620;
+    --c-paper-2:      #1F1E2C;
+    --c-paper-3:      #272638;
+    --c-ink:          #F2EFF8;
+    --c-ink-2:        #CAC6D8;
+    --c-ink-3:        #8A8698;
+    --c-ink-4:        #4C4860;
+    --c-accent:       #C49248;
+    --c-accent-l:     #D4A85E;
+    --c-accent-xd:    #A07030;
+    --c-accent-glow:  rgba(196, 146, 72, 0.26);
+    --c-amber:        rgba(196, 146, 72, 0.07);
+    --c-glass:        rgba(64, 56, 102, 0.60);
+    --c-glass-heavy:  rgba(74, 66, 118, 0.80);
+    --c-glass-border: rgba(130, 120, 200, 0.24);
+    --c-glass-inset:  rgba(160, 150, 225, 0.14);
+    --c-rule:         rgba(160, 150, 225, 0.08);
+    --c-danger:       #E05858;
+    --c-warn:         #D08840;
+  }
+
+  /* P2 fix: prefers-reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 </style>
 </head>
 <body>
 
-<!-- Background bloom -->
+<!-- Background bloom — champagne gold petals -->
 <div class="bloom">
   <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <radialGradient id="g" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stop-color="#00d4ff" stop-opacity=".8"/>
-        <stop offset="100%" stop-color="#00d4ff" stop-opacity="0"/>
+        <stop offset="0%" stop-color="#C4A468" stop-opacity=".9"/>
+        <stop offset="60%" stop-color="#C4A468" stop-opacity=".2"/>
+        <stop offset="100%" stop-color="#C4A468" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="g2" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#C4BAF0" stop-opacity=".8"/>
+        <stop offset="100%" stop-color="#C4BAF0" stop-opacity="0"/>
       </radialGradient>
     </defs>
-    <g id="petals">
-      <script type="text/javascript">
-        // Generate 12 diatom-inspired petal paths
-        const g = document.getElementById('petals');
-        for (let i = 0; i < 12; i++) {
-          const angle = (i / 12) * Math.PI * 2;
-          const x = 200 + Math.cos(angle) * 80, y = 200 + Math.sin(angle) * 80;
-          const el = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
-          el.setAttribute('cx', x); el.setAttribute('cy', y);
-          el.setAttribute('rx', 18); el.setAttribute('ry', 40);
-          el.setAttribute('transform', `rotate(${i*30} ${x} ${y})`);
-          el.setAttribute('fill', 'url(#g)'); el.setAttribute('opacity', '.4');
-          g.appendChild(el);
-        }
-      </script>
-    </g>
+    <g id="petals"></g>
+    <script type="text/javascript">
+      const g = document.getElementById('petals');
+      for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * Math.PI * 2;
+        const x = 200 + Math.cos(angle) * 80, y = 200 + Math.sin(angle) * 80;
+        const el = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+        el.setAttribute('cx', x); el.setAttribute('cy', y);
+        el.setAttribute('rx', 16); el.setAttribute('ry', 42);
+        el.setAttribute('transform', `rotate(${i*30} ${x} ${y})`);
+        el.setAttribute('fill', i % 3 === 0 ? 'url(#g2)' : 'url(#g)');
+        el.setAttribute('opacity', '.45');
+        g.appendChild(el);
+      }
+    </script>
   </svg>
 </div>
 
 <div class="shell">
   <div class="logo">
     <svg class="logo-mark" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="14" cy="14" r="13" stroke="#00d4ff" stroke-width="1.5" fill="none"/>
-      <circle cx="14" cy="14" r="6" fill="#00d4ff" fill-opacity=".2" stroke="#00d4ff" stroke-width="1"/>
-      <line x1="14" y1="1" x2="14" y2="27" stroke="#00d4ff" stroke-width=".8" opacity=".4"/>
-      <line x1="1" y1="14" x2="27" y2="14" stroke="#00d4ff" stroke-width=".8" opacity=".4"/>
-      <line x1="4.5" y1="4.5" x2="23.5" y2="23.5" stroke="#00d4ff" stroke-width=".6" opacity=".3"/>
-      <line x1="23.5" y1="4.5" x2="4.5" y2="23.5" stroke="#00d4ff" stroke-width=".6" opacity=".3"/>
+      <circle cx="14" cy="14" r="13" stroke="#C4A468" stroke-width="1.5" fill="none"/>
+      <circle cx="14" cy="14" r="6" fill="#C4A468" fill-opacity=".18" stroke="#C4A468" stroke-width="1"/>
+      <line x1="14" y1="1" x2="14" y2="27" stroke="#C4A468" stroke-width=".8" opacity=".45"/>
+      <line x1="1" y1="14" x2="27" y2="14" stroke="#C4A468" stroke-width=".8" opacity=".45"/>
+      <line x1="4.5" y1="4.5" x2="23.5" y2="23.5" stroke="#C4BAF0" stroke-width=".6" opacity=".40"/>
+      <line x1="23.5" y1="4.5" x2="4.5" y2="23.5" stroke="#C4BAF0" stroke-width=".6" opacity=".40"/>
     </svg>
     <span class="logo-name">Diatom</span>
   </div>
   <p class="tagline">A filter that keeps the internet from seeing you.</p>
 
-  <!-- Progress dots -->
   <div class="steps" id="steps">
     <div class="step-dot active" data-step="0"></div>
     <div class="step-dot" data-step="1"></div>
@@ -164,7 +327,7 @@
     <div class="step-dot" data-step="4"></div>
   </div>
 
-  <!-- ── Step 0: Welcome ── -->
+  <!-- Step 0: Welcome -->
   <div class="panel active" id="panel-0">
     <h2>Welcome to Diatom</h2>
     <p>
@@ -172,15 +335,13 @@
       keeps the internet from seeing you. Your browsing history, 2FA codes, and archived
       pages never leave your device.
     </p>
-    <p>
-      This wizard takes about 2 minutes. You can change anything later in Settings.
-    </p>
+    <p>This wizard takes about 2 minutes. You can change everything later in Settings.</p>
     <div class="actions">
       <button class="btn-primary" onclick="next()">Get started →</button>
     </div>
   </div>
 
-  <!-- ── Step 1: Check Ollama ── -->
+  <!-- Step 1: Ollama -->
   <div class="panel" id="panel-1">
     <h2>Local AI (optional)</h2>
     <p>
@@ -199,16 +360,16 @@
     <div class="actions">
       <button class="btn-secondary" onclick="prev()">← Back</button>
       <button class="btn-secondary" id="btn-refresh-ollama" onclick="checkOllama()">Refresh</button>
-      <button class="btn-primary" onclick="next()">Next →</button>
+      <button class="btn-primary" onclick="next()">Continue →</button>
     </div>
   </div>
 
-  <!-- ── Step 2: Privacy level ── -->
+  <!-- Step 2: Privacy level -->
   <div class="panel" id="panel-2">
     <h2>Choose your privacy posture</h2>
     <p>
-      All settings protect your privacy. This just sets how aggressively Diatom
-      reconfigures the web for you. You can tune individual features anytime.
+      All modes protect your privacy. This sets how aggressively Diatom reconfigures
+      the web for you. You can tune individual features anytime.
     </p>
     <div class="levels" id="level-selector">
       <div class="level selected" data-level="balanced" onclick="selectLevel(this)">
@@ -230,11 +391,11 @@
     </div>
   </div>
 
-  <!-- ── Step 3: Privacy Presets ── -->
+  <!-- Step 3: Filter rules -->
   <div class="panel" id="panel-3">
     <h2>Filter rules (optional)</h2>
     <p>
-      Diatom's built-in blocklist catches analytics and trackers. You can subscribe to
+      Diatom's built-in blocklist catches analytics and trackers. Subscribe to
       community-maintained lists for broader coverage. <em>Diatom downloads, you choose.</em>
     </p>
     <div id="preset-list">
@@ -267,11 +428,11 @@
     </div>
   </div>
 
-  <!-- ── Step 4: Done ── -->
+  <!-- Step 4: Done -->
   <div class="panel" id="panel-4">
     <div class="done-icon">✦</div>
     <h2 style="text-align:center; margin-bottom:8px;">You're protected</h2>
-    <p style="text-align:center">
+    <p style="text-align:center; margin-bottom:20px;">
       Diatom is running. Here's what's active for you:
     </p>
     <div class="feature-grid" id="active-features">
@@ -280,7 +441,7 @@
       <div class="feature-card"><strong>HTTPS upgrade</strong>All origins enforced</div>
       <div class="feature-card"><strong>2FA manager</strong>TOTP/HOTP built-in</div>
     </div>
-    <div class="actions" style="justify-content: center;">
+    <div class="actions" style="justify-content:center;">
       <button class="btn-primary" onclick="finish()">Start browsing →</button>
     </div>
   </div>
@@ -288,10 +449,7 @@
 
 <script>
   const { invoke } = window.__TAURI_INTERNALS__ || window.__TAURI__?.tauri || {
-    invoke: async (cmd, args) => {
-      console.log('[onboarding mock]', cmd, args);
-      return null;
-    }
+    invoke: async (cmd, args) => { console.log('[onboarding mock]', cmd, args); return null; }
   };
 
   let currentStep = 0;
@@ -311,41 +469,27 @@
   }
 
   function next() {
-    if (currentStep < 4) {
-      currentStep++;
-      showPanel(currentStep);
-      updateDots();
-      if (currentStep === 1) checkOllama();
-    }
+    if (currentStep < 4) { currentStep++; showPanel(currentStep); updateDots(); if (currentStep === 1) checkOllama(); }
   }
 
   function prev() {
-    if (currentStep > 0) {
-      currentStep--;
-      showPanel(currentStep);
-      updateDots();
-    }
+    if (currentStep > 0) { currentStep--; showPanel(currentStep); updateDots(); }
   }
 
   async function checkOllama() {
-    const dot  = document.getElementById('ollama-dot');
+    const dot = document.getElementById('ollama-dot');
     const text = document.getElementById('ollama-text');
     const hint = document.getElementById('ollama-hint');
     const label = document.getElementById('ollama-label');
-    dot.className = 'dot warn';
-    text.textContent = 'Checking for Ollama…';
-    label.textContent = '';
-    hint.style.display = 'none';
-
+    dot.className = 'dot warn'; text.textContent = 'Checking for Ollama…';
+    label.textContent = ''; hint.style.display = 'none';
     try {
       const status = await invoke('cmd_slm_status');
       if (status && status.backend !== 'none' && status.backend !== 'candle_wasm') {
         dot.className = 'dot ok';
         text.textContent = 'Ollama detected — local AI ready';
         label.textContent = status.active_model || '';
-      } else {
-        throw new Error('not found');
-      }
+      } else { throw new Error('not found'); }
     } catch {
       dot.className = 'dot warn';
       text.textContent = 'Ollama not found';
@@ -361,14 +505,12 @@
 
   async function applyLevel() {
     const settings = {
-      balanced: { quad9_enabled: 'true', age_heuristic_enabled: 'true' },
-      strict:   { quad9_enabled: 'true', age_heuristic_enabled: 'true' },
+      balanced: { quad9_enabled: 'true',  age_heuristic_enabled: 'true' },
+      strict:   { quad9_enabled: 'true',  age_heuristic_enabled: 'true' },
       minimal:  { quad9_enabled: 'false', age_heuristic_enabled: 'false' },
     }[selectedLevel] || {};
-
-    for (const [k, v] of Object.entries(settings)) {
+    for (const [k, v] of Object.entries(settings))
       await invoke('cmd_setting_set', { key: k, value: v }).catch(() => {});
-    }
     if (selectedLevel === 'strict') {
       await invoke('cmd_zen_activate').catch(() => {});
       await invoke('cmd_lab_set', { id: 'timezone_spoof', enabled: true }).catch(() => {});
@@ -377,18 +519,9 @@
   }
 
   const PRESET_URLS = {
-    'el-privacy': {
-      name: 'EasyPrivacy',
-      url: 'https://easylist.to/easylist/easyprivacy.txt'
-    },
-    'el-ads': {
-      name: 'EasyList',
-      url: 'https://easylist.to/easylist/easylist.txt'
-    },
-    'urlhaus-extra': {
-      name: 'URLhaus Malware',
-      url: 'https://urlhaus.abuse.ch/downloads/hostfile/'
-    },
+    'el-privacy': { name: 'EasyPrivacy',    url: 'https://easylist.to/easylist/easyprivacy.txt' },
+    'el-ads':     { name: 'EasyList',       url: 'https://easylist.to/easylist/easylist.txt' },
+    'urlhaus-extra': { name: 'URLhaus Malware', url: 'https://urlhaus.abuse.ch/downloads/hostfile/' },
   };
 
   async function subscribePresets() {
@@ -403,7 +536,6 @@
 
   async function finish() {
     await invoke('cmd_onboarding_complete', { step: 'onboarding' }).catch(() => {});
-    // Navigate back to the browser chrome
     window.location.href = 'index.html';
   }
 </script>

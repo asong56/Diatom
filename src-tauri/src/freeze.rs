@@ -161,9 +161,12 @@ pub fn thaw_bundle(bundle_path: &Path, master_key: &[u8; 32]) -> Result<String> 
 // ── Tracker stripping ─────────────────────────────────────────────────────────
 
 fn strip_trackers(html: &str) -> String {
+    // [FIX-04-parser] Quote-aware HTML tag scanner.
+    // The previous implementation used `find('>')` which breaks on attribute
+    // values containing '>': <img src="data:png>1"> was mis-parsed.
+    // This state-machine correctly ignores '>' inside quoted attribute values.
     use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 
-    // LazyLock replaces once_cell::sync::Lazy — same semantics, no extra dep.
     static AC: LazyLock<AhoCorasick> = LazyLock::new(|| {
         AhoCorasickBuilder::new()
             .match_kind(MatchKind::LeftmostFirst)
@@ -172,20 +175,41 @@ fn strip_trackers(html: &str) -> String {
             .unwrap()
     });
 
+    /// Find the end of an HTML tag starting at `start` in `html`, correctly
+    /// handling `>` inside single- and double-quoted attribute values.
+    fn find_tag_end(html: &str, start: usize) -> usize {
+        #[derive(PartialEq)]
+        enum S { Tag, DQuote, SQuote }
+        let mut state = S::Tag;
+        let bytes = html.as_bytes();
+        let mut i = start;
+        while i < bytes.len() {
+            match (state, bytes[i]) {
+                (S::Tag, b'"')    => state = S::DQuote,
+                (S::Tag, b''')  => state = S::SQuote,
+                (S::Tag, b'>')   => return i + 1,
+                (S::DQuote, b'"') => state = S::Tag,
+                (S::SQuote, b''') => state = S::Tag,
+                _ => {}
+            }
+            i += 1;
+        }
+        html.len() // unclosed tag — consume to end
+    }
+
     let mut output = String::with_capacity(html.len());
     let mut pos = 0;
 
     while pos < html.len() {
-        if let Some(tag_start) = html[pos..].find('<').map(|i| pos + i) {
+        if let Some(rel) = html[pos..].find('<') {
+            let tag_start = pos + rel;
             output.push_str(&html[pos..tag_start]);
 
-            let tag_end = html[tag_start..]
-                .find('>')
-                .map(|i| tag_start + i + 1)
-                .unwrap_or(html.len());
-
+            // Skip the '<' itself when finding the tag end
+            let tag_end = find_tag_end(html, tag_start + 1);
             let tag = &html[tag_start..tag_end];
             let lower = tag.to_lowercase();
+
             let is_external = lower.starts_with("<script")
                 || lower.starts_with("<img")
                 || lower.starts_with("<iframe")
@@ -193,19 +217,20 @@ fn strip_trackers(html: &str) -> String {
 
             let has_tracker_src = is_external && AC.is_match(tag);
             let is_tracking_pixel = lower.starts_with("<img")
-                && (lower.contains("width=\"1\"") || lower.contains("width='1'"))
-                && (lower.contains("height=\"1\"") || lower.contains("height='1'"));
+                && (lower.contains("width="1"") || lower.contains("width='1'"))
+                && (lower.contains("height="1"") || lower.contains("height='1'"));
 
             if has_tracker_src || is_tracking_pixel {
-                if lower.starts_with("<script") && !lower.contains("/>") {
-                    if let Some(close) = html[tag_end..].to_lowercase().find("</script>") {
-                        pos = tag_end + close + "</script>".len();
-                    } else {
-                        pos = tag_end;
-                    }
+                let close_tag = if lower.starts_with("<script") && !lower.contains("/>") {
+                    Some("</script>")
                 } else if lower.starts_with("<iframe") && !lower.contains("/>") {
-                    if let Some(close) = html[tag_end..].to_lowercase().find("</iframe>") {
-                        pos = tag_end + close + "</iframe>".len();
+                    Some("</iframe>")
+                } else {
+                    None
+                };
+                if let Some(close) = close_tag {
+                    if let Some(c) = html[tag_end..].to_lowercase().find(close) {
+                        pos = tag_end + c + close.len();
                     } else {
                         pos = tag_end;
                     }
@@ -222,7 +247,6 @@ fn strip_trackers(html: &str) -> String {
             break;
         }
     }
-
     output
 }
 
@@ -245,7 +269,7 @@ fn derive_bundle_key_and_encrypt(master_key: &[u8; 32], plaintext: &[u8]) -> Res
 fn derive_bundle_key_and_decrypt(
     master_key: &[u8; 32],
     ciphertext: Vec<u8>,
-) -> Result<Vec<u8>> {
+) -> Result<zeroize::Zeroizing<Vec<u8>>> {
     let mut bundle_key = derive_bundle_key(master_key)?;
     let result = aes_gcm_decrypt(&bundle_key, ciphertext);
     bundle_key.zeroize();
@@ -274,7 +298,11 @@ fn aes_gcm_encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>> {
     Ok(out)
 }
 
-fn aes_gcm_decrypt(key: &[u8; 32], mut data: Vec<u8>) -> Result<Vec<u8>> {
+fn aes_gcm_decrypt(key: &[u8; 32], mut data: Vec<u8>) -> Result<zeroize::Zeroizing<Vec<u8>>> {
+    // [FIX-05] Returns Zeroizing<Vec<u8>> so decrypted content is cleared on drop.
+    // Note: the plaintext also flows through gzip_decompress → String → IPC serialiser;
+    // those stages are not zeroized (IPC buffer is outside our control). This is
+    // documented as a best-effort mitigation, not a full guarantee.
     if data.len() < 12 {
         bail!("ciphertext too short");
     }
@@ -284,9 +312,10 @@ fn aes_gcm_decrypt(key: &[u8; 32], mut data: Vec<u8>) -> Result<Vec<u8>> {
 
     let cipher = Aes256Gcm::new(key.into());
     let nonce = Nonce::from_slice(&nonce_bytes);
-    cipher
+    let plaintext = cipher
         .decrypt(nonce, ct.as_ref())
-        .map_err(|_| anyhow::anyhow!("AES-GCM decrypt failed — wrong key or corrupted bundle"))
+        .map_err(|_| anyhow::anyhow!("AES-GCM decrypt failed — wrong key or corrupted bundle"))?;
+    Ok(zeroize::Zeroizing::new(plaintext))
 }
 
 fn gzip_compress(data: &[u8]) -> Result<Vec<u8>> {
@@ -391,54 +420,32 @@ pub fn get_or_init_master_key(db: &crate::db::Db) -> Result<[u8; 32]> {
 
 #[cfg(target_os = "macos")]
 fn macos_keychain_read() -> Option<[u8; 32]> {
-    use std::process::Command;
-    let out = Command::new("security")
-        .args([
-            "find-generic-password",
-            "-s",
-            "com.ansel-s.diatom.masterkey",
-            "-w",
-        ])
-        .output()
-        .ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let hex = String::from_utf8(out.stdout).ok()?;
-    let mut bytes = hex::decode(hex.trim()).ok()?;
+    // [FIX-KEYCHAIN] Use Security framework directly instead of spawning the
+    // `security` CLI. Benefits:
+    //   • No subprocess — avoids IPC roundtrip and PATH dependency
+    //   • Key returned as &[u8] borrow (no intermediate String copies)
+    //   • Consistent with windows_dpapi_read() which also calls native API
+    use security_framework::passwords::get_generic_password;
+    let bytes = get_generic_password("com.ansel-s.diatom", "com.ansel-s.diatom.masterkey").ok()?;
     if bytes.len() != 32 {
+        tracing::warn!("keychain: master key has unexpected length {}", bytes.len());
         return None;
     }
     let mut arr = [0u8; 32];
     arr.copy_from_slice(&bytes);
-    bytes.zeroize();
+    // bytes is a Vec<u8> returned by the framework — zeroize before drop
+    let mut b = bytes;
+    b.zeroize();
     Some(arr)
 }
 
 #[cfg(target_os = "macos")]
 fn macos_keychain_write(key: &[u8; 32]) -> bool {
-    use std::process::Command;
-    let hex_key = hex::encode(key);
-    let _ = Command::new("security")
-        .args([
-            "delete-generic-password",
-            "-s",
-            "com.ansel-s.diatom.masterkey",
-        ])
-        .output();
-    Command::new("security")
-        .args([
-            "add-generic-password",
-            "-s",
-            "com.ansel-s.diatom.masterkey",
-            "-a",
-            "diatom",
-            "-w",
-            &hex_key,
-        ])
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+    // [FIX-KEYCHAIN] Use Security framework API directly
+    use security_framework::passwords::{delete_generic_password, set_generic_password};
+    // Delete existing entry first (ignore error if not found)
+    let _ = delete_generic_password("com.ansel-s.diatom", "com.ansel-s.diatom.masterkey");
+    set_generic_password("com.ansel-s.diatom", "com.ansel-s.diatom.masterkey", key).is_ok()
 }
 
 // ── Windows DPAPI ─────────────────────────────────────────────────────────────

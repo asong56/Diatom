@@ -55,7 +55,8 @@ impl Tab {
             title: String::new(),
             sleep: SleepState::Awake,
             zram: None,
-            mem_weight: 80 * 1024 * 1024, // default 80 MB estimate
+            // [FIX-06] 150 MB is a more realistic starting estimate
+            mem_weight: 150 * 1024 * 1024,
             last_active: crate::db::unix_now(),
         }
     }
@@ -202,7 +203,7 @@ impl TabStore {
             .map(|t| t.mem_weight)
             .collect();
         if awake.is_empty() {
-            return 80 * 1024 * 1024;
+            return 150 * 1024 * 1024; // [FIX-06] conservative default
         }
         awake.iter().sum::<u64>() / awake.len() as u64
     }

@@ -38,7 +38,11 @@ let THREAT_SET = new Set();
 // DOM crusher rules per domain: Map<domain, selector[]>
 let CRUSHER_RULES = new Map();
 
-const DIATOM_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+// [FIX-S4] DIATOM_UA is now dynamic — updated by main thread after Sentinel populates.
+// Falls back to a reasonable static UA until the first CONFIG message arrives.
+// The main thread sends { type: 'CONFIG', config: { synthesised_ua: '...' } }
+// after boot() completes.
+let DIATOM_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/619.1.26 (KHTML, like Gecko) Version/18.0 Safari/619.1.26';
 
 const bc = new BroadcastChannel('diatom:sw');
 const devnetBC = new BroadcastChannel('diatom:devnet');
@@ -51,6 +55,10 @@ bc.addEventListener('message', e => {
   switch (msg.type) {
     case 'CONFIG':
       Object.assign(CONFIG, msg.config);
+      // [FIX-S4] Update UA when Sentinel provides a fresh synthesised string
+      if (msg.config?.synthesised_ua) {
+        DIATOM_UA = msg.config.synthesised_ua;
+      }
       break;
     case 'ZEN':
       CONFIG.zen_active = !!msg.active;

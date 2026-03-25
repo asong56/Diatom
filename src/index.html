@@ -1,10 +1,26 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Diatom</title>
+  <link rel="stylesheet" href="/fonts.css">
   <link rel="stylesheet" href="/diatom.css">
+  <!-- ① Honour system dark-mode preference before first paint (P1 fix) -->
+  <script>
+    (function () {
+      var stored = localStorage.getItem('diatom-theme');
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var theme = stored || (prefersDark ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+      // Keep in sync when system theme changes at runtime
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+        if (!localStorage.getItem('diatom-theme')) {
+          document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+        }
+      });
+    })();
+  </script>
 </head>
 <body>
 
@@ -55,7 +71,21 @@
     <!-- New tab page (shown when webview is about:blank) -->
     <div id="new-tab-page" hidden>
       <div class="ntp-inner">
-        <div class="ntp-logo" aria-hidden="true">⬡</div>
+        <!-- ② Inline SVG hex logo — replaces Unicode ⬡ for cross-platform consistency -->
+        <div class="ntp-logo" aria-hidden="true">
+          <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <polygon
+              points="26,2 48,14 48,38 26,50 4,38 4,14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linejoin="round"/>
+            <polygon
+              points="26,10 40,18 40,34 26,42 12,34 12,18"
+              fill="currentColor"
+              opacity="0.08"/>
+          </svg>
+        </div>
         <p class="ntp-tagline">Nothing shared. Nothing tracked.</p>
         <input class="ntp-search"
                type="text"

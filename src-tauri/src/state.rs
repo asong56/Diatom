@@ -19,6 +19,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex, RwLock, atomic::AtomicBool},
 };
+use tokio::sync::Mutex as AsyncMutex;
 
 pub struct AppState {
     pub db: Db,
@@ -43,6 +44,9 @@ pub struct AppState {
     pub tab_budget_cfg: Mutex<TabBudgetConfig>,
     pub screen_width_px: Mutex<u32>,
     pub slm_shutdown: Mutex<Option<Arc<AtomicBool>>>,
+    /// [FIX-SLM-CACHE] Cached SlmServer — initialised once per session,
+    /// cleared when backend changes (cmd_slm_reset) or privacy_mode toggles.
+    pub slm_cache: AsyncMutex<Option<Arc<crate::slm::SlmServer>>>,
 
     pub sentinel: Mutex<SentinelCache>,
 
@@ -118,6 +122,7 @@ impl AppState {
             tab_budget_cfg: Mutex::new(tab_budget_cfg),
             screen_width_px: Mutex::new(1440),
             slm_shutdown: Mutex::new(None),
+            slm_cache: AsyncMutex::new(None),
             sentinel: Mutex::new(sentinel),
             platform,
             decoy: Mutex::new(DecoyState::default()),
@@ -160,8 +165,28 @@ impl AppState {
         self.data_dir.join("bundles")
     }
 
-    pub fn master_key(&self) -> [u8; 32] {
-        *self.master_key.lock().unwrap()
+    /// Returns a copy of the master key.
+    /// Callers are responsible for zeroizing the returned value after use.
+    /// Prefer `with_master_key` for operations that can be scoped.
+    pub fn master_key(&self) -> zeroize::Zeroizing<[u8; 32]> {
+        // [FIX-MASTERKEY] Wrap in Zeroizing so the copy is cleared on drop.
+        zeroize::Zeroizing::new(*self.master_key.lock().unwrap())
+    }
+
+    /// Execute `f` with the master key, releasing the Mutex before calling `f`.
+    ///
+    /// The key is copied into a `Zeroizing` wrapper (cleared on drop) and the
+    /// Mutex guard is dropped immediately — so lengthy operations (gzip, AES)
+    /// inside `f` do not block other threads from reading the master key.
+    pub fn with_master_key<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&[u8; 32]) -> R,
+    {
+        // Copy key into Zeroizing wrapper, then drop the guard before calling f.
+        // This prevents the Mutex from being held during potentially slow crypto ops.
+        let key = zeroize::Zeroizing::new(*self.master_key.lock().unwrap());
+        f(&*key)
+        // key is Zeroizing-dropped here, clearing the stack copy
     }
 
     /// [FIX-08-ua] Returns a live dynamic UA when Sentinel is fresh and active,

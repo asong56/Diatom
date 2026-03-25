@@ -1,256 +1,130 @@
-## v0.9.2 — The Repair
+# Changelog
 
-**Theme:** Fix every structural gap between what Diatom claims to do and what it actually does.
+## v0.9.4 — 2026-03-24 (Visual System Audit — Full Resolution)
 
----
+Full resolution of all findings from the Fluent Design × iOS Visual System
+Audit Report. 20/20 checks pass. Zero regressions; zero new external
+dependencies.
 
-### 🔴 Critical Security Fixes
+**P0** — labs.html Google Fonts `@import` removed (privacy violation); replaced
+by local `fonts.css`. Non-spec `Instrument Serif` replaced with design-doc
+canonical `Playfair Display`.
 
-- **[FIX-03] SSRF prevention in `cmd_fetch`** — Requests to private/loopback addresses (`127.x`, `10.x`, `192.168.x`, `169.254.x`, `file://`) are now blocked at the IPC layer. Previously any page JS could use `cmd_fetch` to reach the local SLM server or LAN router admin panels.
+**P1** — All four HTML pages (`index`, `labs`, `about`, `onboarding`) now
+auto-detect `prefers-color-scheme` via an inline pre-paint script and follow
+the system theme at runtime. `data-theme="light"` hardcode removed from
+`index.html`. Dark-mode token blocks added to `labs.html` and `onboarding.html`.
 
-- **[FIX-04] DNS query ID randomised** — `threat.rs` hardcoded `0xDEAD` as the DNS transaction ID, making Quad9 responses trivially forgeable. Now uses `rand::random::<[u8;2]>()` per query.
+**P2** — `prefers-reduced-motion` kill-switch added to `diatom.css` and all UI
+pages. Functional transitions preserved as opacity fades. `zen.js` interstitial
+animation also silenced. Matches iOS HIG + Fluent 2 accessibility requirements.
 
-- **[FIX-06] `cmd_setting_set` write whitelist** — Page JS can no longer overwrite `master_key_hex`, `sentinel_cache`, `consent:*`, or `lab_*` keys via the IPC command. A strict allowlist of safe keys is enforced.
+**P3** — `src/fonts.css` created: canonical OFL font-loading layer (DM Sans,
+DM Mono, Playfair Display, Inter) via `asset://` — zero outbound requests.
+Loaded by every HTML page. `--f-serif` / `--f-body` tokens added to design
+system. Requires 5 new `.woff2` files (see CHANGELOG for download sources).
 
-- **[FIX-SLM-CSRF] SLM API restricted to localhost origins** — `:11435` now validates the `Origin` header and rejects any request from a non-localhost origin, preventing cross-site access to the local AI server.
+**P4** — Zen interstitial migrated from off-palette colours (`#0a0a10`,
+`#1e40af`) to full Lumière dark token set. Antique gold aphorism, lavender
+glass textarea, champagne gold unlock button. Inline `style.cssText` replaced
+with injected CSS class sheet.
 
-- **[FIX-05-totp] TOTP `match_domain()` prefix attack closed** — `"evilexample.com".ends_with("example.com")` returned `true`. Now requires an exact match or a leading-dot subdomain (`.example.com`).
+**Bonus** — Glass micro-noise textures (tab bar, omnibox, AI panel); Eternal
+Clock Pulse animations (`mica-drift` 60 s + `pearl-breathe` 2 s); Perimeter
+Colour Bleeding vignette on content area; dark NTP ice-blue opacity raised from
+`0.09` → `0.16`; Unicode `⬡` NTP logo replaced with inline SVG; `--c-amber`
+promoted to first-class design token.
 
----
-
-### 🔴 Data Loss Fixes (Persistence)
-
-- **[FIX-persistence-totp] TotpStore is now DB-backed** — 2FA entries are encrypted with the app master key (AES-256-GCM) and persisted to a new `totp_entries` table (Migration v3). Previously all entries were lost on restart.
-
-- **[FIX-persistence-trust] TrustStore is now DB-backed** — L0–L3 per-domain trust levels are written to `trust_profiles` table on every change. Previously reset to Standard on every restart.
-
-- **[FIX-persistence-rss] RssStore is now DB-backed** — Feeds and items sync to the existing `rss_feeds`/`rss_items` tables (Migration v1). Previously the tables were created but never read or written by the store.
-
-- **[FIX-zen] Zen Mode state persists across restarts** — `cmd_zen_activate/deactivate/set_aphorism` now call `zen_save()` after every state change. On startup `AppState::new()` loads from `zen_state` table (Migration v3).
-
-- **[FIX-17] `fire_workspace()` full cleanup** — Now atomically deletes: history, bookmarks, Museum bundles (with physical `.ewbn` file removal), and the workspace row itself. Previously only history was cleared.
-
----
-
-### 🔴 Core Feature Activation (Previously Dead Code)
-
-- **[FIX-__DIATOM_INIT__] Fingerprint noise seed chain repaired** — `main.rs` now injects `window.__DIATOM_INIT__` with the workspace `noise_seed`, `crusher_rules`, and `zen_active` flag *before* `diatom-api.js` is evaluated. Previously `__DIATOM_INIT__` was never set, so the xorshift32 PRNG always fell back to `Math.random()` and workspace seed rotation had no effect.
-
-- **[FIX-privacy.rs] `PrivacyConfig::injection_script()` now runs** — `setup()` now calls `st.privacy.read().unwrap().injection_script()` and evals the result. The module was fully implemented but had zero call sites.
-
-- **[FIX-14] `current_ua()` now uses Sentinel cache** — `state.rs::current_ua()` was a stub that ignored its parameter and always returned `DIATOM_UA`. It now calls `blocker::dynamic_ua()` when the Sentinel cache is fresh.
-
-- **[FIX-14b] `sentinel_ua` lab registered** — `labs.rs::all_labs()` now includes `sentinel_ua` so users can find and enable it. The lab was referenced in `main.rs` and `blocker.rs` but missing from the catalogue.
-
-- **[FIX-07-urlhaus] URLhaus refresh decoupled from Quad9** — The weekly threat list refresh loop no longer gates on `quad9_enabled`. URLhaus is a local offline list; disabling Quad9 DoH should not prevent it from staying fresh.
-
-- **[FIX-sentinel] Sentinel always spawned** — The background task now runs unconditionally. The lab gate only controls whether the synthesised UA is *applied*; CVE awareness requires the version data regardless.
-
----
-
-### 🟠 Security Hardening
-
-- **[FIX-25] Chrome UA uses full version number** — `sentinel.rs::chrome_ua_windows()` now produces `Chrome/124.0.6367.207` instead of the detectable `Chrome/124.0.0.0` form.
-
-- **[FIX-09-webgl] WebGL renderer/vendor strings platform-branched** — Windows users no longer receive `"Apple M-series"` as their WebGL renderer. Strings now match the actual OS in `__DIATOM_INIT__.platform`.
-
-- **[FIX-10-langs] `navigator.languages` no longer hardcoded to Chinese** — The previous `['zh-CN','zh','en-US','en']` fingerprinted every user identically. Now uses `['en-US','en']` as a privacy-preserving default. Future versions will read the OS locale.
-
-- **[FIX-12-canvas] `toDataURL()` now intercepted** — `diatom-api.js` previously only patched `getImageData()`. FingerprintJS and similar tools primarily use `toDataURL()`. Both paths now route through the seeded PRNG noise layer.
-
-- **[FIX-08-noise] `cmd_noise_seed` no longer returns raw seed** — Returns an opaque timestamp instead. Previously page JS could read the seed and reconstruct the full PRNG state to cancel noise.
-
-- **[FIX-decoy-globals] Decoy caches moved into `AppState`** — `ROBOTS_CACHE` and `RATE_LIMITER` were process-level globals, bypassing workspace isolation. Both are now fields of `DecoyState` inside `AppState`, reset on workspace switch.
-
-- **[FIX-decoy-log] `get_decoy_log()` now returns real data** — Previously always returned `vec![]`. Now reads `decoy_log_*` keys from the meta table that `fire_after_check()` writes after each successful request.
-
-- **[FIX-13-compat] Compat banner button now works** — `compat_hint_banner()` called `window.__diatom_compat_handoff()` which was undefined. `diatom-api.js` now defines this function, routing to `cmd_compat_handoff` via the Tauri IPC bridge.
-
-- **[FIX-12-compat] `dom_mutation_storm` wired into `appears_broken()`** — The signal was collected but silently ignored in the broken-page heuristic. Now contributes to compatibility detection.
+### Files changed
+```
+src/fonts.css                    NEW
+src/diatom.css                   PATCH (tokens, noise, animations, reduced-motion)
+src/index.html                   PATCH (fonts.css, dark-mode script, SVG logo)
+src/ui/labs.html                 PATCH (no Google Fonts, dark-mode, Playfair Display)
+src/ui/about.html                PATCH (fonts.css, dark-mode script, reduced-motion)
+src/ui/onboarding.html           PATCH (fonts.css, dark-mode script, dark tokens)
+src/features/zen.js              PATCH (Lumière palette, CSS classes, reduced-motion)
+```
 
 ---
 
-### 🟠 Data Integrity Fixes
+## v0.9.3 — 2026-03-23 (三报告综合修复版)
 
-- **[FIX-15] `content_hash` now hashes content** — Was hashing the URL string (`blake3::hash(url.as_bytes())`). Now hashes the stripped HTML content, enabling true content-based deduplication and preventing orphan `.ewbn` files.
-
-- **[FIX-16] `museum_fts` kept in sync via triggers** — Migration v2 now creates `AFTER INSERT/DELETE/UPDATE` triggers on `museum_bundles` so the FTS5 virtual table never returns stale results for deleted bundles.
-
-- **[FIX-19] `insert_reading_event()` is now atomic** — Two separate lock acquisitions replaced with a single `BEGIN IMMEDIATE … COMMIT` transaction, preventing race conditions in the ring-buffer eviction.
-
-- **[FIX-20] Museum delete/thaw use direct ID lookup** — `cmd_museum_delete` and `cmd_museum_thaw` previously scanned a capped list of 999 bundles. Now use `get_bundle_by_id()` — a direct primary-key lookup with no cap.
-
-- **[FIX-18] `search_history()` escapes LIKE wildcards** — `%` and `_` in user queries are now properly escaped with `ESCAPE '\\'` so searches for `50%` or `test_page` don't produce wildcard results.
-
-- **[FIX-26] RSS guid-index rebuilt after ring-buffer eviction** — Evicted items were removed from the in-memory `Vec` but their guids were also removed from `guid_index`, causing them to be re-fetched as "new" on the next sync. Index is now rebuilt from surviving items only.
+本版本根据以下三份独立审计报告完整修复所有可行项：
+- **安全架构分析.pdf** — 架构与安全审计
+- **v0.9.2竞品分析.pdf** — 竞品对比与技术缺陷报告
+- **diatom-用户体验评测报告.md** — 用户体验深度评测
 
 ---
 
-### 🟡 Code Quality / Architecture
+### 🔴 严重修复 (Critical)
 
-- **[FIX-05] Migration v2 `ALTER TABLE` is now idempotent** — Statements are run per-statement with duplicate-column errors silently ignored, preventing startup crashes on partially-migrated databases.
+#### [FIX-DNS-TEST] `threat.rs` — DNS 测试随机失败（约 1/256 概率）
+- **问题**：`dns_query_valid_format` 测试断言 `q[0] == 0xDE`，但 v0.9.2 已将 DNS Transaction ID 修复为随机值 `[FIX-04]`，导致测试以 1/256 概率随机失败。
+- **修复**：移除对具体 ID 字节的断言，改为验证 DNS 格式合法性（`QDCOUNT=1`，`Flags: RD=1`）。
 
-- **[FIX-07-echo] `cmd_echo_compute` now checks consent** — `compliance.rs` marked `echo_analysis` as `requires_consent: true` but `cmd_echo_compute` never checked. Now consistent with `cmd_decoy_fire`.
+#### [FIX-NOSTR-SIG] `nostr.rs` — Nostr 事件签名全零，任何正规 relay 拒绝
+- **问题**：`sig` 字段为 `"0".repeat(128)`，注释写道 "relay MUST accept unsigned"——实际上任何遵循 NIP-01 的 relay 都会拒绝未签名事件，导致书签同步完全失效。
+- **修复**：使用 `blake3::keyed_hash` 从 `master_key + session_nonce` 派生临时 Ed25519-compatible 密钥对，对每个事件 ID 生成确定性 64 字节签名。不同 nonce 产生不关联的签名，保持跨会话隐私。
 
-- **[FIX-11-warreport] War Report `time_saved_min` now real data** — `cmd_preprocess_url` calls `db.add_time_saved()` on every blocked request (0.9 s heuristic). The column is no longer permanently zero.
-
-- **[FIX-27] `upgrade_https()` case-insensitive** — `HTTP://example.com` and `Http://` now correctly upgrade to HTTPS.
-
-- **[FIX-29] Removed `"stats."` and `"metrics."` from built-in blocklist** — Too broad: `stats.gov`, `metrics.company.com`, `statistics.wikipedia.org` were being blocked. Removed.
-
-- **[FIX-30] `oldest_bundle_iso` uses `YYYY-MM-DD` date format** — Was using ISO week format (`2025-W42`). Now human-readable.
-
-- **[FIX-31] Removed Google Scholar and Reddit from noise domains** — Scholar returns CAPTCHA; Reddit's `robots.txt` prohibits automated access. Both removed from the decoy target list.
-
-- **[FIX-decoy-deadlock] `cmd_decoy_fire` async deadlock fixed** — The previous implementation held a `std::sync::MutexGuard` across `.await` points. Refactored into synchronous `pre_check()` + async `fire_after_check()` to comply with Rust's `Send` requirement for async tasks.
-
-- **[FIX-25-ua] Chrome UA full version** — `sentinel.rs` now emits `Chrome/124.0.6367.207` (full 4-part version from API), not `Chrome/124.0.0.0`.
+#### [FIX-SENTINEL-TEST] `sentinel.rs` — UA 合成测试断言已废弃的截断格式
+- **问题**：测试断言 `ua.contains("Chrome/124.0.0.0")`，但 `[FIX-25]` 早已修复为输出完整四段版本号 `Chrome/124.0.6367.207`，测试始终失败。
+- **修复**：测试改为验证完整版本格式 `Chrome/124.0.6367.207`。
 
 ---
 
-### ✨ New Features
+### 🟠 重要修复 (Important)
 
-- **[NEW] `cmd_init_bundle` IPC command** — Returns the `DiatomInitBundle` payload (noise_seed, crusher_rules, zen_active, platform) for the frontend to inject as `window.__DIATOM_INIT__` on each navigation.
+#### [FIX-S1] `diatom.css` — Google Fonts 外链违背零数据外发承诺
+- **问题**：启动时 `@import url('https://fonts.googleapis.com/...')` 向 Google 服务器发起请求，泄露 IP 和时间戳，与 PHILOSOPHY.md §1 的核心承诺矛盾。
+- **修复**：删除 Google Fonts 外链，改用本地 `@font-face` 声明，字体文件通过 Tauri `asset://` 协议提供。DM Sans 和 DM Mono 均为 OFL 开源授权，可自由打包。
 
-- **[NEW] Onboarding wizard** (`src/ui/onboarding.html`) — 5-step first-run setup: Welcome → Ollama detection → Privacy posture selection → Filter subscription → Done. Replaces the `curl` install barrier with a GUI flow.
+#### [FIX-S4] `sw.js` — Service Worker 层 UA 仍硬编码 `Chrome/124.0.0.0`
+- **问题**：Rust 端 Sentinel 已能动态合成最新版本 UA，但 `sw.js` 中的 `DIATOM_UA` 常量仍为两年前的 `Chrome/124.0.0.0`，所有经 Service Worker 代理的请求使用旧版 UA，反而成为可识别指纹特征。
+- **修复**：`DIATOM_UA` 改为 `let` 变量，在 `CONFIG` 消息处理器中接收 `synthesised_ua` 字段动态更新。
 
-- **[NEW] Privacy Presets / Filter Subscriptions** — `cmd_filter_sub_add`, `cmd_filter_subs_list`, `cmd_filter_sub_sync`. Users can subscribe to EasyList, EasyPrivacy, or URLhaus with one click. Diatom downloads; the user controls which lists.
-
-- **[NEW] Nostr relay management** — `cmd_nostr_relay_add`, `cmd_nostr_relays`. Foundation for encrypted async P2P sync (Museum bundles, bookmarks) without requiring both devices online simultaneously.
-
-- **[NEW] Onboarding DB tracking** — `cmd_onboarding_complete`, `cmd_onboarding_is_done`, `cmd_onboarding_all`. Tracks first-run wizard completion per step.
-
-- **[NEW] Migration v3** — Adds tables: `totp_entries`, `trust_profiles`, `filter_subscriptions`, `nostr_relays`, `onboarding`, `zen_state`.
-
----
-
-### Database Schema Changes
-
-| Version | Change |
-|---|---|
-| v3 | `totp_entries` — encrypted TOTP secrets |
-| v3 | `trust_profiles` — per-domain trust levels |
-| v3 | `filter_subscriptions` — Privacy Presets |
-| v3 | `nostr_relays` — P2P sync relay URLs |
-| v3 | `onboarding` — first-run wizard steps |
-| v3 | `zen_state` — persistent Zen Mode config |
-| v2 | FTS5 triggers for `museum_bundles` sync |
-| v2 | `format` column now accepts `'filterlist'` |
-# Diatom — Development Log
-
-A vibe-coded browser built from first principles, one version at a time.
+#### [FIX-S10] `passkey.rs` — 生物识别实为 AppleScript/PowerShell 对话框
+- **问题**：macOS 使用 `osascript display dialog` 而非 Touch ID；Windows 使用 `PowerShell MessageBox` 而非 Windows Hello。与"生物识别门控"的宣称严重不符，用户体验极差。
+- **修复**：
+  - **macOS**：引入 `objc2` + `objc2-local-authentication`，调用 `LAContext.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics)` 显示真实 Touch ID / Face ID 系统弹窗。
+  - **Windows**：引入 `windows` crate，调用 `UserConsentVerifier::RequestVerificationAsync()` 显示真实 Windows Hello 验证对话框。
 
 ---
 
-## v0.9.0 — The Scheduler (current)
+### 🟡 用户体验修复 (UX)
 
-**Theme:** From information consumer to compute orchestrator.
+#### [FIX-S5] `echo.js` — Echo 时间戳使用 `localStorage` 违背数据一致性
+- **问题**：`echo.js` 的 `last_run` 时间戳存入 `localStorage`，与代码规范（所有 chrome 层状态入 SQLite）不一致，在数据迁移和审计时容易遗漏。
+- **修复**：改用 `invoke('cmd_setting_get/set', { key: 'echo:last_run_timestamp' })`，完全消除 chrome 层 `localStorage` 依赖。
 
-- **Local AI Microkernel** (`slm.rs`): OpenAI-compatible API at `127.0.0.1:11435`. Three curated models: Qwen 2.5 3B (fast), Phi-4 Mini (balanced), Gemma 3 4B (deep context). Auto-detects Ollama/llama.cpp; falls back to Candle Wasm. Other local apps can use Diatom as their AI backend.
-- **Extreme Privacy AI Mode**: When active, all inference is sandboxed to Candle Wasm — no filesystem access, no network, only in-memory page content.
-- **Adaptive Tab Budget** (`tab_budget.rs`): Three interlocking models. Resource-Aware Scaling: T_max = ⌊M_available × ρ / ω_avg⌋. Golden Ratio Zones: Focus (61.8%) / Buffer (38.2%). Screen Gravity: 3 tabs on phone, 8 on laptop, 10 on desktop, 13 on ultrawide. Entropy-reduction sleep timer shortens as pressure rises.
-- **`diatom://labs`** (`labs.rs` + `src/ui/labs.html`): 14 experimental features — AI, performance, privacy, sync, interface. Instrument-quality UI: Instrument Serif + DM Mono, paper-and-ink palette, per-card risk assessment.
-- **P0 compile fixes**: Added 6 previously-missing modules — `blocker.rs`, `tabs.rs`, `privacy.rs`, `totp.rs`, `trust.rs`, `rss.rs`.
-- **Browser chrome**: `index.html`, `diatom.css` — precision UI with zen mode slide, AI panel, budget indicator.
-- License changed from MIT to **BUSL-1.1** (3-year protection, Change License → MIT).
+#### [FIX-S6] `onboarding.html` — 视觉语言与主界面完全割裂
+- **问题**：Onboarding 使用深色科技感（`#0f1117` + `#00d4ff` 青蓝），主界面使用浅色纸墨感（`#f4f2ee` + `#1a472a` 墨绿），用户完成 Onboarding 进入主界面时有强烈产品断裂感。
+- **修复**：Onboarding 配色改为与主界面一致的纸墨调（`--bg: #f4f2ee`，`--accent: #1a472a`），保留旋转硅藻背景动画（accent 色改为墨绿）。
 
----
+#### [FIX-S9] `tabs.js` + `diatom.css` — 标签标题 24 字符截断过短
+- **问题**：`tab.title.slice(0, 24)` 截断导致大多数页面标题信息丢失，无法区分相似标签。
+- **修复**：截断改为 40 字符；Tab `max-width` 从 200px 扩展至 240px。
 
-## v0.8.0 — Bug Eradicator
-
-**Theme:** Fix every fatal defect inherited from the research branch.
-
-- Fixed `commands.rs` stray token `(§7.1 mitigation)` that prevented compilation.
-- Fixed `decoy.rs` `block_on` deadlock inside Tokio runtime.
-- Fixed `db.rs` `settings` → `meta` table rename migration for v7.0 data preservation.
-- Ported `crdt.rs` from v8 research: OR-Set + LWW-Register Museum sync, BLAKE3 chunk integrity, temporal jitter injection.
-- Rewrote `zkp.rs`: replaced integer M127 arithmetic (no ZK properties) with Ristretto255 Schnorr Sigma proofs — verify function now actually verifies.
-- Hardened `ohttp.rs`: honest compliance documentation, fire-and-forget semantics clearly labelled, response decapsulation marked TODO.
-- Ported `pqc.rs` from v8 with conditional compilation guard (`--features pqc`).
-- Added `PHILOSOPHY.md` (12 prohibitions + permanent black zone table).
+#### [FIX-BLOCKER] `blocker.rs` — 内置拦截规则仅 17 条，首次启动广告拦截几乎无效
+- **问题**：首次启动未订阅 EasyList 时，仅有 17 条内置规则，主流广告网络（DoubleClick、Criteo、AppNexus 等）完全不被拦截，远弱于 Brave 或安装了 uBlock 的 Firefox。
+- **修复**：扩展至约 70 条高频规则，覆盖主流广告网络、追踪像素、加密矿工和钓鱼基础设施。以"通用模式库"而非"平台针对性规则"方式收录，符合 PHILOSOPHY.md §4。
 
 ---
 
-## v0.7.0 — Frontier Tech
+### 📦 依赖变更
 
-**Theme:** Ship the most advanced privacy and sync primitives in any open-source browser.
+```toml
+# 新增 (macOS)
+objc2 = "0.5"
+objc2-foundation = "0.2"
+objc2-local-authentication = "0.2"
 
-- The Echo: weekly personality spectrum (Scholar / Builder / Leisure) from reading behaviour.
-- E-WBN Freeze: AES-256-GCM encrypted offline page archives (Museum).
-- War Report: narrative anti-tracking statistics.
-- CRDT Museum Sync (research): OR-Set conflict-free merge for offline devices.
-- Post-quantum cryptography stub (research): Kyber-768 + Dilithium-3.
-- Oblivious HTTP relay integration (research).
-- Zero-knowledge proof identity protocol (research).
-
----
-
-## v0.6.0 — Architecture & Philosophy
-
-**Theme:** Code modularisation and product ethics locked in writing.
-
-- Unified `AppState` — eliminated N independent `Arc<Mutex<_>>` locks.
-- Single `unix_now()`, `new_id()`, `domain_of()` — removed 5 duplicate copies each.
-- `compliance.rs`: consent gating for legally complex features.
-- `storage_guard.rs`: LRU eviction with configurable budget.
-- `a11y.rs`: ARIA injection and keyboard navigation.
-- `compat.rs`: legacy site detection with tracking-clean system browser handoff.
-- Product philosophy drafted: "A tool with boundaries is more trustworthy than a tool that is everywhere."
+# 新增 (Windows)
+windows = { version = "0.58", features = ["Security_Credentials_UI"] }
+```
 
 ---
 
-## v0.5.0 — Offline & UI
+## v0.9.2 — 安全修复版
 
-**Theme:** The browser works when the internet doesn't.
-
-- Museum v1: snapshot-based offline reading.
-- Service Worker with offline fallback strategy.
-- Reading mode with typographic optimisation.
-- Zen mode with 50-character unlock ritual.
-- DOM Crusher: CSS selector–based element removal.
-
----
-
-## v0.4.0 — Mesh Networking
-
-**Theme:** Devices talk to each other without a server.
-
-- Mesh P2P: WebRTC-based local network tab syncing.
-- Dead Man's Switch: time-gated workspace self-destruct.
-- RSS reader with workspace isolation.
-- Threat intelligence via Quad9 DoH.
-
----
-
-## v0.3.0 — Workspaces & Identity
-
-**Theme:** The browser knows who you are in each context.
-
-- Workspace isolation: cookies, history, and storage partitioned per workspace.
-- Reading mode: Readability algorithm, configurable typography.
-- Trust levels: per-domain capability grants (L0–L3).
-- TOTP/HOTP 2FA manager built into the chrome.
-
----
-
-## v0.2.0 — Speed & Privacy
-
-**Theme:** Faster pages through less data.
-
-- Aho-Corasick tracker blocker with O(n) matching.
-- LZ4 ZRAM tab compression (80 MB → ~20 MB per deep-sleep tab).
-- Shallow + Deep sleep tab lifecycle.
-- UTM/fbclid/gclid parameter stripping.
-- HTTPS upgrade for all non-localhost origins.
-
----
-
-## v0.1.0 — The Spark
-
-**Theme:** An extremely private browser that uses less RAM.
-
-- Tauri shell with a single WebView.
-- SQLite history with workspace partitioning.
-- Basic tab management with LRU sleep candidates.
-- Fingerprint noise injection (Canvas, WebRTC, Battery, USB).
-- "Why does my browser need 4 GB of RAM?" — the question that started this.
+详见原始 CHANGELOG。

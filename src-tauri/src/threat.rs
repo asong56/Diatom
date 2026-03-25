@@ -378,8 +378,10 @@ mod tests {
     #[test]
     fn dns_query_valid_format() {
         let q = build_dns_query("example.com").unwrap();
-        assert!(q.len() > 12);
-        assert_eq!(q[0], 0xDE);
+        assert!(q.len() > 12, "DNS query must be > 12 bytes");
+        // Don't assert specific ID bytes — they're random per [FIX-04]
+        assert_eq!(&q[4..6], &[0x00, 0x01], "QDCOUNT must be 1");
+        assert_eq!(&q[2..4], &[0x01, 0x00], "Flags: RD=1");
     }
 
     #[test]

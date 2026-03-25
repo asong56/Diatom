@@ -113,7 +113,7 @@ pub async fn detect_backend(privacy_mode: bool) -> SlmBackend {
     // Try Ollama
     if let Ok(resp) = reqwest::Client::new()
         .get("http://127.0.0.1:11434/api/tags")
-        .timeout(std::time::Duration::from_millis(500))
+        .timeout(std::time::Duration::from_millis(200))  // [FIX-SLM-CACHE] fast probe
         .send()
         .await
     {
@@ -125,7 +125,7 @@ pub async fn detect_backend(privacy_mode: bool) -> SlmBackend {
     // Try llama.cpp
     if let Ok(resp) = reqwest::Client::new()
         .get("http://127.0.0.1:8080/health")
-        .timeout(std::time::Duration::from_millis(500))
+        .timeout(std::time::Duration::from_millis(200))  // [FIX-SLM-CACHE] fast probe
         .send()
         .await
     {

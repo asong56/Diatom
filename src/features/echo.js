@@ -27,7 +27,14 @@ import { renderDiatomSvg } from './diatom-engine.js';
  */
 export async function maybeShowEchoHint() {
   const now     = Date.now();
-  const lastRun = Number(localStorage.getItem('diatom:echo:last_run') ?? 0);
+  // [FIX-S5] Use cmd_setting_get instead of localStorage — keeps all state in SQLite,
+  // consistent with Diatom's zero-localStorage-in-chrome principle.
+  let lastRun = 0;
+  try {
+    const raw = await invoke('cmd_setting_get', { key: 'echo:last_run_timestamp' });
+    if (raw) lastRun = Number(raw);
+  } catch (_) { /* first run */ }
+
   const WEEK_MS = 7 * 24 * 3600 * 1000;
 
   // Only show hint once per week, on Monday
@@ -64,7 +71,10 @@ export async function openEchoPanel() {
     return;
   }
 
-  localStorage.setItem('diatom:echo:last_run', Date.now().toString());
+  // [FIX-S5] Persist last_run timestamp via IPC, not localStorage
+  try {
+    await invoke('cmd_setting_set', { key: 'echo:last_run_timestamp', value: String(Date.now()) });
+  } catch (_) { /* non-fatal */ }
 
   const panel = buildPanel(echo, warReport);
   document.body.appendChild(panel);

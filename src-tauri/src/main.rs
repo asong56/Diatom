@@ -41,6 +41,8 @@ mod threat;
 mod totp;
 mod trust;
 mod utils;
+mod nostr;
+mod passkey;
 mod war_report;
 mod zen;
 
@@ -154,6 +156,7 @@ fn main() {
             commands::cmd_slm_models,
             commands::cmd_slm_set_model,
             commands::cmd_slm_server_toggle,
+            commands::cmd_slm_reset,
             // ── Sentinel ──────────────────────────────────────────────────────
             commands::cmd_sentinel_status,
             commands::cmd_sentinel_refresh,
@@ -170,6 +173,9 @@ fn main() {
             // ── Nostr relay management [NEW] ──────────────────────────────────
             commands::cmd_nostr_relay_add,
             commands::cmd_nostr_relays,
+            commands::cmd_nostr_sync_bookmarks,
+            commands::cmd_local_auth,
+            commands::cmd_biometric_available,
         ])
         .run(tauri::generate_context!())
         .expect("Diatom failed to start");
