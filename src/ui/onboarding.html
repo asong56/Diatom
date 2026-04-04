@@ -353,10 +353,44 @@
       <span id="ollama-text">Checking for Ollama…</span>
       <span class="status-label" id="ollama-label"></span>
     </div>
-    <p id="ollama-hint" style="display:none">
-      Install Ollama from <strong>ollama.ai</strong>, then click Refresh.
-      You can skip this step and add it later.
-    </p>
+    <div id="ollama-hint" style="display:none">
+      <div style="margin:.75rem 0 .5rem;padding:.75rem;background:var(--c-glass);border:1px solid var(--c-rule);border-radius:var(--r-md);">
+        <p style="font-size:.82rem;color:var(--c-ink-2);margin-bottom:.6rem;">
+          Diatom can run AI fully offline — no account needed. Install Ollama to unlock local AI features.
+        </p>
+        <!-- One-click install -->
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+          <button id="ollama-install-btn" class="btn-primary"
+            style="font-size:.78rem;padding:.35rem .85rem;"
+            onclick="installOllama()">
+            ⬇ Install Ollama automatically
+          </button>
+          <span style="font-size:.72rem;color:var(--c-ink-3);">or</span>
+          <a href="https://ollama.ai" style="font-size:.78rem;color:var(--c-accent);" target="_blank">visit ollama.ai ↗</a>
+        </div>
+        <p id="ollama-install-status" style="margin-top:.45rem;font-size:.75rem;color:var(--c-ink-3);"></p>
+        <!-- Model selector (shown after install) -->
+        <div id="ollama-model-picker" style="display:none;margin-top:.6rem;">
+          <p style="font-size:.78rem;font-weight:600;margin-bottom:.35rem;">Pull a model:</p>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
+            <button class="btn-secondary" style="font-size:.74rem;" onclick="pullOllamaModel('phi4-mini')">
+              phi4-mini · 2.5 GB · Recommended
+            </button>
+            <button class="btn-secondary" style="font-size:.74rem;" onclick="pullOllamaModel('qwen2.5:3b')">
+              qwen2.5:3b · 2 GB · Fastest
+            </button>
+            <button class="btn-secondary" style="font-size:.74rem;" onclick="pullOllamaModel('gemma3:4b')">
+              gemma3:4b · 3.3 GB · Multilingual
+            </button>
+          </div>
+          <p id="ollama-pull-status" style="margin-top:.35rem;font-size:.74rem;color:var(--c-ink-3);"></p>
+        </div>
+        <!-- Candle Wasm fallback notice -->
+        <p style="margin-top:.5rem;font-size:.72rem;color:var(--c-ink-4);">
+          💡 Without Ollama, Diatom falls back to the built-in Wasm AI (SmolLM2-135M, no download needed).
+        </p>
+      </div>
+    </div>
     <div class="actions">
       <button class="btn-secondary" onclick="prev()">← Back</button>
       <button class="btn-secondary" id="btn-refresh-ollama" onclick="checkOllama()">Refresh</button>
@@ -403,11 +437,11 @@
         <input type="checkbox" id="el-privacy" checked>
         <label for="el-privacy">
           <strong>EasyList Privacy (EasyPrivacy)</strong>
-          Tracking scripts, pixel beacons, data collectors — ~30 000 rules
+          Tracking scripts, pixel beacons, data collectors — ~60 000 rules
         </label>
       </div>
       <div class="check-row">
-        <input type="checkbox" id="el-ads">
+        <input type="checkbox" id="el-ads" checked>
         <label for="el-ads">
           <strong>EasyList (Ad blocking)</strong>
           Display ads, banners, sponsored content — ~70 000 rules
@@ -489,10 +523,13 @@
         dot.className = 'dot ok';
         text.textContent = 'Ollama detected — local AI ready';
         label.textContent = status.active_model || '';
+        // Show model picker if no model is active yet
+        const picker = document.getElementById('ollama-model-picker');
+        if (picker && !status.active_model) { picker.style.display = 'block'; }
       } else { throw new Error('not found'); }
     } catch {
       dot.className = 'dot warn';
-      text.textContent = 'Ollama not found';
+      text.textContent = 'Ollama not found — install for full AI features';
       hint.style.display = 'block';
     }
   }
@@ -532,6 +569,81 @@
       }
     }
     await invoke('cmd_onboarding_complete', { step: 'filter_presets' }).catch(() => {});
+  }
+
+  // ── Ollama one-click install ──────────────────────────────────────────────
+  async function installOllama() {
+    const btn = document.getElementById('ollama-install-btn');
+    const status = document.getElementById('ollama-install-status');
+    if (!btn || !status) return;
+    btn.disabled = true;
+    btn.textContent = 'Installing…';
+    status.textContent = '';
+    try {
+      // Detect platform and launch appropriate installer
+      const sysInfo = await invoke('cmd_system_info');
+      const platform = sysInfo.platform || 'unknown';
+      if (platform === 'macos') {
+        // macOS: open the .pkg installer page in system browser
+        await invoke('cmd_compat_handoff', {
+          url: 'https://ollama.ai/download/mac',
+          reason: 'ollama-install',
+        });
+        status.textContent = '↗ Opened Ollama download in your browser. Install, then return here.';
+        btn.textContent = 'Re-check Ollama';
+        btn.disabled = false;
+        btn.onclick = () => checkOllama();
+      } else if (platform === 'linux') {
+        // Linux: run the official install script via shell command
+        const result = await invoke('cmd_shell_run', {
+          command: 'curl -fsSL https://ollama.ai/install.sh | sh',
+          timeout_secs: 120,
+        }).catch(e => ({ error: e.toString() }));
+        if (result.error) {
+          status.textContent = '✗ Install failed: ' + result.error;
+          btn.textContent = 'Retry Install';
+          btn.disabled = false;
+        } else {
+          // Pull recommended model
+          btn.textContent = 'Pulling phi4-mini…';
+          await invoke('cmd_shell_run', {
+            command: 'ollama pull phi4-mini',
+            timeout_secs: 300,
+          }).catch(() => {});
+          await checkOllama();
+          status.textContent = '✓ Ollama installed successfully!';
+          btn.textContent = 'Installed ✓';
+        }
+      } else if (platform === 'windows') {
+        await invoke('cmd_compat_handoff', {
+          url: 'https://ollama.ai/download/windows',
+          reason: 'ollama-install',
+        });
+        status.textContent = '↗ Opened Ollama download in your browser.';
+        btn.textContent = 'Re-check';
+        btn.disabled = false;
+        btn.onclick = () => checkOllama();
+      }
+    } catch (e) {
+      status.textContent = '✗ Error: ' + e.toString();
+      btn.textContent = 'Retry';
+      btn.disabled = false;
+    }
+  }
+
+  async function pullOllamaModel(modelName) {
+    const el = document.getElementById('ollama-pull-status');
+    if (el) el.textContent = 'Pulling ' + modelName + '…';
+    try {
+      await invoke('cmd_shell_run', {
+        command: 'ollama pull ' + modelName,
+        timeout_secs: 600,
+      });
+      if (el) el.textContent = '✓ ' + modelName + ' ready';
+      await checkOllama();
+    } catch (e) {
+      if (el) el.textContent = '✗ Pull failed: ' + e;
+    }
   }
 
   async function finish() {

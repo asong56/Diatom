@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local Files — Diatom</title>
+  <link rel="stylesheet" href="../fonts.css">
+  <script type="module">
+    // [FIX BUG-14] Theme initialisation now uses the Tauri IPC cmd_setting_get/set
+    // instead of localStorage, which can be wiped by privacy-cleaning tools and
+    // is inconsistent with how every other Diatom page persists preferences.
+    // We apply a synchronous best-effort guess first (prefers-color-scheme) so
+    // the page is never visually wrong while the async IPC round-trip completes.
+    (async function () {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      // Immediate best-effort: system preference (avoids flash-of-wrong-theme)
+      document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+
+      // Async authoritative value from SQLite via IPC
+      try {
+        const { invoke } = await import('../browser/ipc.js');
+        const stored = await invoke('cmd_setting_get', { key: 'theme' });
+        if (stored === 'dark' || stored === 'light') {
+          document.documentElement.setAttribute('data-theme', stored);
+        }
+      } catch { /* IPC unavailable on first cold boot — system default is fine */ }
+
+      // React to OS theme changes only when no explicit user preference is set
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', async e => {
+        try {
+          const { invoke } = await import('../browser/ipc.js');
+          const stored = await invoke('cmd_setting_get', { key: 'theme' });
+          if (!stored) {
+            document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+          }
+        } catch {
+          document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+        }
+      });
+    })();
+  </script>
+  <style>
+    /* ── Lumière palette (matches diatom.css tokens) ─────────────────────── */
+    :root {
+      --ink:        #23233C;
+      --ink-2:      #42425E;
+      --ink-3:      #747490;
+      --ink-4:      #AEAEC6;
+      --paper:      #EBF2FA;
+      --paper-2:    #DCE9F7;
+      --paper-3:    #CDD9F2;
+      --accent:     #C4A468;
+      --accent-l:   #D4B880;
+      --amber:      #C07830;
+      --danger:     #C44848;
+      --glass:      rgba(196,186,240,0.52);
+      --glass-b:    rgba(255,255,255,0.70);
+      --glass-i:    rgba(255,255,255,0.52);
+      --rule:       rgba(120,120,190,0.12);
+      --shadow:     0 1px 3px rgba(74,62,30,0.08), 0 4px 12px rgba(100,80,40,0.04);
+      --shadow-g:   0 2px 10px rgba(196,164,104,0.22), 0 6px 20px rgba(196,164,104,0.10);
+      --r:          6px;
+      --r-lg:       12px;
+      --f-sans:     'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --f-mono:     'DM Mono', 'Fira Code', 'SF Mono', monospace;
+      --f-serif:    'Playfair Display', Georgia, 'Times New Roman', serif;
+      --t:          150ms cubic-bezier(0.4,0,0.2,1);
+    }
+    [data-theme="dark"] {
+      --ink:        #F2EFF8;
+      --ink-2:      #CAC6D8;
+      --ink-3:      #8A8698;
+      --ink-4:      #4C4860;
+      --paper:      #171620;
+      --paper-2:    #1F1E2C;
+      --paper-3:    #272638;
+      --accent:     #C49248;
+      --accent-l:   #D4A85E;
+      --glass:      rgba(64,56,102,0.60);
+      --glass-b:    rgba(130,120,200,0.24);
+      --glass-i:    rgba(160,150,225,0.14);
+      --rule:       rgba(160,150,225,0.08);
+      --shadow:     0 1px 4px rgba(0,0,0,0.28), 0 4px 16px rgba(0,0,0,0.14);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-size: 14px; }
+
+    body {
+      font-family: var(--f-sans);
+      background: var(--paper);
+      color: var(--ink);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ──────────────────────────────────────────────────────────── */
+    .header {
+      border-bottom: 0.5px solid var(--rule);
+      padding: 20px 28px 16px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background: rgba(220,233,247,0.82);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      flex-shrink: 0;
+    }
+    [data-theme="dark"] .header {
+      background: rgba(27,26,44,0.85);
+    }
+    .header-left { flex: 1; min-width: 0; }
+    .header-eyebrow {
+      font-family: var(--f-mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+      margin-bottom: 3px;
+    }
+    .header-title {
+      font-family: var(--f-serif);
+      font-size: 22px;
+      font-weight: 400;
+      line-height: 1;
+      color: var(--ink);
+    }
+    .header-title em { font-style: italic; color: var(--accent); }
+    .header-sub {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--ink-3);
+    }
+
+    .btn-open {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--f-sans);
+      font-size: 12.5px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: var(--r);
+      border: 0.5px solid var(--glass-b);
+      background: var(--glass);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: var(--ink);
+      cursor: pointer;
+      transition: background var(--t), box-shadow var(--t);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .btn-open:hover {
+      background: var(--glass-i);
+      box-shadow: var(--shadow-g);
+    }
+    .btn-open svg { flex-shrink: 0; }
+
+    /* ── Filter tabs ─────────────────────────────────────────────────────── */
+    .filter-bar {
+      display: flex;
+      gap: 5px;
+      padding: 10px 28px;
+      border-bottom: 0.5px solid var(--rule);
+      background: var(--paper-2);
+      flex-shrink: 0;
+      overflow-x: auto;
+    }
+    .filter-bar::-webkit-scrollbar { display: none; }
+    .flt {
+      font-family: var(--f-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.06em;
+      padding: 5px 12px;
+      border-radius: 20px;
+      border: 0.5px solid var(--paper-3);
+      background: var(--paper-2);
+      color: var(--ink-2);
+      cursor: pointer;
+      transition: all var(--t);
+      white-space: nowrap;
+    }
+    .flt:hover { background: var(--paper-3); }
+    .flt.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+    /* ── Main layout ─────────────────────────────────────────────────────── */
+    .workspace {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* ── File tree (left) ────────────────────────────────────────────────── */
+    .sidebar {
+      width: 260px;
+      min-width: 180px;
+      max-width: 340px;
+      border-right: 0.5px solid var(--rule);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .sidebar-search {
+      padding: 10px 12px;
+      border-bottom: 0.5px solid var(--rule);
+      flex-shrink: 0;
+    }
+    .sidebar-search input {
+      width: 100%;
+      font-family: var(--f-mono);
+      font-size: 11.5px;
+      padding: 6px 10px;
+      border-radius: var(--r);
+      border: 0.5px solid var(--paper-3);
+      background: var(--paper-2);
+      color: var(--ink);
+      outline: none;
+    }
+    .sidebar-search input:focus { border-color: var(--accent); }
+    .sidebar-search input::placeholder { color: var(--ink-4); }
+
+    .file-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 0;
+    }
+    .file-list::-webkit-scrollbar { width: 4px; }
+    .file-list::-webkit-scrollbar-thumb {
+      background: var(--paper-3);
+      border-radius: 2px;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      cursor: pointer;
+      transition: background var(--t);
+      border-left: 2px solid transparent;
+      min-width: 0;
+    }
+    .file-item:hover { background: var(--paper-2); }
+    .file-item.active {
+      background: var(--paper-3);
+      border-left-color: var(--accent);
+    }
+    .file-icon {
+      font-size: 14px;
+      flex-shrink: 0;
+      width: 20px;
+      text-align: center;
+    }
+    .file-name {
+      font-size: 12.5px;
+      color: var(--ink-2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+    }
+    .file-item.active .file-name { color: var(--ink); font-weight: 500; }
+    .file-size {
+      font-family: var(--f-mono);
+      font-size: 9.5px;
+      color: var(--ink-4);
+      flex-shrink: 0;
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      height: 100%;
+      padding: 24px;
+      text-align: center;
+    }
+    .empty-icon { font-size: 32px; opacity: 0.35; }
+    .empty-label { font-size: 12px; color: var(--ink-3); line-height: 1.6; }
+
+    /* ── Main content (right) ────────────────────────────────────────────── */
+    .content-pane {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Placeholder ─────────────────────────────────────────────────────── */
+    .placeholder {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      text-align: center;
+      padding: 40px;
+      color: var(--ink-3);
+    }
+    .placeholder-hex {
+      opacity: 0.18;
+      margin-bottom: 4px;
+    }
+    .placeholder h2 {
+      font-family: var(--f-serif);
+      font-size: 18px;
+      font-weight: 400;
+      color: var(--ink-2);
+    }
+    .placeholder p { font-size: 12.5px; line-height: 1.6; max-width: 320px; }
+
+    /* ── Content header (filename + actions) ─────────────────────────────── */
+    .content-header {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      border-bottom: 0.5px solid var(--rule);
+      background: var(--paper-2);
+      flex-shrink: 0;
+    }
+    .content-header.visible { display: flex; }
+    .content-filename {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .content-meta {
+      font-family: var(--f-mono);
+      font-size: 10px;
+      color: var(--ink-4);
+      flex-shrink: 0;
+    }
+    .btn-save {
+      font-family: var(--f-sans);
+      font-size: 11.5px;
+      font-weight: 500;
+      padding: 5px 13px;
+      border-radius: var(--r);
+      border: 0.5px solid rgba(196,164,104,0.5);
+      background: rgba(196,164,104,0.12);
+      color: var(--accent);
+      cursor: pointer;
+      transition: all var(--t);
+      white-space: nowrap;
+    }
+    .btn-save:hover {
+      background: rgba(196,164,104,0.22);
+      box-shadow: var(--shadow-g);
+    }
+    .btn-save:disabled { opacity: 0.4; cursor: default; }
+    .save-status {
+      font-family: var(--f-mono);
+      font-size: 10px;
+      color: var(--ink-4);
+    }
+
+    /* ── Audio player ────────────────────────────────────────────────────── */
+    #audio-zone {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      padding: 40px 32px;
+      gap: 24px;
+    }
+    #audio-zone.active { display: flex; }
+
+    .audio-art {
+      width: 160px;
+      height: 160px;
+      border-radius: 12px;
+      background: var(--glass);
+      border: 0.5px solid var(--glass-b);
+      box-shadow: var(--shadow-g);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .audio-art img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .audio-art-placeholder {
+      font-size: 52px;
+      opacity: 0.4;
+    }
+
+    .audio-meta {
+      text-align: center;
+      max-width: 400px;
+    }
+    .audio-title {
+      font-family: var(--f-serif);
+      font-size: 22px;
+      font-weight: 400;
+      color: var(--ink);
+      margin-bottom: 4px;
+      line-height: 1.3;
+    }
+    .audio-artist {
+      font-size: 13px;
+      color: var(--ink-3);
+      margin-bottom: 2px;
+    }
+    .audio-album {
+      font-family: var(--f-mono);
+      font-size: 10.5px;
+      color: var(--ink-4);
+    }
+
+    .audio-controls {
+      width: 100%;
+      max-width: 460px;
+    }
+    audio {
+      width: 100%;
+      height: 36px;
+      /* Use browser-native controls — no custom JS needed */
+    }
+    /* Tint native audio controls to match theme in supporting browsers */
+    audio::-webkit-media-controls-panel {
+      background: var(--paper-2);
+    }
+
+    /* ── Video player ────────────────────────────────────────────────────── */
+    #video-zone {
+      display: none;
+      flex: 1;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      overflow: hidden;
+    }
+    #video-zone.active { display: flex; }
+    #video-zone video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    /* ── Text / MD editor ────────────────────────────────────────────────── */
+    #editor-zone {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #editor-zone.active { display: flex; }
+
+    #editor-body {
+      flex: 1;
+      padding: 28px 36px;
+      overflow-y: auto;
+      font-family: var(--f-mono);
+      font-size: 13px;
+      line-height: 1.75;
+      color: var(--ink);
+      white-space: pre-wrap;
+      word-break: break-word;
+      outline: none;
+      caret-color: var(--accent);
+    }
+    #editor-body::-webkit-scrollbar { width: 5px; }
+    #editor-body::-webkit-scrollbar-thumb { background: var(--paper-3); border-radius: 2px; }
+    #editor-body:focus-visible { outline: none; }
+
+    /* ── PDF viewer ──────────────────────────────────────────────────────── */
+    #pdf-zone {
+      display: none;
+      flex: 1;
+      overflow: hidden;
+    }
+    #pdf-zone.active { display: flex; }
+    #pdf-zone object, #pdf-zone embed {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* ── Document preview (docx/xlsx — basic info) ───────────────────────── */
+    #doc-zone {
+      display: none;
+      flex: 1;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      padding: 40px;
+      text-align: center;
+    }
+    #doc-zone.active { display: flex; }
+    .doc-icon { font-size: 56px; }
+    .doc-open-btn {
+      font-family: var(--f-sans);
+      font-size: 12.5px;
+      font-weight: 500;
+      padding: 9px 20px;
+      border-radius: var(--r);
+      border: 0.5px solid var(--paper-3);
+      background: var(--paper-2);
+      color: var(--ink-2);
+      cursor: pointer;
+      transition: all var(--t);
+    }
+    .doc-open-btn:hover { background: var(--paper-3); color: var(--ink); }
+    .doc-note { font-size: 12px; color: var(--ink-4); max-width: 300px; line-height: 1.6; }
+
+    /* ── Resize handle ───────────────────────────────────────────────────── */
+    .resize-handle {
+      width: 4px;
+      cursor: col-resize;
+      background: transparent;
+      flex-shrink: 0;
+      transition: background var(--t);
+    }
+    .resize-handle:hover, .resize-handle.dragging { background: var(--accent); }
+
+    /* ── Loading ─────────────────────────────────────────────────────────── */
+    .loading-bar {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-l));
+      animation: loadbar 1s ease-in-out infinite alternate;
+      z-index: 999;
+    }
+    .loading-bar.active { display: block; width: 60%; }
+    @keyframes loadbar { from { width: 10%; } to { width: 80%; } }
+
+    /* ── Scrollbar ───────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--paper-3); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--ink-4); }
+
+    /* ── Count badge ─────────────────────────────────────────────────────── */
+    .count-badge {
+      font-family: var(--f-mono);
+      font-size: 9px;
+      background: var(--paper-3);
+      color: var(--ink-3);
+      padding: 1px 5px;
+      border-radius: 10px;
+      margin-left: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="loading-bar" id="loadingBar"></div>
+
+<!-- ── Header ──────────────────────────────────────────────────────────────── -->
+<header class="header">
+  <div class="header-left">
+    <div class="header-eyebrow">diatom://localfiles</div>
+    <h1 class="header-title">Local <em>Files</em></h1>
+    <p class="header-sub">Scoped access · No upload · Nothing leaves your device</p>
+  </div>
+  <button class="btn-open" id="btnOpenFolder" title="Open folder (grants read access for this session only)">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M1 3.5h4l1.5 2H13v7H1V3.5z"/>
+    </svg>
+    Open Folder
+  </button>
+</header>
+
+<!-- ── Filter bar ─────────────────────────────────────────────────────────── -->
+<div class="filter-bar" id="filterBar" style="display:none">
+  <button class="flt active" data-cat="all">All <span class="count-badge" id="cntAll">0</span></button>
+  <button class="flt" data-cat="audio">🎵 Audio <span class="count-badge" id="cntAudio">0</span></button>
+  <button class="flt" data-cat="video">🎬 Video <span class="count-badge" id="cntVideo">0</span></button>
+  <button class="flt" data-cat="doc">📄 Documents <span class="count-badge" id="cntDoc">0</span></button>
+  <button class="flt" data-cat="text">✏️ Text / MD <span class="count-badge" id="cntText">0</span></button>
+  <button class="flt" data-cat="pdf">🗒️ PDF <span class="count-badge" id="cntPdf">0</span></button>
+</div>
+
+<!-- ── Workspace ──────────────────────────────────────────────────────────── -->
+<div class="workspace" id="workspace">
+
+  <!-- Left: file tree -->
+  <aside class="sidebar" id="sidebar" style="display:none">
+    <div class="sidebar-search">
+      <input type="search" id="searchInput" placeholder="Filter files…" aria-label="Filter files" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="file-list" id="fileList" role="listbox" aria-label="Files"></div>
+  </aside>
+
+  <!-- Drag resize handle -->
+  <div class="resize-handle" id="resizeHandle" style="display:none" title="Drag to resize"></div>
+
+  <!-- Right: content pane -->
+  <main class="content-pane" id="contentPane">
+
+    <!-- Welcome placeholder -->
+    <div class="placeholder" id="placeholderZone">
+      <div class="placeholder-hex">
+        <svg width="64" height="64" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="26,2 48,14 48,38 26,50 4,38 4,14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+          <polygon points="26,10 40,18 40,34 26,42 12,34 12,18" fill="currentColor" opacity="0.1"/>
+        </svg>
+      </div>
+      <h2>No folder open</h2>
+      <p>Click <strong>Open Folder</strong> to grant scoped access to a local directory. Only supported media and document types will be shown — nothing else is visible or transmitted.</p>
+    </div>
+
+    <!-- Content header (shown when a file is open) -->
+    <div class="content-header" id="contentHeader">
+      <span class="content-filename" id="contentFilename"></span>
+      <span class="content-meta" id="contentMeta"></span>
+      <span class="save-status" id="saveStatus"></span>
+      <button class="btn-save" id="btnSave" style="display:none">Save</button>
+    </div>
+
+    <!-- Audio player -->
+    <div id="audio-zone">
+      <div class="audio-art" id="audioArt">
+        <span class="audio-art-placeholder">♪</span>
+      </div>
+      <div class="audio-meta">
+        <div class="audio-title" id="audioTitle">—</div>
+        <div class="audio-artist" id="audioArtist"></div>
+        <div class="audio-album" id="audioAlbum"></div>
+      </div>
+      <div class="audio-controls">
+        <audio id="audioPlayer" controls preload="metadata"></audio>
+      </div>
+    </div>
+
+    <!-- Video player -->
+    <div id="video-zone">
+      <video id="videoPlayer" controls preload="metadata"></video>
+    </div>
+
+    <!-- Text / MD editor -->
+    <div id="editor-zone">
+      <div id="editor-body"
+           contenteditable="true"
+           role="textbox"
+           aria-multiline="true"
+           aria-label="File editor"
+           spellcheck="false"></div>
+    </div>
+
+    <!-- PDF viewer -->
+    <div id="pdf-zone">
+      <!-- object tag uses the browser's built-in PDF viewer (no third-party lib) -->
+      <object id="pdfObject" type="application/pdf" aria-label="PDF viewer"></object>
+    </div>
+
+    <!-- Office doc info panel -->
+    <div id="doc-zone">
+      <div class="doc-icon" id="docIcon">📄</div>
+      <div class="audio-title" id="docFilename"></div>
+      <div class="doc-note" id="docNote">This file type cannot be previewed natively in the browser. Open it with a compatible application on your device.</div>
+      <button class="doc-open-btn" id="btnDocOpen">Open with system app</button>
+    </div>
+
+  </main>
+</div>
+
+<script type="module">
+'use strict';
+
+// ── Extension → category map ─────────────────────────────────────────────────
+const EXT_MAP = {
+  // Audio
+  mp3: 'audio', flac: 'audio', wav: 'audio', ogg: 'audio', aac: 'audio',
+  m4a: 'audio', opus: 'audio', wma: 'audio', aiff: 'audio', ape: 'audio',
+  // Video
+  mp4: 'video', mkv: 'video', webm: 'video', mov: 'video', avi: 'video',
+  m4v: 'video', ogv: 'video', ts: 'video', flv: 'video', wmv: 'video',
+  // Documents (no native preview — show info + open-with)
+  docx: 'doc', xlsx: 'doc', pptx: 'doc', doc: 'doc', xls: 'doc', ppt: 'doc',
+  odt: 'doc', ods: 'doc', odp: 'doc',
+  // Text / editable
+  txt: 'text', md: 'text', markdown: 'text', log: 'text', csv: 'text',
+  json: 'text', xml: 'text', yaml: 'text', yml: 'text', toml: 'text',
+  ini: 'text', conf: 'text',
+  // PDF
+  pdf: 'pdf',
+};
+
+const CAT_ICON = {
+  audio: '🎵', video: '🎬', doc: '📄', text: '📝', pdf: '🗒️',
+};
+
+const CAT_DOC_ICON = {
+  docx: '📝', doc: '📝',
+  xlsx: '📊', xls: '📊', ods: '📊',
+  pptx: '📋', ppt: '📋', odp: '📋',
+  odt: '📄',
+};
+
+// ── State ────────────────────────────────────────────────────────────────────
+let dirHandle   = null;    // FileSystemDirectoryHandle
+let allFiles    = [];      // Array<{ name, ext, cat, handle, size }>
+let activeFile  = null;    // current entry
+let activeBlob  = null;    // current object URL (revoked on change)
+let editorDirty = false;
+let activeCat   = 'all';
+let _fileHandleForSave = null;   // FileSystemFileHandle for writable save
+
+// ── DOM refs ─────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const btnOpen       = $('btnOpenFolder');
+const filterBar     = $('filterBar');
+const sidebar       = $('sidebar');
+const resizeHandle  = $('resizeHandle');
+const fileList      = $('fileList');
+const searchInput   = $('searchInput');
+const workspace     = $('workspace');
+const placeholderZone  = $('placeholderZone');
+const contentHeader    = $('contentHeader');
+const contentFilename  = $('contentFilename');
+const contentMeta      = $('contentMeta');
+const saveStatus       = $('saveStatus');
+const btnSave          = $('btnSave');
+const loadingBar       = $('loadingBar');
+
+// Zone refs
+const audioZone    = $('audio-zone');
+const videoZone    = $('video-zone');
+const editorZone   = $('editor-zone');
+const pdfZone      = $('pdf-zone');
+const docZone      = $('doc-zone');
+const audioPlayer  = $('audioPlayer');
+const videoPlayer  = $('videoPlayer');
+const editorBody   = $('editor-body');
+const pdfObject    = $('pdfObject');
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function extOf(name) {
+  return (name.split('.').pop() || '').toLowerCase();
+}
+
+function catOf(name) {
+  return EXT_MAP[extOf(name)] ?? null;
+}
+
+function fmtBytes(n) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1048576) return `${(n/1024).toFixed(1)} KB`;
+  return `${(n/1048576).toFixed(1)} MB`;
+}
+
+function setLoading(on) {
+  loadingBar.classList.toggle('active', on);
+  if (!on) loadingBar.style.width = '100%';
+}
+
+// ── Revoke active blob URL ───────────────────────────────────────────────────
+function revokeBlob() {
+  if (activeBlob) { URL.revokeObjectURL(activeBlob); activeBlob = null; }
+  audioPlayer.src = '';
+  videoPlayer.src = '';
+  pdfObject.data  = '';
+}
+
+// ── Hide all content zones ────────────────────────────────────────────────────
+function hideAllZones() {
+  audioZone.className  = '';
+  videoZone.className  = '';
+  editorZone.className = '';
+  pdfZone.className    = '';
+  docZone.className    = '';
+  placeholderZone.style.display = 'none';
+}
+
+// ── Open folder ──────────────────────────────────────────────────────────────
+btnOpen.addEventListener('click', async () => {
+  if (!('showDirectoryPicker' in window)) {
+    alert('Your browser does not support the File System Access API.\n\nDiatom requires a Chromium-based WebView (Windows/Linux) or Safari 15.2+ (macOS) for this feature.');
+    return;
+  }
+  try {
+    dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    await scanDirectory(dirHandle);
+  } catch (e) {
+    if (e.name !== 'AbortError') console.warn('[localfiles] picker error:', e);
+  }
+});
+
+// ── Scan directory ───────────────────────────────────────────────────────────
+async function scanDirectory(handle) {
+  setLoading(true);
+  allFiles = [];
+
+  // Iterate entries (non-recursive by design — shows only top-level files)
+  for await (const [name, entry] of handle.entries()) {
+    if (entry.kind !== 'file') continue;
+    const cat = catOf(name);
+    if (!cat) continue;  // Ignore unsupported extensions
+    const file = await entry.getFile();
+    allFiles.push({ name, ext: extOf(name), cat, handle: entry, size: file.size });
+  }
+
+  // Sort: by category then name
+  allFiles.sort((a, b) => {
+    if (a.cat !== b.cat) return a.cat.localeCompare(b.cat);
+    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+  });
+
+  setLoading(false);
+  filterBar.style.display = 'flex';
+  sidebar.style.display   = 'flex';
+  resizeHandle.style.display = 'block';
+  placeholderZone.style.display = 'none';
+  updateCounts();
+  renderFileList();
+  btnOpen.textContent = `📂 ${handle.name}`;
+}
+
+// ── Update filter counts ─────────────────────────────────────────────────────
+function updateCounts() {
+  const counts = { audio: 0, video: 0, doc: 0, text: 0, pdf: 0 };
+  allFiles.forEach(f => { if (counts[f.cat] !== undefined) counts[f.cat]++; });
+  $('cntAll').textContent    = allFiles.length;
+  $('cntAudio').textContent  = counts.audio;
+  $('cntVideo').textContent  = counts.video;
+  $('cntDoc').textContent    = counts.doc;
+  $('cntText').textContent   = counts.text;
+  $('cntPdf').textContent    = counts.pdf;
+}
+
+// ── Render file list ──────────────────────────────────────────────────────────
+function renderFileList() {
+  const query = searchInput.value.trim().toLowerCase();
+  const visible = allFiles.filter(f => {
+    const catOk  = activeCat === 'all' || f.cat === activeCat;
+    const nameOk = !query || f.name.toLowerCase().includes(query);
+    return catOk && nameOk;
+  });
+
+  fileList.innerHTML = '';
+
+  if (visible.length === 0) {
+    fileList.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🔍</div>
+        <div class="empty-label">No files match this filter.</div>
+      </div>`;
+    return;
+  }
+
+  visible.forEach(f => {
+    const item = document.createElement('div');
+    item.className   = 'file-item' + (activeFile === f ? ' active' : '');
+    item.role        = 'option';
+    item.tabIndex    = 0;
+    item.dataset.cat = f.cat;
+    item.innerHTML   = `
+      <span class="file-icon">${CAT_ICON[f.cat] ?? '📎'}</span>
+      <span class="file-name" title="${f.name}">${f.name}</span>
+      <span class="file-size">${fmtBytes(f.size)}</span>`;
+    item.addEventListener('click', () => openFile(f));
+    item.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') openFile(f); });
+    fileList.appendChild(item);
+  });
+}
+
+// ── Filter buttons ────────────────────────────────────────────────────────────
+document.querySelectorAll('.flt').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activeCat = btn.dataset.cat;
+    document.querySelectorAll('.flt').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderFileList();
+  });
+});
+
+// ── Search ────────────────────────────────────────────────────────────────────
+searchInput.addEventListener('input', renderFileList);
+
+// ── Open a file ───────────────────────────────────────────────────────────────
+async function openFile(f) {
+  // Guard: ask user to save if editor is dirty
+  if (editorDirty) {
+    const ok = confirm('You have unsaved changes. Discard and open a new file?');
+    if (!ok) return;
+  }
+
+  activeFile = f;
+  editorDirty = false;
+  revokeBlob();
+  hideAllZones();
+  setLoading(true);
+
+  // Highlight in sidebar
+  document.querySelectorAll('.file-item').forEach(el => {
+    el.classList.toggle('active', el.querySelector('.file-name')?.title === f.name);
+  });
+
+  // Show content header
+  contentHeader.classList.add('visible');
+  contentFilename.textContent = f.name;
+  contentMeta.textContent     = fmtBytes(f.size);
+  saveStatus.textContent      = '';
+  btnSave.style.display       = 'none';
+
+  try {
+    const file = await f.handle.getFile();
+
+    if (f.cat === 'audio') {
+      await openAudio(file, f);
+    } else if (f.cat === 'video') {
+      await openVideo(file);
+    } else if (f.cat === 'text') {
+      await openText(file, f);
+    } else if (f.cat === 'pdf') {
+      await openPdf(file);
+    } else if (f.cat === 'doc') {
+      openDoc(f);
+    }
+  } catch (e) {
+    console.error('[localfiles] openFile error:', e);
+    showError(`Could not open "${f.name}": ${e.message}`);
+  }
+
+  setLoading(false);
+}
+
+// ── Audio ─────────────────────────────────────────────────────────────────────
+async function openAudio(file, f) {
+  audioZone.className = 'active';
+  activeBlob = URL.createObjectURL(file);
+  audioPlayer.src = activeBlob;
+  audioPlayer.load();
+
+  // Reset metadata UI
+  $('audioTitle').textContent  = stripExt(f.name);
+  $('audioArtist').textContent = '';
+  $('audioAlbum').textContent  = '';
+  $('audioArt').innerHTML      = '<span class="audio-art-placeholder">♪</span>';
+
+  // Parse ID3 / Vorbis tags using the native jsmediatags-free approach:
+  // Read first 128 KB as ArrayBuffer and extract ID3v2 tags manually.
+  try {
+    const buf = await file.slice(0, 131072).arrayBuffer();
+    const tags = parseId3v2(buf) ?? parseId3v1(buf);
+    if (tags) {
+      if (tags.title)  $('audioTitle').textContent  = tags.title;
+      if (tags.artist) $('audioArtist').textContent = tags.artist;
+      if (tags.album)  $('audioAlbum').textContent  = tags.album;
+      if (tags.cover) {
+        const artUrl = URL.createObjectURL(new Blob([tags.cover.data], { type: tags.cover.mime }));
+        $('audioArt').innerHTML = `<img src="${artUrl}" alt="Album art" loading="lazy">`;
+      }
+    }
+  } catch { /* metadata parsing is best-effort */ }
+
+  audioPlayer.play().catch(() => {}); // auto-play (may be blocked by browser policy)
+}
+
+// ── Minimal ID3v2 parser (no dependencies) ───────────────────────────────────
+function parseId3v2(buf) {
+  const v = new Uint8Array(buf);
+  // Magic: ID3
+  if (v[0] !== 0x49 || v[1] !== 0x44 || v[2] !== 0x33) return null;
+  const version = v[3];
+  // Syncsafe integer for tag size (bytes 6–9)
+  const tagSize = ((v[6] & 0x7f) << 21) | ((v[7] & 0x7f) << 14)
+                | ((v[8] & 0x7f) <<  7) |  (v[9] & 0x7f);
+
+  const td = new TextDecoder('utf-8', { fatal: false });
+  let offset = 10;
+  const result = {};
+
+  while (offset < 10 + tagSize - 10) {
+    if (offset + 10 > v.length) break;
+    // Frame ID: 4 chars for v2.3/2.4, 3 chars for v2.2
+    const idLen  = version >= 3 ? 4 : 3;
+    const sizeLen = version >= 3 ? 4 : 3;
+    const frameId = td.decode(v.slice(offset, offset + idLen));
+    if (!frameId.trim() || frameId[0] === '\0') break;
+
+    let frameSize;
+    if (version >= 4) {
+      // ID3v2.4 syncsafe
+      frameSize = ((v[offset+4] & 0x7f) << 21) | ((v[offset+5] & 0x7f) << 14)
+                | ((v[offset+6] & 0x7f) <<  7) |  (v[offset+7] & 0x7f);
+    } else if (version === 3) {
+      frameSize = (v[offset+4] << 24) | (v[offset+5] << 16)
+                | (v[offset+6] <<  8) |  v[offset+7];
+    } else {
+      frameSize = (v[offset+3] << 16) | (v[offset+4] << 8) | v[offset+5];
+    }
+    const headerSize = idLen + sizeLen + (version >= 3 ? 2 : 0);
+    const dataStart  = offset + headerSize;
+    const dataEnd    = dataStart + frameSize;
+    if (dataEnd > v.length) break;
+
+    const frameData = v.slice(dataStart, dataEnd);
+
+    // Text frames: TIT2=title, TPE1=artist, TALB=album
+    // (ID3v2.2: TT2, TP1, TAL)
+    const tid = version >= 3 ? frameId : frameId.replace(/^T(T2|P1|AL)$/, m =>
+      ({ TT2: 'TIT2', TP1: 'TPE1', TAL: 'TALB' })[m] ?? m);
+
+    if (['TIT2','TPE1','TALB'].includes(tid) && frameData.length > 1) {
+      const enc  = frameData[0]; // 0=Latin1, 1=UTF-16, 2=UTF-16BE, 3=UTF-8
+      const text = decodeId3Text(frameData.slice(1), enc);
+      if (tid === 'TIT2') result.title  = text;
+      if (tid === 'TPE1') result.artist = text;
+      if (tid === 'TALB') result.album  = text;
+    }
+
+    // Attached picture: APIC / PIC
+    if ((frameId === 'APIC' || frameId === 'PIC') && frameData.length > 4) {
+      result.cover = parseApic(frameData);
+    }
+
+    offset = dataEnd;
+  }
+
+  return Object.keys(result).length > 0 ? result : null;
+}
+
+function decodeId3Text(bytes, enc) {
+  try {
+    if (enc === 1 || enc === 2) {
+      return new TextDecoder('utf-16').decode(bytes).replace(/\0/g, '').trim();
+    }
+    if (enc === 3) return new TextDecoder('utf-8').decode(bytes).replace(/\0/g, '').trim();
+    return new TextDecoder('latin1').decode(bytes).replace(/\0/g, '').trim();
+  } catch { return ''; }
+}
+
+function parseApic(data) {
+  // enc(1) + mimeType(null-terminated) + picType(1) + description(null-terminated) + data
+  let i = 1;
+  let mimeEnd = data.indexOf(0, i);
+  if (mimeEnd < 0) return null;
+  const mime = new TextDecoder('latin1').decode(data.slice(i, mimeEnd)) || 'image/jpeg';
+  i = mimeEnd + 2; // skip picType
+  let descEnd = data.indexOf(0, i);
+  if (descEnd < 0) descEnd = i;
+  i = descEnd + 1;
+  if (i >= data.length) return null;
+  return { mime, data: data.slice(i) };
+}
+
+// Fallback: ID3v1 (last 128 bytes)
+function parseId3v1(buf) {
+  const v = new Uint8Array(buf);
+  if (v.length < 128) return null;
+  const tag = v.slice(v.length - 128);
+  if (tag[0] !== 0x54 || tag[1] !== 0x41 || tag[2] !== 0x47) return null; // "TAG"
+  const td = new TextDecoder('latin1');
+  const trim = s => s.replace(/\0/g, '').trim();
+  return {
+    title:  trim(td.decode(tag.slice(3,  33))),
+    artist: trim(td.decode(tag.slice(33, 63))),
+    album:  trim(td.decode(tag.slice(63, 93))),
+  };
+}
+
+// ── Video ─────────────────────────────────────────────────────────────────────
+async function openVideo(file) {
+  videoZone.className = 'active';
+  activeBlob = URL.createObjectURL(file);
+  videoPlayer.src = activeBlob;
+  videoPlayer.load();
+  videoPlayer.play().catch(() => {});
+}
+
+// ── Text / MD editor ──────────────────────────────────────────────────────────
+async function openText(file, f) {
+  editorZone.className    = 'active';
+  _fileHandleForSave      = f.handle;
+
+  const text = await file.text();
+  editorBody.textContent  = text;
+  editorDirty = false;
+  saveStatus.textContent  = '';
+  btnSave.style.display   = 'inline-flex';
+  btnSave.disabled        = true;
+
+  editorBody.focus();
+}
+
+// Dirty tracking
+editorBody.addEventListener('input', () => {
+  if (!editorZone.classList.contains('active')) return;
+  editorDirty = true;
+  btnSave.disabled = false;
+  saveStatus.textContent = 'Unsaved changes';
+});
+
+// Save handler — uses File System Access API writable stream (no upload)
+btnSave.addEventListener('click', async () => {
+  if (!_fileHandleForSave) return;
+  try {
+    // Check for write permission
+    const perm = await _fileHandleForSave.requestPermission({ mode: 'readwrite' });
+    if (perm !== 'granted') { saveStatus.textContent = 'Permission denied'; return; }
+
+    const writable = await _fileHandleForSave.createWritable();
+    await writable.write(editorBody.textContent);
+    await writable.close();
+
+    editorDirty             = false;
+    btnSave.disabled        = true;
+    saveStatus.textContent  = `Saved ${new Date().toLocaleTimeString()}`;
+  } catch (e) {
+    saveStatus.textContent = `Save failed: ${e.message}`;
+    console.error('[localfiles] save error:', e);
+  }
+});
+
+// Keyboard shortcut: Cmd/Ctrl+S inside editor
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 's' && editorZone.classList.contains('active')) {
+    e.preventDefault();
+    if (!btnSave.disabled) btnSave.click();
+  }
+});
+
+// ── PDF ───────────────────────────────────────────────────────────────────────
+async function openPdf(file) {
+  pdfZone.className = 'active';
+  activeBlob = URL.createObjectURL(file);
+  // The <object> tag delegates to the browser's built-in PDF viewer — no lib needed.
+  pdfObject.data = activeBlob;
+}
+
+// ── Office docs ───────────────────────────────────────────────────────────────
+function openDoc(f) {
+  docZone.className = 'active';
+  $('docIcon').textContent     = CAT_DOC_ICON[f.ext] ?? '📄';
+  $('docFilename').textContent = f.name;
+
+  // "Open with system app" — triggers a download which the OS will open
+  $('btnDocOpen').onclick = async () => {
+    try {
+      const file  = await f.handle.getFile();
+      const url   = URL.createObjectURL(file);
+      const a     = document.createElement('a');
+      a.href      = url;
+      a.download  = f.name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (e) {
+      console.error('[localfiles] doc open error:', e);
+    }
+  };
+}
+
+// ── Error display ─────────────────────────────────────────────────────────────
+function showError(msg) {
+  hideAllZones();
+  const p = document.createElement('div');
+  p.className   = 'placeholder';
+  p.style.color = 'var(--danger)';
+  p.innerHTML   = `<div class="empty-icon">⚠️</div><p>${msg}</p>`;
+  $('contentPane').appendChild(p);
+  setTimeout(() => p.remove(), 6000);
+}
+
+// ── Strip extension from filename ─────────────────────────────────────────────
+function stripExt(name) {
+  return name.replace(/\.[^.]+$/, '');
+}
+
+// ── Resize handle ─────────────────────────────────────────────────────────────
+{
+  const handle   = resizeHandle;
+  const sideEl   = sidebar;
+  let dragging   = false;
+  let startX     = 0;
+  let startW     = 0;
+
+  handle.addEventListener('mousedown', e => {
+    dragging = true;
+    startX   = e.clientX;
+    startW   = sideEl.offsetWidth;
+    handle.classList.add('dragging');
+    document.body.style.cursor      = 'col-resize';
+    document.body.style.userSelect  = 'none';
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const w = Math.max(160, Math.min(400, startW + (e.clientX - startX)));
+    sideEl.style.width = `${w}px`;
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor     = '';
+    document.body.style.userSelect = '';
+  });
+}
+
+// ── Warn on unload if dirty ───────────────────────────────────────────────────
+window.addEventListener('beforeunload', e => {
+  if (editorDirty) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+</script>
+</body>
+</html>

@@ -32,12 +32,13 @@ export function upgradeHttps(url) {
 /** Route a diatom:// URL to the corresponding HTML file. */
 export function diatomPagePath(url) {
     const routes = {
-        'diatom://labs':     '/src/ui/labs.html',
-        'diatom://about':    '/src/ui/about.html',
-        'diatom://newtab':   null,   // handled by #new-tab-page in index.html
-        'diatom://settings': '/src/ui/settings.html',
-        'diatom://museum':   '/src/ui/museum.html',
-        'diatom://echo':     '/src/ui/echo.html',
+        'diatom://labs':       '/src/ui/labs.html',
+        'diatom://about':      '/src/ui/about.html',
+        'diatom://newtab':     null,   // handled by #new-tab-page in index.html
+        'diatom://settings':   '/src/ui/settings.html',
+        'diatom://museum':     '/src/ui/museum.html',
+        'diatom://echo':       '/src/ui/echo.html',
+        'diatom://localfiles': '/src/ui/localfiles.html',
     };
     return routes[url.toLowerCase()] ?? null;
 }

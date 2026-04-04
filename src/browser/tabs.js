@@ -17,6 +17,7 @@ import { invoke, listen, emit } from './ipc.js';
 import { domainOf, resolveUrl, escHtml, el, qs, timeAgo, uid } from './utils.js';
 import { applyCrusherRules } from '../features/dom-crusher.js';
 import { showInterstitial as zenInterstitial, isActive as zenIsActive } from '../features/zen.js';
+import { startHealthMonitor } from './compat.js';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -103,10 +104,21 @@ export async function navigate(rawUrl) {
   checkThreatAsync(domainOf(nav.clean_url));
 }
 
+let _navAbort = new AbortController();
+export function navSignal() { return _navAbort.signal; }
+
 function loadUrl(url) {
+  _navAbort.abort();
+  _navAbort = new AbortController();
   // In Tauri, we navigate the WebView via Rust eval or a dedicated command.
   // In the shell WebView (chrome), we use location.href.
   emit('diatom:navigate', { url });
+
+  // Trigger health monitor, ToS auditor, and close Shadow Index on every navigation
+  try { startHealthMonitor(url); } catch {}
+  try { window.__diatom_tos_auditor?.onNavigate(url); } catch {}
+  try { window.__diatom_shadow_index?.close?.(); } catch {}
+
   // Reset dwell tracking
   _dwellStart    = Date.now();
   _scrollVelocity = 0;
@@ -119,8 +131,13 @@ function loadUrl(url) {
 // ── Tab CRUD ──────────────────────────────────────────────────────────────────
 
 export async function createTab(url = 'about:blank') {
+  // [B-02 FIX] Do NOT push the returned tab into _tabs here.
+  // The diatom:tab_created listener below is the sole authoritative update path.
+  // The old code pushed to _tabs both here AND in the listener, causing a
+  // duplicate tab pill until the next diatom:tabs_updated sync.
   const tab = await invoke('cmd_tab_create', { url });
-  _tabs.push(tab);
+  // Optimistically set the active ID so the UI can show a loading indicator
+  // without waiting for the Rust event round-trip.
   _activeId = tab.id;
   render();
   if (url !== 'about:blank') navigate(url);
@@ -132,7 +149,17 @@ export async function closeTab(tabId) {
   await invoke('cmd_tab_close', { tab_id: tabId });
   _tabs = _tabs.filter(t => t.id !== tabId);
   if (_activeId === tabId) {
-    _activeId = _tabs[_tabs.length - 1]?.id ?? null;
+    // [B-10 FIX] After filtering, verify the fallback target still exists.
+    // If _tabs is now empty, auto-create a new blank tab so there is always
+    // at least one tab (Chrome/Firefox behaviour).
+    const fallback = _tabs[_tabs.length - 1];
+    if (!fallback) {
+      // _tabs is empty — create a new tab to avoid a blank tab bar with no
+      // active tab that requires a manual gesture to recover from.
+      await createTab();
+      return;
+    }
+    _activeId = fallback.id;
     if (_activeId) await invoke('cmd_tab_activate', { tab_id: _activeId });
   }
   render();
@@ -144,7 +171,15 @@ export async function activateTab(tabId) {
   _tabSwitches++;
   _activeId = tabId;
   await invoke('cmd_tab_activate', { tab_id: tabId });
-  _dwellStart = Date.now();
+  _dwellStart   = Date.now();
+  // [BUG-4 FIX] Reset scroll state when switching tabs.
+  // Without this, the first onScroll event on the new tab computes a spurious
+  // velocity from the delta between the old tab's scrollY and the new tab's
+  // scrollY (which could be 0), producing an artificially huge velocity reading
+  // that corrupts the Echo quality assessment.
+  _scrollVelocity = 0;
+  _lastScrollY    = window.scrollY;
+  _lastScrollTs   = Date.now();
   render();
 }
 
@@ -232,7 +267,7 @@ function showFreezeConfirmation(title) {
     padding:.5rem .9rem; border-radius:.35rem; z-index:9999;
     pointer-events:none; white-space:nowrap;
   `;
-  msg.textContent = `🧊 Frozen · ${title.slice(0, 48)}`;
+  msg.textContent = `🧊 Frozen · ${title.slice(0, 64)}`;
   document.body.appendChild(msg);
   // Fade out after 2s
   setTimeout(() => {
@@ -446,7 +481,7 @@ function render() {
     btn.dataset.tabId = tab.id;
     btn.title = tab.url;
     btn.innerHTML = `
-      <span class="tab-title">${escHtml(tab.title.slice(0, 40) || domainOf(tab.url))}</span>
+      <span class="tab-title">${escHtml(tab.title.slice(0, 60) || domainOf(tab.url))}</span>
       <span class="tab-sleep">${sleepIcon(tab.sleep)}</span>
       <button class="tab-close" data-tab-id="${tab.id}" aria-label="Close tab">×</button>
     `;

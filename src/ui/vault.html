@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diatom Vault</title>
+<link rel="stylesheet" href="../fonts.css">
+<style>
+/* ── Reset & tokens ───────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:         #0d0e11;
+  --bg2:        #151720;
+  --bg3:        #1d1f2a;
+  --border:     #2a2d3a;
+  --accent:     #00d4ff;
+  --accent2:    #7c5cfc;
+  --danger:     #ff4b6e;
+  --warn:       #f59e0b;
+  --ok:         #22c55e;
+  --text:       #e2e8f0;
+  --text2:      #94a3b8;
+  --text3:      #475569;
+  --radius:     8px;
+  --radius-lg:  14px;
+  --shadow:     0 4px 24px rgba(0,0,0,.45);
+  --font:       "Inter", system-ui, sans-serif;
+  --mono:       "JetBrains Mono", "Fira Code", monospace;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);
+  min-height:100vh;display:flex;flex-direction:column}
+
+/* ── Layout ─────────────────────────────────────────────────────────────── */
+.shell{display:grid;grid-template-columns:220px 1fr;height:100vh;overflow:hidden}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow-y:auto}
+.sidebar-header{padding:20px 16px 8px;border-bottom:1px solid var(--border)}
+.sidebar-header h1{font-size:.95rem;font-weight:600;color:var(--accent);
+  letter-spacing:.04em;display:flex;align-items:center;gap:8px}
+.sidebar-header h1 svg{flex-shrink:0}
+.stats-bar{padding:12px 16px;border-bottom:1px solid var(--border);
+  display:flex;gap:10px;flex-wrap:wrap}
+.stat-chip{background:var(--bg3);border:1px solid var(--border);
+  border-radius:20px;padding:3px 10px;font-size:.72rem;color:var(--text2)}
+.stat-chip b{color:var(--text);font-weight:600}
+.nav-section{padding:8px 8px 4px;font-size:.68rem;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--text3);font-weight:600}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;
+  border-radius:var(--radius);margin:2px 8px;cursor:pointer;
+  font-size:.84rem;color:var(--text2);transition:all .15s;user-select:none}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:rgba(0,212,255,.12);color:var(--accent)}
+.nav-item svg{flex-shrink:0;opacity:.7}
+.nav-item.active svg{opacity:1}
+.nav-count{margin-left:auto;background:var(--bg3);border:1px solid var(--border);
+  border-radius:10px;padding:1px 7px;font-size:.68rem;color:var(--text3)}
+.sidebar-footer{margin-top:auto;padding:12px 16px;border-top:1px solid var(--border)}
+.btn-gen{width:100%;padding:9px;background:var(--accent2);color:#fff;
+  border:none;border-radius:var(--radius);font-size:.82rem;font-weight:600;
+  cursor:pointer;transition:opacity .15s}
+.btn-gen:hover{opacity:.85}
+
+/* ── Main area ───────────────────────────────────────────────────────────── */
+.main{display:flex;flex-direction:column;overflow:hidden}
+.topbar{padding:12px 20px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;background:var(--bg2)}
+.topbar h2{font-size:.9rem;font-weight:600;flex:1;white-space:nowrap}
+.search-wrap{flex:1;max-width:360px;position:relative}
+.search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  color:var(--text3);pointer-events:none}
+.search-input{width:100%;padding:7px 12px 7px 34px;background:var(--bg3);
+  border:1px solid var(--border);border-radius:var(--radius);
+  color:var(--text);font-size:.84rem;outline:none;transition:border .15s}
+.search-input:focus{border-color:var(--accent)}
+.btn{padding:7px 14px;border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--bg3);color:var(--text);font-size:.82rem;cursor:pointer;
+  font-weight:500;transition:all .15s;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600}
+.btn.primary:hover{opacity:.9;color:#000}
+.btn.danger{border-color:var(--danger);color:var(--danger)}
+.btn.danger:hover{background:rgba(255,75,110,.1)}
+
+/* ── Entry list ─────────────────────────────────────────────────────────── */
+.entries{flex:1;overflow-y:auto;padding:16px 20px;display:grid;gap:6px}
+.entry-card{background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:13px 16px;cursor:pointer;
+  transition:all .15s;display:flex;align-items:center;gap:12px}
+.entry-card:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.entry-card.selected{border-color:var(--accent);background:rgba(0,212,255,.06)}
+.entry-icon{width:36px;height:36px;border-radius:8px;background:var(--bg3);
+  border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+  font-size:1.1rem;flex-shrink:0}
+.entry-info{flex:1;min-width:0}
+.entry-title{font-weight:600;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.entry-sub{color:var(--text2);font-size:.76rem;margin-top:2px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.entry-badges{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap}
+.badge{font-size:.66rem;padding:2px 7px;border-radius:10px;
+  background:var(--bg3);border:1px solid var(--border);color:var(--text2)}
+.badge.totp{border-color:var(--accent);color:var(--accent)}
+.badge.weak{border-color:var(--warn);color:var(--warn)}
+.badge.reused{border-color:var(--danger);color:var(--danger)}
+.entry-actions{display:flex;gap:6px;opacity:0;transition:opacity .15s}
+.entry-card:hover .entry-actions{opacity:1}
+.icon-btn{width:30px;height:30px;border:1px solid var(--border);border-radius:6px;
+  background:var(--bg3);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:var(--text2);transition:all .15s}
+.icon-btn:hover{color:var(--accent);border-color:var(--accent)}
+.icon-btn.del:hover{color:var(--danger);border-color:var(--danger)}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  flex:1;gap:12px;color:var(--text3);text-align:center;padding:40px}
+.empty svg{opacity:.3}
+.empty h3{font-size:.95rem;font-weight:600;color:var(--text2)}
+.empty p{font-size:.82rem;max-width:280px;line-height:1.5}
+
+/* ── Modal ───────────────────────────────────────────────────────────────── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);
+  display:flex;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(4px)}
+.overlay.hidden{display:none}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);
+  width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow)}
+.modal-header{padding:20px 24px 0;display:flex;align-items:center;gap:12px}
+.modal-header h3{font-size:.95rem;font-weight:600;flex:1}
+.modal-close{background:none;border:none;color:var(--text3);cursor:pointer;
+  padding:4px;border-radius:4px;transition:color .15s}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:20px 24px}
+.modal-footer{padding:0 24px 20px;display:flex;gap:8px;justify-content:flex-end}
+
+/* ── Form ────────────────────────────────────────────────────────────────── */
+.field{margin-bottom:16px}
+.field label{display:block;font-size:.78rem;font-weight:600;color:var(--text2);
+  margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+.field input,.field textarea,.field select{
+  width:100%;padding:9px 12px;background:var(--bg3);
+  border:1px solid var(--border);border-radius:var(--radius);
+  color:var(--text);font-size:.87rem;outline:none;transition:border .15s;
+  font-family:var(--font)}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--accent)}
+.field textarea{resize:vertical;min-height:70px;line-height:1.5}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pw-wrap{position:relative}
+.pw-wrap input{padding-right:82px;font-family:var(--mono);letter-spacing:.04em}
+.pw-toggle,.pw-gen{position:absolute;right:4px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--text3);cursor:pointer;padding:4px 6px;
+  border-radius:4px;font-size:.72rem;font-weight:600;transition:color .15s}
+.pw-toggle{right:44px}
+.pw-toggle:hover,.pw-gen:hover{color:var(--accent)}
+.strength-bar{height:3px;border-radius:2px;margin-top:5px;background:var(--bg3);overflow:hidden}
+.strength-fill{height:100%;border-radius:2px;transition:all .3s}
+.strength-label{font-size:.72rem;margin-top:3px;color:var(--text3)}
+.tag-input-wrap{display:flex;flex-wrap:wrap;gap:5px;
+  padding:6px 8px;background:var(--bg3);border:1px solid var(--border);
+  border-radius:var(--radius);min-height:38px;cursor:text}
+.tag-input-wrap:focus-within{border-color:var(--accent)}
+.tag-chip{background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);
+  color:var(--accent);border-radius:12px;padding:2px 8px;font-size:.76rem;
+  display:flex;align-items:center;gap:4px}
+.tag-chip button{background:none;border:none;color:inherit;cursor:pointer;
+  padding:0;font-size:.9em;line-height:1}
+.tag-inline-input{border:none;background:none;outline:none;color:var(--text);
+  font-size:.84rem;min-width:80px;flex:1}
+.url-list{display:flex;flex-direction:column;gap:6px}
+.url-row{display:flex;gap:6px;align-items:center}
+.url-row input{flex:1}
+.url-remove{background:none;border:none;color:var(--text3);cursor:pointer;
+  padding:4px;border-radius:4px;transition:color .15s}
+.url-remove:hover{color:var(--danger)}
+.add-url-btn{background:none;border:none;color:var(--accent);cursor:pointer;
+  font-size:.78rem;font-weight:600;padding:4px 0;text-align:left;
+  display:flex;align-items:center;gap:4px}
+
+/* ── Generator modal ─────────────────────────────────────────────────────── */
+.gen-toggle{display:flex;background:var(--bg3);border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;margin-bottom:16px}
+.gen-tab{flex:1;padding:7px;background:none;border:none;color:var(--text2);
+  cursor:pointer;font-size:.82rem;font-weight:500;transition:all .15s}
+.gen-tab.active{background:var(--accent2);color:#fff}
+.gen-options{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.checkbox-field{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.84rem}
+.checkbox-field input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+.gen-result{font-family:var(--mono);font-size:.95rem;padding:12px 14px;
+  background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);
+  word-break:break-all;letter-spacing:.03em;line-height:1.5;color:var(--accent);
+  margin-bottom:10px;min-height:50px}
+.gen-controls{display:flex;gap:8px}
+.range-field{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.range-field label{font-size:.82rem;color:var(--text2);min-width:60px}
+.range-field input[type=range]{flex:1;accent-color:var(--accent)}
+.range-value{font-size:.82rem;color:var(--accent);min-width:28px;text-align:right;
+  font-weight:600}
+
+/* ── Totp view ───────────────────────────────────────────────────────────── */
+.totp-ring{position:relative;width:48px;height:48px}
+.totp-ring svg{transform:rotate(-90deg)}
+.totp-code{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:.78rem;font-weight:700;color:var(--accent);
+  letter-spacing:.02em}
+.totp-section{background:var(--bg3);border:1px solid var(--border);
+  border-radius:var(--radius);padding:12px 14px;margin-bottom:12px;
+  display:flex;align-items:center;gap:12px}
+.totp-info{flex:1}
+.totp-label{font-size:.76rem;color:var(--text3);margin-bottom:2px}
+.totp-val{font-family:var(--mono);font-size:1.2rem;font-weight:700;
+  letter-spacing:.15em;color:var(--text)}
+.totp-next{font-size:.72rem;color:var(--text3);margin-top:2px}
+
+/* ── Import panel ─────────────────────────────────────────────────────────── */
+.import-btn{display:flex;align-items:center;gap:10px;padding:12px 14px;
+  background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);
+  width:100%;cursor:pointer;color:var(--text2);font-size:.84rem;margin-bottom:8px;
+  transition:all .15s}
+.import-btn:hover{border-color:var(--accent);color:var(--accent)}
+.import-btn svg{flex-shrink:0}
+.import-source{font-weight:600;color:var(--text);font-size:.86rem}
+.import-desc{font-size:.76rem;color:var(--text3);margin-top:1px}
+
+/* ── Scrollbars ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--text3)}
+
+/* ── Utility ─────────────────────────────────────────────────────────────── */
+.hidden{display:none!important}
+.spin{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:999;display:flex;flex-direction:column;gap:8px}
+.toast{padding:10px 16px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--radius);font-size:.82rem;box-shadow:var(--shadow);
+  animation:slide-in .2s ease;max-width:320px}
+.toast.ok{border-color:var(--ok);color:var(--ok)}
+.toast.err{border-color:var(--danger);color:var(--danger)}
+@keyframes slide-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        Diatom Vault
+      </h1>
+    </div>
+    <div class="stats-bar" id="stats-bar">
+      <span class="stat-chip"><b id="stat-logins">0</b> logins</span>
+      <span class="stat-chip"><b id="stat-cards">0</b> cards</span>
+      <span class="stat-chip"><b id="stat-notes">0</b> notes</span>
+    </div>
+
+    <div class="nav-section">Items</div>
+    <div class="nav-item active" data-view="logins">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+        <circle cx="12" cy="7" r="4"/>
+      </svg>
+      Logins
+      <span class="nav-count" id="count-logins">0</span>
+    </div>
+    <div class="nav-item" data-view="cards">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+      </svg>
+      Cards
+      <span class="nav-count" id="count-cards">0</span>
+    </div>
+    <div class="nav-item" data-view="notes">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+      </svg>
+      Secure Notes
+      <span class="nav-count" id="count-notes">0</span>
+    </div>
+
+    <div class="nav-section" style="margin-top:8px">Tools</div>
+    <div class="nav-item" data-view="generator" id="nav-gen">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+      </svg>
+      Generator
+    </div>
+    <div class="nav-item" data-view="import" id="nav-import">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Import
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="btn-gen" id="btn-add-entry">+ Add Entry</button>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main">
+    <!-- Logins view -->
+    <div id="view-logins">
+      <div class="topbar">
+        <h2>Logins</h2>
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input class="search-input" id="search-logins" placeholder="Search logins…" autocomplete="off">
+        </div>
+        <button class="btn primary" id="btn-new-login">+ New Login</button>
+      </div>
+      <div class="entries" id="logins-list"></div>
+    </div>
+
+    <!-- Cards view -->
+    <div id="view-cards" class="hidden">
+      <div class="topbar">
+        <h2>Payment Cards</h2>
+        <button class="btn primary" id="btn-new-card">+ New Card</button>
+      </div>
+      <div class="entries" id="cards-list"></div>
+    </div>
+
+    <!-- Notes view -->
+    <div id="view-notes" class="hidden">
+      <div class="topbar">
+        <h2>Secure Notes</h2>
+        <button class="btn primary" id="btn-new-note">+ New Note</button>
+      </div>
+      <div class="entries" id="notes-list"></div>
+    </div>
+
+    <!-- Generator view -->
+    <div id="view-generator" class="hidden">
+      <div class="topbar"><h2>Password Generator</h2></div>
+      <div class="entries" style="display:block">
+        <div style="max-width:480px">
+          <div class="gen-toggle">
+            <button class="gen-tab active" id="tab-random">Random</button>
+            <button class="gen-tab" id="tab-phrase">Passphrase</button>
+          </div>
+          <!-- Random -->
+          <div id="gen-random">
+            <div class="range-field">
+              <label>Length</label>
+              <input type="range" id="pw-length" min="8" max="64" value="20">
+              <span class="range-value" id="pw-length-val">20</span>
+            </div>
+            <div class="gen-options">
+              <label class="checkbox-field"><input type="checkbox" id="pw-upper" checked> Uppercase</label>
+              <label class="checkbox-field"><input type="checkbox" id="pw-numbers" checked> Numbers</label>
+              <label class="checkbox-field"><input type="checkbox" id="pw-symbols" checked> Symbols</label>
+            </div>
+          </div>
+          <!-- Passphrase -->
+          <div id="gen-phrase" class="hidden">
+            <div class="range-field">
+              <label>Words</label>
+              <input type="range" id="phrase-count" min="2" max="8" value="4">
+              <span class="range-value" id="phrase-count-val">4</span>
+            </div>
+            <div class="field">
+              <label>Separator</label>
+              <select id="phrase-sep">
+                <option value="-">Hyphen  (-)</option>
+                <option value=".">Dot     (.)</option>
+                <option value="_">Underscore (_)</option>
+                <option value=" ">Space   ( )</option>
+                <option value="">None</option>
+              </select>
+            </div>
+            <div class="gen-options">
+              <label class="checkbox-field"><input type="checkbox" id="phrase-cap" checked> Capitalise</label>
+              <label class="checkbox-field"><input type="checkbox" id="phrase-num" checked> Include number</label>
+            </div>
+          </div>
+          <div class="gen-result" id="gen-result">Click Generate</div>
+          <div class="strength-bar"><div class="strength-fill" id="gen-strength-fill" style="width:0%;background:var(--text3)"></div></div>
+          <div class="strength-label" id="gen-strength-label" style="margin-bottom:12px"></div>
+          <div class="gen-controls">
+            <button class="btn primary" id="btn-generate" style="flex:1">Generate</button>
+            <button class="btn" id="btn-copy-gen">Copy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Import view -->
+    <div id="view-import" class="hidden">
+      <div class="topbar"><h2>Import Entries</h2></div>
+      <div class="entries" style="display:block">
+        <p style="font-size:.84rem;color:var(--text2);margin-bottom:16px;max-width:480px">
+          Import logins from another password manager. Your data stays local — Diatom never contacts external servers during import.
+        </p>
+        <div style="max-width:480px">
+          <button class="import-btn" onclick="triggerImport('csv')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <div>
+              <div class="import-source">CSV — Bitwarden, 1Password, LastPass</div>
+              <div class="import-desc">Standard CSV export format</div>
+            </div>
+          </button>
+          <button class="import-btn" onclick="triggerImport('bw-json')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <div>
+              <div class="import-source">Bitwarden JSON — Logins + TOTP</div>
+              <div class="import-desc">Imports passwords and 2FA secrets</div>
+            </div>
+          </button>
+          <button class="import-btn" onclick="triggerImport('aegis')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <div>
+              <div class="import-source">Aegis Authenticator JSON — 2FA codes</div>
+              <div class="import-desc">Imports TOTP / Steam Guard entries</div>
+            </div>
+          </button>
+          <button class="import-btn" onclick="triggerImport('2fas')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <div>
+              <div class="import-source">2FAS JSON — 2FA codes</div>
+              <div class="import-desc">Imports from the 2FAS authenticator app</div>
+            </div>
+          </button>
+          <button class="import-btn" onclick="triggerImport('uri-list')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+              <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+              <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+            <div>
+              <div class="import-source">otpauth:// URI list — 2FA codes</div>
+              <div class="import-desc">Plain text file, one URI per line</div>
+            </div>
+          </button>
+          <input type="file" id="import-file-input" class="hidden" accept=".csv,.json,.txt">
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ── Modals ── -->
+
+<!-- New/Edit Login -->
+<div class="overlay hidden" id="modal-login">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-login-title">New Login</h3>
+      <button class="modal-close" onclick="closeModal('modal-login')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Title</label><input id="f-title" placeholder="e.g. GitHub" autocomplete="off"></div>
+      <div class="field-row">
+        <div class="field"><label>Username / Email</label><input id="f-username" placeholder="you@example.com" autocomplete="off"></div>
+        <div class="field"><label>Password</label>
+          <div class="pw-wrap">
+            <input id="f-password" type="password" placeholder="••••••••" autocomplete="new-password">
+            <button class="pw-toggle" onclick="togglePw('f-password', this)" title="Show/hide">👁</button>
+            <button class="pw-gen" onclick="fillGenPassword()" title="Generate">⚡</button>
+          </div>
+          <div class="strength-bar"><div class="strength-fill" id="f-pw-fill" style="width:0%;background:var(--text3)"></div></div>
+          <div class="strength-label" id="f-pw-label"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label>URLs</label>
+        <div class="url-list" id="url-list"></div>
+        <button class="add-url-btn" onclick="addUrlRow()">+ Add URL</button>
+      </div>
+      <div class="field"><label>TOTP / 2FA URI (optional)</label>
+        <input id="f-totp" placeholder="otpauth://totp/..." autocomplete="off">
+      </div>
+      <div class="field"><label>Notes</label><textarea id="f-notes" placeholder="Optional notes…"></textarea></div>
+      <div class="field"><label>Tags</label><div class="tag-input-wrap" id="tag-wrap"></div></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-login')">Cancel</button>
+      <button class="btn primary" id="btn-save-login" onclick="saveLogin()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Card -->
+<div class="overlay hidden" id="modal-card">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>New Payment Card</h3>
+      <button class="modal-close" onclick="closeModal('modal-card')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Title</label><input id="c-title" placeholder="e.g. Visa Platinum" autocomplete="off"></div>
+      <div class="field"><label>Cardholder Name</label><input id="c-holder" placeholder="John Doe" autocomplete="off"></div>
+      <div class="field"><label>Card Number</label><input id="c-number" placeholder="4111 1111 1111 1111" maxlength="19" autocomplete="off"></div>
+      <div class="field-row">
+        <div class="field"><label>Expiry (MM/YY)</label><input id="c-expiry" placeholder="12/26" maxlength="5" autocomplete="off"></div>
+        <div class="field"><label>CVV</label>
+          <div class="pw-wrap"><input id="c-cvv" type="password" placeholder="123" maxlength="4" autocomplete="off">
+            <button class="pw-toggle" onclick="togglePw('c-cvv', this)">👁</button></div></div>
+      </div>
+      <div class="field"><label>Notes</label><textarea id="c-notes" placeholder="Optional notes…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-card')">Cancel</button>
+      <button class="btn primary" onclick="saveCard()">Save Card</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Note -->
+<div class="overlay hidden" id="modal-note">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>New Secure Note</h3>
+      <button class="modal-close" onclick="closeModal('modal-note')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Title</label><input id="n-title" placeholder="Note title" autocomplete="off"></div>
+      <div class="field"><label>Content</label><textarea id="n-content" style="min-height:140px" placeholder="Your secret note…"></textarea></div>
+      <div class="field"><label>Tags</label><div class="tag-input-wrap" id="note-tag-wrap"></div></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-note')">Cancel</button>
+      <button class="btn primary" onclick="saveNote()">Save Note</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script type="module">
+/* ── Tauri IPC bridge ──────────────────────────────────────────────────── */
+const { invoke } = window.__TAURI__?.core ?? { invoke: async () => {} };
+
+/* ── State ────────────────────────────────────────────────────────────── */
+let currentView = 'logins';
+let logins = [], cards = [], notes = [];
+let editingLoginId = null;
+let loginTags = [], noteTags = [];
+
+/* ── Init ─────────────────────────────────────────────────────────────── */
+async function init() {
+  await Promise.all([loadLogins(), loadCards(), loadNotes()]);
+  setupNav();
+  setupSearch();
+  setupGenerator();
+  setupImport();
+  document.getElementById('btn-add-entry').onclick = () => openAddEntry();
+  document.getElementById('btn-new-login').onclick = () => openLoginModal();
+  document.getElementById('btn-new-card').onclick  = () => openModal('modal-card');
+  document.getElementById('btn-new-note').onclick  = () => openModal('modal-note');
+  document.getElementById('f-password').addEventListener('input', onPasswordInput);
+}
+
+/* ── Data loading ─────────────────────────────────────────────────────── */
+async function loadLogins() {
+  try { logins = await invoke('cmd_vault_logins_list'); } catch { logins = []; }
+  renderLogins(logins);
+  document.getElementById('stat-logins').textContent = logins.length;
+  document.getElementById('count-logins').textContent = logins.length;
+}
+async function loadCards() {
+  try { cards = await invoke('cmd_vault_cards_list'); } catch { cards = []; }
+  renderCards(cards);
+  document.getElementById('stat-cards').textContent = cards.length;
+  document.getElementById('count-cards').textContent = cards.length;
+}
+async function loadNotes() {
+  try { notes = await invoke('cmd_vault_notes_list'); } catch { notes = []; }
+  renderNotes(notes);
+  document.getElementById('stat-notes').textContent = notes.length;
+  document.getElementById('count-notes').textContent = notes.length;
+}
+
+/* ── Render ───────────────────────────────────────────────────────────── */
+function renderLogins(items) {
+  const el = document.getElementById('logins-list');
+  if (!items.length) { el.innerHTML = emptyState('🔑', 'No logins yet', 'Click "+ New Login" to add your first entry.'); return; }
+  el.innerHTML = items.map(l => `
+    <div class="entry-card" onclick="viewLogin('${l.id}')">
+      <div class="entry-icon">${getFavicon(l.urls[0])}</div>
+      <div class="entry-info">
+        <div class="entry-title">${esc(l.title)}</div>
+        <div class="entry-sub">${esc(l.username || l.urls[0] || '')}</div>
+        <div class="entry-badges">
+          ${l.has_totp ? '<span class="badge totp">2FA</span>' : ''}
+          ${l.tags.map(t => `<span class="badge">${esc(t)}</span>`).join('')}
+        </div>
+      </div>
+      <div class="entry-actions">
+        <button class="icon-btn" title="Copy password" onclick="copyPassword(event,'${l.id}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+        </button>
+        <button class="icon-btn del" title="Delete" onclick="deleteLogin(event,'${l.id}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+          </svg>
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+function renderCards(items) {
+  const el = document.getElementById('cards-list');
+  if (!items.length) { el.innerHTML = emptyState('💳', 'No cards saved', 'Add a payment card to keep it secure.'); return; }
+  el.innerHTML = items.map(c => `
+    <div class="entry-card">
+      <div class="entry-icon">💳</div>
+      <div class="entry-info">
+        <div class="entry-title">${esc(c.title)}</div>
+        <div class="entry-sub">${c.cardholder} · •••• ${esc(c.last_four)} · ${esc(c.expiry)}</div>
+      </div>
+      <div class="entry-actions">
+        <button class="icon-btn del" title="Delete" onclick="deleteCard(event,'${c.id}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+          </svg>
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+function renderNotes(items) {
+  const el = document.getElementById('notes-list');
+  if (!items.length) { el.innerHTML = emptyState('📝', 'No secure notes', 'Store sensitive text securely.'); return; }
+  el.innerHTML = items.map(n => `
+    <div class="entry-card">
+      <div class="entry-icon">📝</div>
+      <div class="entry-info">
+        <div class="entry-title">${esc(n.title)}</div>
+        <div class="entry-sub">Updated ${relTime(n.updated_at)}</div>
+        <div class="entry-badges">${n.tags.map(t => `<span class="badge">${esc(t)}</span>`).join('')}</div>
+      </div>
+      <div class="entry-actions">
+        <button class="icon-btn del" title="Delete" onclick="deleteNote(event,'${n.id}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+          </svg>
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+/* ── Login modal ────────────────────────────────────────────────────────── */
+function openLoginModal(login = null) {
+  editingLoginId = login?.id ?? null;
+  loginTags = login?.tags ?? [];
+  document.getElementById('modal-login-title').textContent = login ? 'Edit Login' : 'New Login';
+  document.getElementById('f-title').value = login?.title ?? '';
+  document.getElementById('f-username').value = login?.username ?? '';
+  document.getElementById('f-password').value = '';
+  document.getElementById('f-totp').value = login?.totp_uri ?? '';
+  document.getElementById('f-notes').value = '';
+  // URLs
+  const urlList = document.getElementById('url-list');
+  urlList.innerHTML = '';
+  const urls = login?.urls ?? [''];
+  urls.forEach(u => addUrlRow(u));
+  renderTagInput('tag-wrap', loginTags, t => loginTags = t);
+  openModal('modal-login');
+}
+
+async function viewLogin(id) {
+  // Require biometric auth before showing password
+  const authed = await invoke('cmd_local_auth', { reason: 'View vault entry' });
+  if (!authed) { toast('Authentication required', 'err'); return; }
+  try {
+    const entry = await invoke('cmd_vault_login_get', { id });
+    openLoginModal({ ...entry, urls: entry.urls ?? [] });
+    document.getElementById('f-password').value = entry.password;
+    onPasswordInput();
+  } catch(e) { toast('Failed to load entry', 'err'); }
+}
+
+async function saveLogin() {
+  const title    = document.getElementById('f-title').value.trim();
+  const username = document.getElementById('f-username').value.trim();
+  const password = document.getElementById('f-password').value;
+  const urls     = [...document.querySelectorAll('.url-input')].map(i => i.value.trim()).filter(Boolean);
+  const notes    = document.getElementById('f-notes').value;
+  const totp_uri = document.getElementById('f-totp').value.trim() || null;
+  if (!title) { toast('Title is required', 'err'); return; }
+  try {
+    if (editingLoginId) {
+      await invoke('cmd_vault_login_update', { payload: {
+        id: editingLoginId, title, username, password: password || undefined,
+        urls, notes, tags: loginTags, totp_uri,
+      }});
+    } else {
+      await invoke('cmd_vault_login_add', { payload: {
+        title, username, password, urls, notes, tags: loginTags, totp_uri,
+      }});
+    }
+    closeModal('modal-login');
+    await loadLogins();
+    toast(editingLoginId ? 'Login updated' : 'Login saved', 'ok');
+  } catch(e) { toast('Save failed: ' + e, 'err'); }
+}
+
+async function copyPassword(e, id) {
+  e.stopPropagation();
+  const authed = await invoke('cmd_local_auth', { reason: 'Copy password' });
+  if (!authed) { toast('Authentication required', 'err'); return; }
+  try {
+    const entry = await invoke('cmd_vault_login_get', { id });
+    await navigator.clipboard.writeText(entry.password);
+    toast('Password copied', 'ok');
+  } catch { toast('Copy failed', 'err'); }
+}
+
+async function deleteLogin(e, id) {
+  e.stopPropagation();
+  if (!confirm('Delete this login?')) return;
+  try { await invoke('cmd_vault_login_delete', { id }); await loadLogins(); toast('Deleted', 'ok'); }
+  catch { toast('Delete failed', 'err'); }
+}
+async function deleteCard(e, id) {
+  e.stopPropagation();
+  if (!confirm('Delete this card?')) return;
+  try { await invoke('cmd_vault_card_delete', { id }); await loadCards(); toast('Deleted', 'ok'); }
+  catch { toast('Delete failed', 'err'); }
+}
+async function deleteNote(e, id) {
+  e.stopPropagation();
+  if (!confirm('Delete this note?')) return;
+  try { await invoke('cmd_vault_note_delete', { id }); await loadNotes(); toast('Deleted', 'ok'); }
+  catch { toast('Delete failed', 'err'); }
+}
+
+async function saveCard() {
+  const payload = {
+    title:      document.getElementById('c-title').value.trim(),
+    cardholder: document.getElementById('c-holder').value.trim() || null,
+    number:     document.getElementById('c-number').value.replace(/\s/g,''),
+    expiry:     document.getElementById('c-expiry').value.trim() || null,
+    cvv:        document.getElementById('c-cvv').value || null,
+    notes:      document.getElementById('c-notes').value,
+    tags:       [],
+  };
+  if (!payload.title || !payload.number) { toast('Title and card number are required', 'err'); return; }
+  try { await invoke('cmd_vault_card_add', { payload }); closeModal('modal-card'); await loadCards(); toast('Card saved', 'ok'); }
+  catch(e) { toast('Save failed: ' + e, 'err'); }
+}
+
+async function saveNote() {
+  const payload = {
+    title:   document.getElementById('n-title').value.trim(),
+    content: document.getElementById('n-content').value,
+    tags:    noteTags,
+  };
+  if (!payload.title) { toast('Title is required', 'err'); return; }
+  try { await invoke('cmd_vault_note_add', { payload }); closeModal('modal-note'); await loadNotes(); toast('Note saved', 'ok'); }
+  catch(e) { toast('Save failed: ' + e, 'err'); }
+}
+
+/* ── URL rows ─────────────────────────────────────────────────────────── */
+function addUrlRow(val = '') {
+  const wrap = document.getElementById('url-list');
+  const row = document.createElement('div');
+  row.className = 'url-row';
+  row.innerHTML = `<input class="url-input" type="url" placeholder="https://…" value="${esc(val)}">
+    <button class="url-remove" onclick="this.parentElement.remove()" title="Remove">✕</button>`;
+  wrap.appendChild(row);
+  row.querySelector('input').focus();
+}
+window.addUrlRow = addUrlRow;
+
+/* ── Password strength ────────────────────────────────────────────────── */
+async function onPasswordInput() {
+  const pw = document.getElementById('f-password').value;
+  if (!pw) { setStrength(document.getElementById('f-pw-fill'), document.getElementById('f-pw-label'), null); return; }
+  try {
+    const s = await invoke('cmd_vault_score_password', { password: pw });
+    setStrength(document.getElementById('f-pw-fill'), document.getElementById('f-pw-label'), s);
+  } catch {}
+}
+function setStrength(fill, label, s) {
+  if (!s) { fill.style.width = '0%'; label.textContent = ''; return; }
+  const colors = ['#ef4444','#f97316','#eab308','#22c55e','#0ea5e9'];
+  fill.style.width = ((s.score+1)/5*100) + '%';
+  fill.style.background = colors[s.score] ?? '#22c55e';
+  label.textContent = s.label;
+  label.style.color = colors[s.score] ?? '#22c55e';
+}
+
+/* ── Generator ────────────────────────────────────────────────────────── */
+let genMode = 'random';
+function setupGenerator() {
+  document.getElementById('tab-random').onclick = () => { genMode='random'; document.getElementById('tab-random').classList.add('active'); document.getElementById('tab-phrase').classList.remove('active'); document.getElementById('gen-random').classList.remove('hidden'); document.getElementById('gen-phrase').classList.add('hidden'); };
+  document.getElementById('tab-phrase').onclick = () => { genMode='phrase'; document.getElementById('tab-phrase').classList.add('active'); document.getElementById('tab-random').classList.remove('active'); document.getElementById('gen-phrase').classList.remove('hidden'); document.getElementById('gen-random').classList.add('hidden'); };
+  const lenSlider = document.getElementById('pw-length');
+  lenSlider.oninput = () => { document.getElementById('pw-length-val').textContent = lenSlider.value; };
+  const phraseSlider = document.getElementById('phrase-count');
+  phraseSlider.oninput = () => { document.getElementById('phrase-count-val').textContent = phraseSlider.value; };
+  document.getElementById('btn-generate').onclick = generate;
+  document.getElementById('btn-copy-gen').onclick = copyGenResult;
+}
+async function generate() {
+  let result;
+  if (genMode === 'random') {
+    result = await invoke('cmd_vault_generate_password', { cfg: {
+      length: parseInt(document.getElementById('pw-length').value),
+      uppercase: document.getElementById('pw-upper').checked,
+      numbers: document.getElementById('pw-numbers').checked,
+      symbols: document.getElementById('pw-symbols').checked,
+    }});
+  } else {
+    result = await invoke('cmd_vault_generate_passphrase', { cfg: {
+      word_count: parseInt(document.getElementById('phrase-count').value),
+      separator: document.getElementById('phrase-sep').value,
+      capitalise: document.getElementById('phrase-cap').checked,
+      include_number: document.getElementById('phrase-num').checked,
+    }});
+  }
+  document.getElementById('gen-result').textContent = result;
+  try {
+    const s = await invoke('cmd_vault_score_password', { password: result });
+    setStrength(document.getElementById('gen-strength-fill'), document.getElementById('gen-strength-label'), s);
+  } catch {}
+}
+async function copyGenResult() {
+  const val = document.getElementById('gen-result').textContent;
+  if (val === 'Click Generate') return;
+  await navigator.clipboard.writeText(val);
+  toast('Copied!', 'ok');
+}
+async function fillGenPassword() {
+  await generate();
+  const val = document.getElementById('gen-result').textContent;
+  document.getElementById('f-password').value = val;
+  onPasswordInput();
+}
+window.fillGenPassword = fillGenPassword;
+
+/* ── Import ───────────────────────────────────────────────────────────── */
+function setupImport() {
+  const fi = document.getElementById('import-file-input');
+  fi.addEventListener('change', onImportFile);
+}
+let importType = '';
+function triggerImport(type) {
+  importType = type;
+  const fi = document.getElementById('import-file-input');
+  fi.accept = type === 'csv' ? '.csv' : type === 'uri-list' ? '.txt' : '.json';
+  fi.click();
+}
+window.triggerImport = triggerImport;
+
+async function onImportFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  try {
+    let count = 0;
+    if (importType === 'csv') count = await invoke('cmd_vault_import_csv', { csv: text });
+    else if (importType === 'bw-json') count = await invoke('cmd_totp_import_bitwarden', { json: text });
+    else if (importType === 'aegis')   count = await invoke('cmd_totp_import_aegis',    { json: text });
+    else if (importType === '2fas')    count = await invoke('cmd_totp_import_2fas',     { json: text });
+    else if (importType === 'uri-list') count = await invoke('cmd_totp_import_uri_list', { text });
+    await loadLogins();
+    toast(`Imported ${count} entries`, 'ok');
+  } catch(e) { toast('Import failed: ' + e, 'err'); }
+  e.target.value = '';
+}
+
+/* ── Nav ──────────────────────────────────────────────────────────────── */
+function setupNav() {
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => switchView(item.dataset.view));
+  });
+}
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.toggle('active', i.dataset.view === view));
+  ['logins','cards','notes','generator','import'].forEach(v => {
+    const el = document.getElementById('view-' + v);
+    if (el) el.classList.toggle('hidden', v !== view);
+  });
+}
+
+/* ── Search ─────────────────────────────────────────────────────────────── */
+function setupSearch() {
+  document.getElementById('search-logins').addEventListener('input', async e => {
+    const q = e.target.value.trim();
+    if (!q) { renderLogins(logins); return; }
+    try { const res = await invoke('cmd_vault_logins_search', { query: q }); renderLogins(res); } catch {}
+  });
+}
+
+/* ── Add entry shortcut ───────────────────────────────────────────────── */
+function openAddEntry() {
+  if (currentView === 'logins') openLoginModal();
+  else if (currentView === 'cards') openModal('modal-card');
+  else if (currentView === 'notes') openModal('modal-note');
+  else switchView('logins');
+}
+
+/* ── Tag input ────────────────────────────────────────────────────────── */
+function renderTagInput(wrapperId, tags, onChange) {
+  const wrap = document.getElementById(wrapperId);
+  wrap.innerHTML = '';
+  tags.forEach((t, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    chip.innerHTML = `${esc(t)}<button onclick="removeTag('${wrapperId}',${i})">✕</button>`;
+    wrap.appendChild(chip);
+  });
+  const inp = document.createElement('input');
+  inp.className = 'tag-inline-input';
+  inp.placeholder = tags.length ? '' : 'Add tags…';
+  inp.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ',') && inp.value.trim()) {
+      e.preventDefault();
+      tags.push(inp.value.trim()); onChange(tags);
+      renderTagInput(wrapperId, tags, onChange);
+    } else if (e.key === 'Backspace' && !inp.value && tags.length) {
+      tags.pop(); onChange(tags);
+      renderTagInput(wrapperId, tags, onChange);
+    }
+  });
+  wrap.addEventListener('click', () => inp.focus());
+  wrap.appendChild(inp);
+}
+window.removeTag = function(id, i) {
+  const ref = id === 'tag-wrap' ? loginTags : noteTags;
+  ref.splice(i, 1);
+  renderTagInput(id, ref, t => id === 'tag-wrap' ? (loginTags = t) : (noteTags = t));
+};
+
+/* ── Modals ───────────────────────────────────────────────────────────── */
+function openModal(id) {
+  document.getElementById(id).classList.remove('hidden');
+  if (id === 'modal-note') renderTagInput('note-tag-wrap', noteTags, t => noteTags = t);
+}
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+window.closeModal = closeModal;
+
+/* ── Helpers ──────────────────────────────────────────────────────────── */
+function togglePw(id, btn) {
+  const inp = document.getElementById(id);
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁'; }
+}
+window.togglePw = togglePw;
+
+function getFavicon(url) {
+  if (!url) return '🔑';
+  try { const h = new URL(url).hostname; const p = h.split('.').slice(-2,1)[0] ?? '?'; return p[0]?.toUpperCase() ?? '🔑'; }
+  catch { return '🔑'; }
+}
+function relTime(ts) {
+  const s = Math.floor(Date.now()/1000 - ts);
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s/60) + 'm ago';
+  if (s < 86400) return Math.floor(s/3600) + 'h ago';
+  return Math.floor(s/86400) + 'd ago';
+}
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function emptyState(icon, title, desc) {
+  return `<div class="empty"><div style="font-size:2.5rem">${icon}</div><h3>${title}</h3><p>${desc}</p></div>`;
+}
+function toast(msg, type = 'ok') {
+  const wrap = document.getElementById('toast-wrap');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+/* ── Start ────────────────────────────────────────────────────────────── */
+window.saveLogin  = saveLogin;
+window.viewLogin  = viewLogin;
+window.copyPassword = copyPassword;
+window.deleteLogin = deleteLogin;
+window.deleteCard  = deleteCard;
+window.deleteNote  = deleteNote;
+window.saveCard   = saveCard;
+window.saveNote   = saveNote;
+window.openModal  = openModal;
+
+init();
+</script>
+</body>
+</html>

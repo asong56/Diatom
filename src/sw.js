@@ -1,5 +1,5 @@
 /**
- * diatom/src/sw.js  — v0.9.0
+ * diatom/src/sw.js  — v0.11.0
  *
  * Service Worker — last line of defence before bytes hit the renderer.
  *
@@ -12,7 +12,12 @@
 
 'use strict';
 
-const CACHE   = 'diatom-v7';
+// [FIX-BUG-02] Cache key is now version-stamped so upgrades auto-invalidate old caches.
+// In production builds, __DIATOM_VERSION__ is replaced by build.rs at compile time.
+// During development it falls back to a timestamp so iterating always gets a fresh SW.
+const CACHE = (typeof __DIATOM_VERSION__ !== 'undefined')
+  ? 'diatom-' + __DIATOM_VERSION__
+  : 'diatom-dev-' + Math.floor(Date.now() / 86400000); // one per day in dev
 const SHELL   = ['/', '/index.html', '/diatom.css', '/main.js', '/sw.js', '/manifest.json'];
 
 // ── Config (hot-updated via BroadcastChannel) ─────────────────────────────────
@@ -28,9 +33,103 @@ let CONFIG = {
   zen_categories:  ['social', 'entertainment'],
 };
 
-// In-memory Museum index (populated by IPC from the app on SW init)
+// In-memory Museum index (populated by IPC from the app on SW init).
+// [FIX-SW-01] Also persisted to IndexedDB so Ghost Redirect works after cold start.
 // Format: Array<{ id, url, title, tfidf_tags: string[] }>
 let MUSEUM_INDEX = [];
+
+// ── IndexedDB persistence for MUSEUM_INDEX ────────────────────────────────────
+// Ghost Redirect was broken after a cold start (SW killed + re-activated) because
+// MUSEUM_INDEX was never repopulated until the app sent a MUSEUM_INDEX message,
+// which only happened after a page load. If the first navigation was offline,
+// the index was always empty and Ghost Redirect returned null.
+//
+// Fix: persist the index to IndexedDB on every MUSEUM_INDEX message, and restore
+// it during the SW 'activate' event (before any fetch events arrive).
+
+const IDB_NAME    = 'diatom-sw';
+const IDB_VERSION = 1;
+const IDB_STORE   = 'kv';
+const IDB_KEY_MUSEUM = 'museum_index';
+
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = e => {
+      e.target.result.createObjectStore(IDB_STORE);
+    };
+    req.onsuccess  = e => resolve(e.target.result);
+    req.onerror    = e => reject(e.target.error);
+  });
+}
+
+async function idbGet(key) {
+  try {
+    const db = await idbOpen();
+    return await new Promise((resolve, reject) => {
+      const tx  = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = e => resolve(e.target.result ?? null);
+      req.onerror   = e => reject(e.target.error);
+    });
+  } catch { return null; }
+}
+
+async function idbSet(key, value) {
+  // [v0.6.0 FIX-BUG-06 + v0.11.0] Full error taxonomy:
+  //   • QuotaExceededError → trim Museum index to 50 newest entries and retry
+  //   • AbortError         → tx was aborted (IDB corruption?) — log and give up
+  //   • Other              → log with structured details for devtools diagnosis
+  // tx.onerror + tx.onabort bound in addition to req.onerror for complete coverage.
+  try {
+    const db = await idbOpen();
+    await new Promise((resolve, reject) => {
+      const tx  = db.transaction(IDB_STORE, 'readwrite');
+      const req = tx.objectStore(IDB_STORE).put(value, key);
+      req.onsuccess = () => resolve(true);
+      req.onerror   = e => reject(e.target.error);
+      tx.onerror    = e => reject(e.target.error);
+      tx.onabort    = () => reject(new DOMException('Transaction aborted', 'AbortError'));
+    });
+    return true;
+  } catch (err) {
+    const isQuota = err?.name === 'QuotaExceededError' ||
+                    err?.name === 'NS_ERROR_DOM_INDEXEDDB_QUOTA_ERR';
+    if (isQuota) {
+      console.warn('[diatom-sw] IndexedDB quota exceeded — trimming Museum index to 50 entries');
+      if (key === IDB_KEY_MUSEUM && Array.isArray(value) && value.length > 50) {
+        const trimmed = [...value]
+          .sort((a, b) => (b.frozen_at ?? 0) - (a.frozen_at ?? 0))
+          .slice(0, 50);
+        try {
+          const db2 = await idbOpen();
+          await new Promise((res, rej) => {
+            const tx2  = db2.transaction(IDB_STORE, 'readwrite');
+            const req2 = tx2.objectStore(IDB_STORE).put(trimmed, key);
+            req2.onsuccess = () => res(true);
+            req2.onerror   = e  => rej(e.target.error);
+          });
+          console.info(`[diatom-sw] Museum index trimmed to ${trimmed.length} entries`);
+          return true;
+        } catch (retryErr) {
+          console.error('[diatom-sw] idbSet retry after trim also failed:', retryErr);
+        }
+      }
+    } else {
+      console.warn('[diatom-sw] idbSet failed', { key, errorName: err?.name, message: err?.message });
+    }
+    return false;
+  }
+}
+
+/// Restore MUSEUM_INDEX from IndexedDB on cold start.
+async function restoreMuseumIndex() {
+  const stored = await idbGet(IDB_KEY_MUSEUM);
+  if (Array.isArray(stored) && stored.length > 0) {
+    MUSEUM_INDEX = stored;
+    console.log(`[diatom-sw] Restored Museum index from IDB: ${stored.length} entries`);
+  }
+}
 
 // In-memory threat list (populated from DB on startup)
 let THREAT_SET = new Set();
@@ -43,6 +142,20 @@ let CRUSHER_RULES = new Map();
 // The main thread sends { type: 'CONFIG', config: { synthesised_ua: '...' } }
 // after boot() completes.
 let DIATOM_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/619.1.26 (KHTML, like Gecko) Version/18.0 Safari/619.1.26';
+
+
+// [v0.11.0 PERF] Stale-while-revalidate for static assets (fonts, CSS, JS).
+// The browser already caches these aggressively; the SW adds a second layer
+// so navigations to diatom:// pages are instant even on the first load.
+const STATIC_CACHE = 'diatom-static-v1';
+const STATIC_EXTS  = ['.css', '.js', '.woff2', '.ico', '.png'];
+
+function isStaticAsset(url) {
+  try {
+    const path = new URL(url).pathname;
+    return STATIC_EXTS.some(ext => path.endsWith(ext));
+  } catch { return false; }
+}
 
 const bc = new BroadcastChannel('diatom:sw');
 const devnetBC = new BroadcastChannel('diatom:devnet');
@@ -65,6 +178,12 @@ bc.addEventListener('message', e => {
       break;
     case 'MUSEUM_INDEX':
       MUSEUM_INDEX = msg.index ?? [];
+      // [FIX-SW-01] Persist to IndexedDB so Ghost Redirect survives cold start.
+      idbSet(IDB_KEY_MUSEUM, MUSEUM_INDEX).catch(err => {
+        // [BUG-6 FIX] Log write failures so Ghost Redirect silent failure is visible.
+        // Common causes: storage quota exceeded, IDB corrupted in Private Browsing.
+        console.warn('[diatom-sw] Museum IDB persist failed — Ghost Redirect will not survive cold start:', err);
+      });
       break;
     case 'THREAT_LIST':
       THREAT_SET = new Set(msg.list ?? []);
@@ -338,7 +457,11 @@ self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))),
-    ).then(() => self.clients.claim()),
+    )
+    // [FIX-SW-01] Restore MUSEUM_INDEX from IDB so Ghost Redirect works immediately
+    // even before the app sends a MUSEUM_INDEX message (cold start scenario).
+    .then(() => restoreMuseumIndex())
+    .then(() => self.clients.claim()),
   );
 });
 

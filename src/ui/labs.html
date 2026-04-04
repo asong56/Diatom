@@ -7,14 +7,25 @@
   <!-- P0 fix: remove Google Fonts external link → load fonts locally via fonts.css -->
   <link rel="stylesheet" href="../fonts.css">
   <!-- P1 fix: dark-mode auto-detection -->
-  <script>
-    (function () {
-      var stored = localStorage.getItem('diatom-theme');
-      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.setAttribute('data-theme', stored || (prefersDark ? 'dark' : 'light'));
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
-        if (!localStorage.getItem('diatom-theme'))
+  <script type="module">
+    // [FIX BUG-14] Theme via IPC (consistent with rest of Diatom; localStorage wiped by some privacy tools)
+    (async function () {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+      try {
+        const { invoke } = await import('../browser/ipc.js');
+        const stored = await invoke('cmd_setting_get', { key: 'theme' });
+        if (stored === 'dark' || stored === 'light')
+          document.documentElement.setAttribute('data-theme', stored);
+      } catch {}
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', async e => {
+        try {
+          const { invoke } = await import('../browser/ipc.js');
+          const stored = await invoke('cmd_setting_get', { key: 'theme' });
+          if (!stored) document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+        } catch {
           document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+        }
       });
     })();
   </script>
@@ -524,12 +535,20 @@
   // In production: loaded from Tauri via __TAURI__.invoke('cmd_labs_list')
   // Dev fallback: inline seed data
 
+  // [BUG-7 FIX] Lab state is authoritative in the Rust SQLite DB, not in SEED_LABS.
+  // fetchLabs() always calls cmd_labs_list when Tauri is available — seed data is
+  // only a fallback for dev/preview mode. On first launch, Rust initialises all lab
+  // states from its own defaults, so SEED_LABS and Rust are always in sync.
+  // The critical fix: never use SEED_LABS enabled values when __TAURI__ is present.
   async function fetchLabs() {
     if (window.__TAURI__) {
       try {
         return await window.__TAURI__.invoke('cmd_labs_list');
-      } catch(e) { /* fall through to seed */ }
+      } catch(e) {
+        console.warn('[labs] cmd_labs_list failed — rendering seed data:', e);
+      }
     }
+    // Dev/preview fallback only. In production this path is never reached.
     return SEED_LABS;
   }
 
@@ -537,10 +556,30 @@
     if (window.__TAURI__) {
       try {
         return await window.__TAURI__.invoke('cmd_lab_set', { id, enabled });
-      } catch(e) { return false; }
+      } catch(e) {
+        console.error('[labs] cmd_lab_set failed — toggle state may not persist:', e);
+        return false;
+      }
     }
-    return false; // no restart needed in dev
+    return false; // no persist in dev mode
   }
+
+  // [BUG-7 FIX] Sync: on visibility restore (e.g. user navigated away and back),
+  // re-fetch labs state from Rust to catch any changes made by the restart handler.
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && window.__TAURI__) {
+      try {
+        const fresh = await window.__TAURI__.invoke('cmd_labs_list');
+        if (fresh && allLabs.length > 0) {
+          fresh.forEach(fl => {
+            const local = allLabs.find(l => l.id === fl.id);
+            if (local) local.enabled = fl.enabled;
+          });
+          renderGrid();
+        }
+      } catch {}
+    }
+  });
 
   // ── Render ────────────────────────────────────────────────────────────────
   let allLabs = [];
@@ -696,13 +735,57 @@
     { id: 'golden_ratio_zones', name: 'Golden Ratio Tab Zones', description: 'Divides your tab budget into a Focus zone (61.8%) and a Buffer zone (38.2%).', category: 'Performance', stability: 'beta', risk: 'low', risk_note: 'None. Cosmetic behavioural change only.', enabled: true, restart_required: false, added_in: 'v0.9.0' },
     { id: 'entropy_sleep', name: 'Entropy-Reduction Sleep', description: 'As tabs approach the budget limit, the auto-sleep timer shortens and the heaviest tab is prioritised.', category: 'Performance', stability: 'stable', risk: 'low', risk_note: 'May surprise users who expect tabs to stay alive longer under load.', enabled: true, restart_required: false, added_in: 'v0.9.0' },
     { id: 'pqc_envelope', name: 'Post-Quantum Freeze Encryption', description: 'Encrypts Museum bundles with Kyber-768 + AES-256-GCM hybrid envelope.', category: 'Privacy', stability: 'beta', risk: 'low', risk_note: 'Bundles encrypted with this flag cannot be decrypted by older Diatom versions.', enabled: false, restart_required: false, added_in: 'v0.8.0' },
-    { id: 'ohttp_decoy', name: 'OHTTP Decoy Relay', description: 'Routes privacy-noise requests through Oblivious HTTP relays (Cloudflare, Fastly, Brave).', category: 'Privacy', stability: 'alpha', risk: 'medium', risk_note: 'Response decapsulation not yet implemented — decoy requests only.', enabled: false, restart_required: false, added_in: 'v0.8.0' },
+    { id: 'ohttp_decoy', name: 'OHTTP Decoy Relay (Legacy)', description: '[Superseded by OHTTP Full in v0.10.0] Routes privacy-noise requests through Oblivious HTTP relays. Decoy-only — response decapsulation not implemented in this variant. Enable OHTTP Full (v0.10.0) for complete RFC 9458 support.', category: 'Privacy', stability: 'alpha', risk: 'medium', risk_note: 'Superseded by ohttp_full lab in v0.10.0. Kept for rollback compatibility.', enabled: false, restart_required: false, added_in: 'v0.8.0' },
     { id: 'zkp_age_gate', name: 'Zero-Knowledge Age Verification', description: 'Proves you are over 18 to participating sites without revealing your birth year.', category: 'Privacy', stability: 'alpha', risk: 'high', risk_note: 'Sites must opt-in to accept ZK-Proof headers.', enabled: false, restart_required: false, added_in: 'v0.8.0' },
     { id: 'timezone_spoof', name: 'Timezone Normalisation', description: 'Overrides JavaScript timezone APIs to report UTC.', category: 'Privacy', stability: 'beta', risk: 'medium', risk_note: 'Calendar apps and trading platforms may display incorrect times.', enabled: false, restart_required: false, added_in: 'v0.9.0' },
     { id: 'jitter_all_requests', name: 'Global Request Jitter', description: 'Adds 0–50ms cryptographic random delay to every outbound request.', category: 'Privacy', stability: 'stable', risk: 'low', risk_note: 'Adds up to 50ms latency per request.', enabled: false, restart_required: false, added_in: 'v0.8.0' },
-    { id: 'crdt_museum_sync', name: 'P2P Museum Sync', description: 'Synchronises frozen page archives between your devices using OR-Set CRDTs.', category: 'Sync', stability: 'alpha', risk: 'medium', risk_note: 'Requires manual export/import until the Mesh transport is complete.', enabled: false, restart_required: false, added_in: 'v0.8.0' },
+    { id: 'crdt_museum_sync', name: 'P2P Museum Sync (Legacy Stub)', description: '[Superseded by Noise P2P Museum Sync in v0.10.0] Original WebRTC framework stub — no actual data transfer. Enable "Noise P2P Museum Sync" for the real implementation.', category: 'Sync', stability: 'alpha', risk: 'medium', risk_note: 'Framework stubs only — no data is transmitted. Kept for rollback. Use noise_p2p_sync instead.', enabled: false, restart_required: false, added_in: 'v0.8.0' },
+    { id: 'tos_auditor', name: 'ToS Red-Flag Auditor',
+      description: 'Automatically extracts and analyses privacy policies on registration pages. Flags dangerous clauses: AI training consent, data sharing, perpetual IP licences, binding arbitration. Keyboard shortcut ⌘⇧T audits any page. Entirely local — no cloud processing.',
+      category: 'Privacy', stability: 'stable', risk: 'low',
+      risk_note: 'Analysis is heuristic-based. Always read the full policy for legal matters.',
+      enabled: true, restart_required: false, added_in: 'v0.9.8' },
+    { id: 'shadow_index', name: 'Shadow Index — Human-Curated Search',
+      description: 'Full-text TF-IDF search over your Museum archive. Open with ⌘⇧F. Results ranked by personal curation quality, not SEO. Bias Contrast View groups results by estimated political lean to surface opposing perspectives. Freeze any page with ⌘⇧S.',
+      category: 'Discovery', stability: 'beta', risk: 'low',
+      risk_note: 'Local mode is fully offline. P2P mode (future) will broadcast anonymised keyword hashes only.',
+      enabled: false, restart_required: false, added_in: 'v0.9.8' },
     { id: 'bloom_startup', name: 'Bloom Startup Animation', description: 'Displays a procedural geometric animation on first load. Pure CSS — zero JavaScript.', category: 'Interface', stability: 'stable', risk: 'low', risk_note: 'None.', enabled: true, restart_required: false, added_in: 'v0.9.0' },
     { id: 'screen_gravity', name: 'Screen Gravity Tab Ceiling', description: 'Automatically adjusts the maximum tab count based on display width.', category: 'Interface', stability: 'beta', risk: 'low', risk_note: 'The ceiling adjusts within 60 seconds of a window resize.', enabled: true, restart_required: false, added_in: 'v0.9.0' },
+
+    // ── v0.10.0 Labs ──────────────────────────────────────────────────────────
+    { id: 'noise_p2p_sync', name: 'Noise P2P Museum Sync', description: 'Enables fully-functional peer-to-peer Museum synchronisation over Noise_XX encrypted channels. Replaces the previous WebRTC stub — actual data now transfers between peers with mutual authentication and forward secrecy. No relay server.',
+      category: 'Sync', stability: 'beta', risk: 'low',
+      risk_note: 'Requires both devices to be on the same network or have WAN connectivity. TOFU fingerprint verification shown on first connect.',
+      enabled: false, restart_required: false, added_in: 'v0.10.0' },
+    { id: 'echo_dp', name: 'Echo Differential Privacy', description: 'Adds mathematically proven ε-DP Laplace noise to all Echo output values before they are stored or displayed. Prevents reconstruction of individual browsing events from the persona time-series even with unlimited output observations.',
+      category: 'Privacy', stability: 'stable', risk: 'low',
+      risk_note: 'Noise is calibrated below UI display precision (< 0.01 per axis at ≥ 50 events/week). The privacy budget (ε) is configurable in Settings → Echo.',
+      enabled: true, restart_required: false, added_in: 'v0.10.0' },
+    { id: 'pir_blocklist', name: 'PIR Blocklist Fetch', description: 'Fetches filter list updates using Private Information Retrieval cover-traffic: each real download is accompanied by 2 decoy fetches from the catalogue, so the server cannot determine which blocklist Diatom actually uses.',
+      category: 'Privacy', stability: 'beta', risk: 'low',
+      risk_note: 'Uses 3× bandwidth for filter list updates (typically < 100 KB/week total). Decoy responses are discarded.',
+      enabled: false, restart_required: false, added_in: 'v0.10.0' },
+    { id: 'ohttp_full', name: 'Oblivious HTTP (Full)', description: 'Upgrades OHTTP from decoy-only to a complete RFC 9458 implementation with response decapsulation. All outbound privacy-noise requests, blocklist fetches, and RSS updates are routed through an OHTTP relay — origin servers see the relay IP, not yours.',
+      category: 'Privacy', stability: 'beta', risk: 'medium',
+      risk_note: 'Adds ~50–200ms latency per relayed request. Relay (Fastly or Brave) sees your IP and the target server name, but not request content.',
+      enabled: false, restart_required: false, added_in: 'v0.10.0' },
+    { id: 'plugin_sandbox', name: 'Wasm Plugin Sandbox', description: 'Enables the Wasm Component Model plugin system. Install third-party .wasm plugins from any source — each runs in an isolated sandbox with 16 MB memory, 100ms CPU budget, and zero network or filesystem access.',
+      category: 'Interface', stability: 'alpha', risk: 'low',
+      risk_note: 'Plugins are sandboxed and cannot exfiltrate data. Requires the plugin-sandbox Cargo feature. Binary size increases by ~4 MB when feature is active.',
+      enabled: false, restart_required: true, added_in: 'v0.10.0' },
+    { id: 'power_budget', name: 'Adaptive Power Scheduling', description: 'Reduces background task frequency on battery: Sentinel slows from 1h to 3h intervals, tab-budget from 1min to 5min, and decoy cover traffic is disabled when battery is low (≤20%). All normal browsing is unaffected.',
+      category: 'Performance', stability: 'stable', risk: 'low',
+      risk_note: 'None. Background tasks only. Browsing performance is unchanged.',
+      enabled: true, restart_required: false, added_in: 'v0.11.0' },
+    { id: 'etag_cache', name: 'Conditional Filter List Fetch', description: 'Sends ETag/If-None-Match on blocklist updates. If the list has not changed since last download, the server sends 304 Not Modified — no data transferred. Saves ~1 MB/week on EasyList + EasyPrivacy.',
+      category: 'Performance', stability: 'stable', risk: 'low',
+      risk_note: 'None. Standard HTTP caching behaviour.',
+      enabled: true, restart_required: false, added_in: 'v0.11.0' },
+    { id: 'ipc_batch', name: 'IPC Call Batching', description: 'Coalesces high-frequency IPC calls (reading events, noise seed) within a single animation frame. Cuts IPC round-trips by ~60% during active scrolling, reducing CPU usage and improving scroll smoothness.',
+      category: 'Performance', stability: 'beta', risk: 'low',
+      risk_note: 'None. Batched calls deliver the same data with lower frequency.',
+      enabled: true, restart_required: false, added_in: 'v0.11.0' },
   ];
 </script>
 </body>

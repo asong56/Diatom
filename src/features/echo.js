@@ -38,8 +38,7 @@ export async function maybeShowEchoHint() {
   const WEEK_MS = 7 * 24 * 3600 * 1000;
 
   // Only show hint once per week, on Monday
-  const dayOfWeek = new Date().getDay(); // 0=Sun, 1=Mon
-  if (dayOfWeek !== 1) return;
+  // [FIX-BUG-05] Trigger anytime ≥7 days have passed — not restricted to Monday.
   if (now - lastRun < WEEK_MS) return;
 
   const notesZone = qs('#notes-zone');

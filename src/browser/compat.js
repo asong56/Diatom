@@ -1,5 +1,9 @@
 /**
- * diatom/src/browser/compat.js  — v7.2  RED-1
+ * diatom/src/browser/compat.js  — v7.3
+ *
+ * [FIX BUG-04] MutationObserver now wired for dom_mutation_storm detection.
+ *   Counts DOM mutations over a 3-second window; >500 triggers the broken
+ *   page heuristic, improving detection of runaway React/Vue SPAs.
  *
  * Compatibility Router frontend.
  *
@@ -22,23 +26,49 @@ import { domainOf } from './utils.js';
 
 // ── Health monitor ────────────────────────────────────────────────────────────
 
-let _jsErrors    = 0;
-let _consoleErrs = 0;
-let _monitorUrl  = '';
-let _monitorTimer = null;
+let _jsErrors       = 0;
+let _consoleErrs    = 0;
+let _mutationCount  = 0;
+let _monitorUrl     = '';
+let _monitorTimer   = null;
+let _mutationObserver = null;
+
+// DOM mutation storm threshold: >500 mutations within the 3-second monitoring
+// window indicates an SPA rendering loop or runaway reactive framework.
+const MUTATION_STORM_THRESHOLD = 500;
 
 /**
  * Start monitoring the current page for compatibility issues.
  * Called by tabs.js on every navigation.
  */
 export function startHealthMonitor(url) {
-  _jsErrors    = 0;
-  _consoleErrs = 0;
-  _monitorUrl  = url;
+  _jsErrors      = 0;
+  _consoleErrs   = 0;
+  _mutationCount = 0;
+  _monitorUrl    = url;
   clearTimeout(_monitorTimer);
+
+  // Disconnect any previous observer from the last navigation
+  if (_mutationObserver) {
+    _mutationObserver.disconnect();
+    _mutationObserver = null;
+  }
 
   // Count uncaught JS errors
   window.addEventListener('error', onJsError, { capture: true, once: false });
+
+  // Wire MutationObserver to count DOM mutations (fixes BUG-04).
+  // We observe childList + subtree only — attribute/characterData noise
+  // would inflate counts on normal animated pages.
+  try {
+    _mutationObserver = new MutationObserver(mutations => {
+      _mutationCount += mutations.length;
+    });
+    const root = document.body ?? document.documentElement;
+    if (root) {
+      _mutationObserver.observe(root, { childList: true, subtree: true, attributes: false });
+    }
+  } catch { /* MutationObserver unavailable — degrade gracefully */ }
 
   // Check for blank body after 3s
   _monitorTimer = setTimeout(() => checkPageHealth(url), 3000);
@@ -47,12 +77,18 @@ export function startHealthMonitor(url) {
 function onJsError() { _jsErrors++; }
 
 async function checkPageHealth(url) {
+  // Snapshot and disconnect observer before reading counts
+  if (_mutationObserver) {
+    _mutationObserver.disconnect();
+    _mutationObserver = null;
+  }
+
   const domain    = domainOf(url);
   const blankBody = !document.body?.innerText?.trim().length;
   const report    = {
     url,
     js_errors:          _jsErrors,
-    dom_mutation_storm: false,   // TODO: wire MutationObserver count
+    dom_mutation_storm: _mutationCount > MUTATION_STORM_THRESHOLD,
     blank_body:         blankBody,
     console_errors:     _consoleErrs,
   };

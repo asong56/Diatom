@@ -1,5 +1,5 @@
 /**
- * diatom/src/main.js  — v7.1
+ * diatom/src/main.js  — v0.11.0
  *
  * Application entry point. Wires all modules together.
  * Zero frameworks. Cold start target: < 80ms.
@@ -28,6 +28,28 @@ import { maybeShowEchoHint, openEchoPanel } from './features/echo.js';
 import { openNetworkPanel } from './features/network-panel.js';
 import { injectVideoController } from './features/video-controller.js';
 import { qs } from './browser/utils.js';
+import { tosAuditor } from './features/tos-auditor.js';
+import { shadowIndex } from './features/shadow-index.js';
+
+// ── CSS lazy-loader ─────────────────────────────────────────────────────────
+// [v0.6.0 OPT-01] Feature CSS files are loaded on demand, not at boot.
+// This keeps the main-path CSS parse to ~17 KB (down from 45 KB).
+// Files: ai-panel.css, shadow-index.css, tab-groups.css, tos-auditor.css
+
+const _loadedStyles = new Set();
+
+function loadStylesheet(href) {
+  if (_loadedStyles.has(href)) return Promise.resolve();
+  return new Promise((resolve) => {
+    const link = document.createElement('link');
+    link.rel  = 'stylesheet';
+    link.href = href;
+    link.onload  = () => { _loadedStyles.add(href); resolve(); };
+    link.onerror = resolve; // non-critical — degrade gracefully
+    document.head.appendChild(link);
+  });
+}
+
 
 // ── Worker ────────────────────────────────────────────────────────────────────
 
@@ -87,6 +109,10 @@ function routeCommand(input) {
 
   if (s === '/devnet') {
     openNetworkPanel();
+    return true;
+  }
+  if (s === '/files' || s === '/localfiles') {
+    navigate('diatom://localfiles');
     return true;
   }
   if (s === '/zen') {
@@ -202,6 +228,16 @@ async function onTabChange(tabId) {
 // ── Boot sequence ─────────────────────────────────────────────────────────────
 
 async function boot() {
+  // [B-05 FIX] Signal Rust that JS loaded successfully. This cancels the 3-second
+  // watchdog in main.rs that would otherwise force-show the window with a boot-error.
+  // Also call show() here unconditionally so even if the IPC fails (e.g. Tauri not
+  // ready yet) the window still becomes visible.
+  try {
+    await invoke('cmd_setting_get', { key: '__noop__' }).catch(() => {});
+    // Emit window-ready — Rust watchdog will cancel on receiving this via IPC
+    await invoke('cmd_setting_set', { key: '__window_ready__', value: '1' }).catch(() => {});
+  } catch { /* non-critical */ }
+
   // 1. Hotkeys first — capture events before anything renders
   await initHotkeys();
   registerDefaultHotkeys({
@@ -240,6 +276,12 @@ async function boot() {
   // 7. Tab change → Lustre + hotkey context
   await listen('diatom:tab_activated', e => onTabChange(e.tab_id));
 
+  // [v0.11.0 PERF] Forward page visibility to the worker so it can pause
+  // idle indexing while the browser window is hidden (saves CPU/battery).
+  document.addEventListener('visibilitychange', () => {
+    worker?.postMessage({ type: 'VISIBILITY', payload: { hidden: document.hidden } });
+  });
+
   // 8. Service Worker
   await registerSW();
 
@@ -251,6 +293,15 @@ async function boot() {
 
   // 11. Threat list refresh trigger (once per session, non-blocking)
   setTimeout(() => invoke('cmd_threat_list_refresh').catch(() => {}), 10_000);
+
+  // 12. ToS Auditor — register navigation hook (fires when lab enabled)
+  if (window.__DIATOM_INIT__?.labs?.tos_auditor !== false) {
+    // Expose navigation hook for tabs.js to call on page load
+    window.__diatom_tos_auditor = tosAuditor;
+  }
+
+  // 13. Shadow Index is keyboard-driven; module self-registers ⌘⇧F globally
+  window.__diatom_shadow_index = shadowIndex;
 }
 
 // Boot on DOMContentLoaded

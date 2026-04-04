@@ -1,5 +1,5 @@
 /**
- * diatom/src/workers/core.worker.js  — v7
+ * diatom/src/workers/core.worker.js  — v0.11.0  — v7
  *
  * Core worker thread. Zero UI jank regardless of index size.
  *
@@ -13,6 +13,12 @@
  */
 
 'use strict';
+
+// [v0.11.0 PERF] Visibility-gated processing.
+// The main thread sends { type: 'VISIBILITY', hidden: bool } on visibilitychange.
+// When hidden, non-urgent work (idle indexing) is deferred until visible again.
+let _workerPaused = false;
+
 
 // ── TF-IDF engine (unchanged from v6) ────────────────────────────────────────
 
@@ -499,6 +505,14 @@ self.addEventListener('message', async ({ data }) => {
         tfidf.remove(tmpId);
         break;
       }
+
+      case 'VISIBILITY':
+        // [v0.11.0 PERF] Pause/resume idle indexer based on page visibility.
+        // Avoids CPU wake-ups while the user is not actively using the browser.
+        _workerPaused = !!payload?.hidden;
+        if (!_workerPaused) idleIndexer?.resumeIfPaused?.();
+        result = { paused: _workerPaused };
+        break;
 
       default:
         error = `unknown type: ${type}`;

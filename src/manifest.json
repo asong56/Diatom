@@ -6,8 +6,8 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0a0a10",
-  "theme_color": "#0a0a10",
+  "background_color": "#f4f2ee",
+  "theme_color": "#1a472a",
   "lang": "en",
   "dir": "ltr",
   "icons": [
@@ -27,6 +27,9 @@
       "type": "image/png"
     }
   ],
-  "categories": ["productivity", "utilities"],
+  "categories": [
+    "productivity",
+    "utilities"
+  ],
   "prefer_related_applications": false
 }
