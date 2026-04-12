@@ -2,9 +2,6 @@
 
 **A minimalist, privacy-first, local-AI browser.**
 
-[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/Rust-1.78+-orange.svg)](https://rustup.rs)
-[![Tauri](https://img.shields.io/badge/Tauri-2.0-purple.svg)](https://tauri.app)
 [![Binary](https://img.shields.io/badge/binary-%E2%89%A410MB-green.svg)](#)
 [![Status](https://img.shields.io/badge/status-v0.14.3-yellow.svg)](AXIOMS.md)
 
