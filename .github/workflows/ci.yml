@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -13,7 +13,7 @@ env:
 jobs:
   check:
     name: Lint & Test
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -53,19 +53,23 @@ jobs:
         working-directory: src-tauri
         run: cargo build --release --no-default-features --features custom-protocol
 
-      - name: Check binary size <= 15 MB
+      - name: Check binary size <= 10 MB
         run: |
           BINARY=$(find src-tauri/target/release -maxdepth 1 -name "diatom" -o -name "diatom.exe" | head -1)
           [ -z "$BINARY" ] && echo "Binary not found — skip" && exit 0
           SIZE=$(stat -c%s "$BINARY" 2>/dev/null || stat -f%z "$BINARY")
           SIZE_MB=$(echo "scale=2; $SIZE / 1048576" | bc)
           echo "Binary: ${SIZE_MB} MB"
-          [ "$SIZE" -gt $((15 * 1024 * 1024)) ] && echo "Exceeds 15 MB limit" && exit 1
+          if [ "$SIZE" -gt $((10 * 1024 * 1024)) ]; then
+            echo "Error: Binary size ${SIZE_MB}MB exceeds 10MB limit!"
+            exit 1
+          fi
+          echo "Size check passed!"
           exit 0
 
   security:
     name: Security Audit
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable

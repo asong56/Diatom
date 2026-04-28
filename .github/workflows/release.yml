@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v*'
 
 permissions:
   contents: write
@@ -14,18 +14,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest
+          - platform: macos-15
             args: --target aarch64-apple-darwin
-            artifact: diatom_${{ github.ref_name }}_aarch64.dmg
-          - platform: macos-latest
-            args: --target x86_64-apple-darwin
-            artifact: diatom_${{ github.ref_name }}_x86_64.dmg
-          - platform: ubuntu-22.04
+          - platform: ubuntu-latest
             args: ''
-            artifact: diatom_${{ github.ref_name }}_amd64.deb
           - platform: windows-latest
             args: ''
-            artifact: diatom_${{ github.ref_name }}_x64_en-US.msi
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -34,10 +28,10 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.platform == 'macos-15' && 'aarch64-apple-darwin' || '' }}
 
       - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -61,5 +55,5 @@ jobs:
           files: |
             src-tauri/target/release/bundle/**/*.dmg
             src-tauri/target/release/bundle/**/*.deb
-            src-tauri/target/release/bundle/**/*.AppImage
             src-tauri/target/release/bundle/**/*.msi
+            src-tauri/target/release/bundle/**/*.AppImage
