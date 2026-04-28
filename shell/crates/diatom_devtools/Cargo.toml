@@ -3,7 +3,7 @@ name        = "diatom_devtools"
 version     = "0.1.0"
 edition     = "2024"
 description = "Browser DevPanel — Console, Network, Sources panels (v1 scope)"
-license     = "BUSL-1.1"
+license     = "BlueOak-1.0.0"
 
 # ── DevPanel v1 scope (architecture doc §5.5) ─────────────────────────────────
 #

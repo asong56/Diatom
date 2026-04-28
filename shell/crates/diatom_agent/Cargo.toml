@@ -2,6 +2,7 @@
 name        = "diatom_agent"
 version     = "0.1.0"
 edition     = "2021"
+license     = "BlueOak-1.0.0"
 description = "Micro-agent state machine for Diatom — planning layer + JSON tool dispatch"
 
 [dependencies]

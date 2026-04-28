@@ -3,7 +3,7 @@ name        = "diatom_bridge"
 version     = "0.3.0"
 edition     = "2024"
 description = "IPC bridge between Diatom browser shell and the GPUI DevPanel; Resonance ↔ Zed UDS context link"
-license     = "BUSL-1.1"
+license     = "BlueOak-1.0.0"
 
 [dependencies]
 anyhow     = "1"

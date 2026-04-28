@@ -4,7 +4,7 @@ version     = "1.0.0"
 edition     = "2024"
 authors     = ["asong56 <https://github.com/asong56>"]
 description = "Minimalist · zero-tracking · local-AI-native browser"
-license     = "BUSL-1.1"
+license     = "BlueOak-1.0.0"
 repository  = "https://github.com/asong56/Diatom"
 keywords    = ["browser", "privacy", "tauri", "rust"]
 categories  = ["web-programming"]
@@ -92,8 +92,8 @@ base64 = "0.22"
 # regex, scraper, html5ever removed — zero call sites, saved ~120 KB.
 aho-corasick = "1"
 
-hickory-resolver = { version = "0.24", features = ["dns-over-https-rustls"] }
-hickory-proto    = "0.24"
+hickory-resolver = { version = "0.25", features = ["dns-over-https-rustls"] }
+hickory-proto    = "0.25"
 
 tokio-tungstenite = { version = "0.21", features = ["rustls-tls-native-roots"] }
 futures-util      = { version = "0.3", default-features = false, features = ["sink", "std"] }

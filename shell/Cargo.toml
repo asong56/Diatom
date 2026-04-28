@@ -16,10 +16,14 @@ members = [
 
     # ── Diatom bridge crates (created by this project) ───────────────────────
     "crates/diatom_bridge",
-    "crates/diatom_devtools",
-    # diatom_ui — stable facade between DevPanel and GPUI internals
-    "crates/diatom_ui",
     "crates/diatom_agent",
+
+    # diatom_devtools and diatom_ui are excluded from the workspace because they
+    # depend on `gpui` and other Zed-internal crates that are stripped from this
+    # repository. They must be built as part of a full Zed source tree.
+    # See strip-zed.sh for the upstream sync process.
+    # "crates/diatom_devtools",
+    # "crates/diatom_ui",
 ]
 
 # Crates removed from the upstream Zed workspace (recorded here for strip-zed.sh
@@ -42,8 +46,9 @@ members = [
 [workspace.dependencies]
 # Unified versions to avoid duplicate compilation
 diatom_bridge     = { path = "crates/diatom_bridge" }
-diatom_devtools   = { path = "crates/diatom_devtools" }
-diatom_ui         = { path = "crates/diatom_ui" }
+# diatom_devtools and diatom_ui excluded — require stripped Zed crates (gpui etc.)
+# diatom_devtools   = { path = "crates/diatom_devtools" }
+# diatom_ui         = { path = "crates/diatom_ui" }
 
 anyhow            = "1"
 serde             = { version = "1", features = ["derive"] }

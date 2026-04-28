@@ -3,7 +3,7 @@ name        = "diatom_ui"
 version     = "0.1.0"
 edition     = "2024"
 description = "Stable UI trait facade isolating Diatom from GPUI internals (P2 Axiom-15 guard)"
-license     = "BUSL-1.1"
+license     = "BlueOak-1.0.0"
 
 # This crate defines the UiRenderer trait and the concrete GpuiRenderer that
 # implements it. All DevPanel code depends on `diatom_ui`, never on gpui
