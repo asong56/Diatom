@@ -1,0 +1,24 @@
+# cargo-audit configuration
+# See: https://github.com/rustsec/rustsec/tree/main/cargo-audit
+
+[advisories]
+ignore = [
+    # RUSTSEC-2026-0097: rand 0.7.3 unsound with custom logger via rand::rng()
+    #
+    # This advisory applies to rand 0.7.3, which enters the dependency tree
+    # transitively as a build-time-only dependency:
+    #
+    #   phf_generator 0.8.0 (build dep of phf_codegen)
+    #   └── phf_codegen 0.8.0 (build dep of selectors)
+    #       └── selectors 0.24.0 (dep of kuchikiki)
+    #           └── kuchikiki (dep of tauri-utils, compile-time only)
+    #
+    # Diatom's runtime code uses rand 0.8 exclusively and never calls
+    # rand::rng() with a custom logger. phf_generator uses rand solely
+    # to seed compile-time perfect-hash tables — the unsound path is
+    # not reachable at runtime.
+    #
+    # Track upstream fix: bump tauri-utils once kuchikiki moves to
+    # selectors >= 0.25 (which uses phf 0.11 / rand 0.8).
+    "RUSTSEC-2026-0097",
+]
