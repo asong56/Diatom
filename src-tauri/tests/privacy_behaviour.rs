@@ -179,9 +179,9 @@ mod zen_blocking {
     #[test]
     fn blocks_social_when_active() {
         let cfg = active_zen();
-        assert_eq!(cfg.blocks_domain("twitter.com"),   Some("social"));
+        assert_eq!(cfg.blocks_domain("twitter.com"), Some("social"));
         assert_eq!(cfg.blocks_domain("instagram.com"), Some("social"));
-        assert_eq!(cfg.blocks_domain("reddit.com"),    Some("social"));
+        assert_eq!(cfg.blocks_domain("reddit.com"), Some("social"));
     }
 
     #[test]
@@ -194,8 +194,10 @@ mod zen_blocking {
     #[test]
     fn does_not_block_when_inactive() {
         let cfg = ZenConfig::default(); // Off by default
-        assert!(cfg.blocks_domain("twitter.com").is_none(),
-            "inactive Zen must not block any domain");
+        assert!(
+            cfg.blocks_domain("twitter.com").is_none(),
+            "inactive Zen must not block any domain"
+        );
     }
 
     #[test]
@@ -210,15 +212,19 @@ mod zen_blocking {
     fn intent_gate_defaults_to_true() {
         // Axiom 2: the 50-char gate must default to enabled
         let cfg = ZenConfig::default();
-        assert!(cfg.require_intent_gate,
-            "intent gate must default to true (Axiom 2)");
+        assert!(
+            cfg.require_intent_gate,
+            "intent gate must default to true (Axiom 2)"
+        );
     }
 
     #[test]
     fn blocks_subdomain_of_social() {
         let cfg = active_zen();
-        assert!(cfg.blocks_domain("old.reddit.com").is_some(),
-            "subdomain of a blocked social site must be blocked");
+        assert!(
+            cfg.blocks_domain("old.reddit.com").is_some(),
+            "subdomain of a blocked social site must be blocked"
+        );
     }
 }
 
