@@ -17,8 +17,6 @@
 
 #[cfg(test)]
 mod url_stripping {
-    // Import the public stripping function from the engine crate.
-    // Adjust the path to match the actual module structure if it differs.
     use diatom::engine::url_stripper::strip_tracking_params;
 
     #[test]
@@ -48,7 +46,6 @@ mod url_stripping {
 
     #[test]
     fn preserves_oauth_state() {
-        // OAuth 'state' parameter must NEVER be stripped (session security)
         let url = "https://auth.example.com/callback?code=xyz&state=csrf-token-abc";
         let clean = strip_tracking_params(url);
         assert!(clean.contains("state=csrf-token-abc"),
@@ -95,7 +92,6 @@ mod fingerprint_normalisation {
         let script = FingerprintNorm::default().generate();
         assert!(script.contains("hardwareConcurrency"),
             "script must override hardwareConcurrency");
-        // Must use the normalised value 8, not a random or platform value
         assert!(script.contains("8"),
             "hardwareConcurrency must be normalised to 8");
     }
@@ -116,19 +112,21 @@ mod fingerprint_normalisation {
 
     #[test]
     fn generated_script_does_not_use_math_random() {
-        // Noise-based approaches use Math.random() — Axiom 10 forbids noise
         let script = FingerprintNorm::default().generate();
-        assert!(!script.contains("Math.random()"),
-            "fingerprint override must not use Math.random() (Axiom 10: normalisation, not noise)");
+        assert!(
+            !script.contains("Math.random()"),
+            "fingerprint override must not use Math.random() (Axiom 10: normalisation, not noise)"
+        );
     }
 
     #[test]
     fn generated_script_is_deterministic() {
-        // Same inputs → same script, every time (normalisation, not noise)
         let s1 = FingerprintNorm::default().generate();
         let s2 = FingerprintNorm::default().generate();
-        assert_eq!(s1, s2,
-            "fingerprint normalisation script must be deterministic (Axiom 10)");
+        assert_eq!(
+            s1, s2,
+            "fingerprint normalisation script must be deterministic (Axiom 10)"
+        );
     }
 }
 
@@ -155,7 +153,8 @@ mod filter_fetch_ua {
             "Filter fetch UA must look like a mainstream browser"
         );
         assert!(
-            FILTER_FETCH_UA.contains("Chrome") || FILTER_FETCH_UA.contains("Firefox")
+            FILTER_FETCH_UA.contains("Chrome")
+                || FILTER_FETCH_UA.contains("Firefox")
                 || FILTER_FETCH_UA.contains("Safari"),
             "Filter fetch UA must reference a real browser engine"
         );
@@ -193,7 +192,7 @@ mod zen_blocking {
 
     #[test]
     fn does_not_block_when_inactive() {
-        let cfg = ZenConfig::default(); // Off by default
+        let cfg = ZenConfig::default();
         assert!(
             cfg.blocks_domain("twitter.com").is_none(),
             "inactive Zen must not block any domain"
@@ -235,22 +234,14 @@ mod zen_blocking {
 #[cfg(test)]
 mod warc_export {
     // Test the public functions from the WARC export module directly.
-    // Full export_warc() requires a live Db; these tests cover the format layer.
-
-    /// Verify a WARC record contains the mandatory WARC/1.1 header.
     #[test]
     fn warc_record_starts_with_version_line() {
         use diatom::storage::warc_export::export_warc;
-        // We test the helper functions indirectly through the public API;
-        // the unit tests in warc_export.rs cover individual record writers.
-        // This integration-level test just ensures the module is reachable.
         let _ = std::hint::black_box(export_warc as usize);
     }
 
     #[test]
     fn iso8601_epoch_formats_correctly() {
-        // unix_ts_to_iso8601 is internal; test via the WARC output in warc_export unit tests.
-        // Duplicated here as a smoke test to catch regressions at the integration level.
         assert_eq!(
             diatom::storage::warc_export::unix_ts_to_iso8601_pub(0),
             "1970-01-01T00:00:00Z"
