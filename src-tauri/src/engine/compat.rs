@@ -1,4 +1,3 @@
-
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -114,13 +113,14 @@ pub fn system_browser_open(url: &str) -> Result<()> {
 /// which is defined by diatom-api.js and invokes cmd_compat_handoff via IPC.
 
 pub fn compat_hint_banner(domain: &str) -> String {
+    let escaped_domain = crate::utils::escape_html(domain);
     format!(
         r#"<div id="__diatom_compat" style="
           position:fixed;top:0;left:0;right:0;z-index:2147483647;
           background:#1e293b;border-bottom:1px solid rgba(245,158,11,.3);
           color:#fbbf24;font:500 12px/1.5 'Inter',system-ui;
           padding:6px 12px;display:flex;align-items:center;gap:8px;">
-          <span>⚠ Diatom detected a compatibility issue with this page</span>
+          <span>⚠ Diatom detected a compatibility issue with <b>{escaped_domain}</b></span>
           <button onclick="window.__diatom_compat_handoff(location.href);"
             style="margin-left:auto;background:#b45309;color:#fff;border:none;
                    border-radius:3px;padding:3px 8px;cursor:pointer;font-size:11px;">
@@ -130,9 +130,8 @@ pub fn compat_hint_banner(domain: &str) -> String {
             style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:14px;">
             ✕
           </button>
-        </div>"#,
+        </div>"#
     )
-    .replace("__DOMAIN__", &crate::utils::escape_html(domain))
 }
 
 /// Known payment/banking domains that require system browser handoff.
@@ -204,4 +203,3 @@ mod tests {
         assert!(!store.is_legacy("old-intranet.example.com"));
     }
 }
-
