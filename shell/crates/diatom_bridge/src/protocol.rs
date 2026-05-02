@@ -102,15 +102,15 @@ pub fn generate_auth_token() -> String {
 pub enum BrowserMessage {
     /// Open or focus the DevPanel at the given workspace root.
     Open {
-        id:           RequestId,
+        id: RequestId,
         /// Absolute path to the workspace root.
         project_root: String,
     },
 
     /// Notify the DevPanel that the active page has changed.
     PageNavigated {
-        url:          String,
-        title:        String,
+        url: String,
+        title: String,
         /// Serialised DOM snapshot (tag, id, classes, attributes).
         /// `None` when privacy mode suppresses DOM export.
         dom_snapshot: Option<DomNode>,
@@ -118,8 +118,8 @@ pub enum BrowserMessage {
 
     /// Push a console log entry from the webview into the DevPanel.
     ConsoleEntry {
-        level:       ConsoleLevel,
-        text:        String,
+        level: ConsoleLevel,
+        text: String,
         source_file: Option<String>,
         source_line: Option<u32>,
     },
@@ -129,17 +129,17 @@ pub enum BrowserMessage {
 
     /// Respond to a source-file fetch request from the DevPanel.
     SourceFileContent {
-        id:      RequestId,
-        url:     String,
+        id: RequestId,
+        url: String,
         /// UTF-8 source text (JS, CSS, or HTML).
         content: String,
     },
 
     /// Forward a streaming completion delta from the local AI endpoint.
     SlmCompletion {
-        id:    RequestId,
+        id: RequestId,
         delta: String,
-        done:  bool,
+        done: bool,
     },
 
     /// Forward a micro-agent event to the DevPanel AI overlay.
@@ -156,10 +156,7 @@ pub enum BrowserMessage {
 #[serde(tag = "method", content = "params", rename_all = "snake_case")]
 pub enum DevPanelMessage {
     /// Request the source text of a URL (Sources panel).
-    FetchSourceFile {
-        id:  RequestId,
-        url: String,
-    },
+    FetchSourceFile { id: RequestId, url: String },
 
     /// Evaluate JavaScript in the current webview page.
     ///
@@ -167,20 +164,17 @@ pub enum DevPanelMessage {
     /// This message is only accepted after the authentication handshake
     /// completes successfully (see [`HandshakeMessage`]). Connections that
     /// have not sent a valid token never reach this message type.
-    EvalJs {
-        id:     RequestId,
-        script: String,
-    },
+    EvalJs { id: RequestId, script: String },
 
     /// Highlight a DOM element in the webview (mirrors the element picker).
     HighlightElement { selector: String },
 
     /// Request a completion from the local AI endpoint (`:11435`).
     SlmRequest {
-        id:       RequestId,
-        model:    String,
+        id: RequestId,
+        model: String,
         messages: Vec<SlmMessage>,
-        stream:   bool,
+        stream: bool,
     },
 
     /// Request the current network-monitor snapshot.
@@ -193,15 +187,15 @@ pub enum DevPanelMessage {
     /// is shown; no fallback to a cloud URL is attempted (Axiom 8).
     OpenInZedIde {
         /// Source URL as shown in the Sources panel.
-        url:  String,
+        url: String,
         /// Optional line number to jump to on open.
         line: Option<u32>,
     },
 
     /// Start a new agent run in the backend runner.
     AgentStart {
-        id:    RequestId,
-        goal:  String,
+        id: RequestId,
+        goal: String,
         model: String,
     },
 
@@ -210,9 +204,9 @@ pub enum DevPanelMessage {
 
     /// Deliver a tool-execution result from the JS bridge.
     AgentToolResult {
-        plan_id:   u64,
-        ok:        bool,
-        output:    String,
+        plan_id: u64,
+        ok: bool,
+        output: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         image_b64: Option<String>,
     },
@@ -269,12 +263,12 @@ pub enum BackendToShell {
     /// response to `ShellMessage::QueryTabsState`.
     TabsState {
         /// Echoed request id; `0` for unsolicited push events.
-        id:        RequestId,
-        tabs:      Vec<ShellTab>,
+        id: RequestId,
+        tabs: Vec<ShellTab>,
         active_id: Option<String>,
-        can_back:  bool,
-        can_fwd:   bool,
-        loading:   bool,
+        can_back: bool,
+        can_fwd: bool,
+        loading: bool,
     },
 
     /// The backend is shutting down; the shell should flush state and exit.
@@ -287,8 +281,8 @@ pub enum BackendToShell {
 /// Internal fields (DOM snapshot, ZRAM, memory weight) are not transmitted.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShellTab {
-    pub id:    String,
-    pub url:   String,
+    pub id: String,
+    pub url: String,
     pub title: String,
     /// Sleep state as a human-readable string: `"awake"`, `"shallow"`, or `"deep"`.
     pub sleep: String,
@@ -299,10 +293,10 @@ pub struct ShellTab {
 /// A single node in a serialised DOM tree.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DomNode {
-    pub tag:      String,
-    pub id:       Option<String>,
-    pub classes:  Vec<String>,
-    pub attrs:    Vec<(String, String)>,
+    pub tag: String,
+    pub id: Option<String>,
+    pub classes: Vec<String>,
+    pub attrs: Vec<(String, String)>,
     pub children: Vec<DomNode>,
 }
 
@@ -320,44 +314,43 @@ pub enum ConsoleLevel {
 /// A single network request/response event.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkEventPayload {
-    pub id:             String,
-    pub url:            String,
-    pub method:         String,
-    pub status:         Option<u16>,
-    pub request_bytes:  u64,
+    pub id: String,
+    pub url: String,
+    pub method: String,
+    pub status: Option<u16>,
+    pub request_bytes: u64,
     pub response_bytes: u64,
-    pub latency_ms:     u64,
-    pub blocked:        bool,
-    pub timestamp_ms:   u64,
+    pub latency_ms: u64,
+    pub blocked: bool,
+    pub timestamp_ms: u64,
 }
 
 /// A single message in an AI conversation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SlmMessage {
-    pub role:    String,
+    pub role: String,
     pub content: String,
 }
 
 /// Context snapshot pushed to the Resonance UDS socket for Zed to consume.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResonanceContext {
-    pub page_url:       String,
-    pub page_title:     String,
+    pub page_url: String,
+    pub page_title: String,
     /// Up to 20 recent console errors.
     pub console_errors: Vec<String>,
     /// DOM root, depth-limited to 3 levels.
-    pub dom_root:       Option<DomNode>,
+    pub dom_root: Option<DomNode>,
     /// Active source file URL and the first 4 KB of its content.
-    pub active_source:  Option<ActiveSource>,
+    pub active_source: Option<ActiveSource>,
 }
 
 /// A source file reference with a content preview.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActiveSource {
-    pub url:     String,
+    pub url: String,
     pub snippet: String,
 }
-
 
 // ── Agent event payload ───────────────────────────────────────────────────────
 
@@ -366,13 +359,36 @@ pub struct ActiveSource {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AgentEventPayload {
-    PlanReady   { plan_id: u64, steps: Vec<String> },
-    ToolCall    { plan_id: u64, step_idx: usize, step_desc: String, call_json: String },
-    StepDone    { plan_id: u64, step_idx: usize, output: String },
-    Done        { plan_id: u64, summary: String },
-    Failed      { plan_id: u64, reason: String },
-    StepTimeout { plan_id: u64, step_idx: usize },
-    Cancelled   { plan_id: u64 },
+    PlanReady {
+        plan_id: u64,
+        steps: Vec<String>,
+    },
+    ToolCall {
+        plan_id: u64,
+        step_idx: usize,
+        step_desc: String,
+        call_json: String,
+    },
+    StepDone {
+        plan_id: u64,
+        step_idx: usize,
+        output: String,
+    },
+    Done {
+        plan_id: u64,
+        summary: String,
+    },
+    Failed {
+        plan_id: u64,
+        reason: String,
+    },
+    StepTimeout {
+        plan_id: u64,
+        step_idx: usize,
+    },
+    Cancelled {
+        plan_id: u64,
+    },
 }
 
 #[cfg(test)]
@@ -381,7 +397,9 @@ mod tests {
 
     #[test]
     fn shell_message_navigate_roundtrip() {
-        let msg = ShellMessage::Navigate { url: "https://example.com".to_owned() };
+        let msg = ShellMessage::Navigate {
+            url: "https://example.com".to_owned(),
+        };
         let json = serde_json::to_string(&msg).unwrap();
         let back: ShellMessage = serde_json::from_str(&json).unwrap();
         matches!(back, ShellMessage::Navigate { .. });
@@ -390,17 +408,17 @@ mod tests {
     #[test]
     fn backend_to_shell_tabs_state_roundtrip() {
         let msg = BackendToShell::TabsState {
-            id:        42,
-            tabs:      vec![ShellTab {
-                id:    "t1".to_owned(),
-                url:   "https://example.com".to_owned(),
+            id: 42,
+            tabs: vec![ShellTab {
+                id: "t1".to_owned(),
+                url: "https://example.com".to_owned(),
                 title: "Example".to_owned(),
                 sleep: "awake".to_owned(),
             }],
             active_id: Some("t1".to_owned()),
-            can_back:  false,
-            can_fwd:   false,
-            loading:   false,
+            can_back: false,
+            can_fwd: false,
+            loading: false,
         };
         let json = serde_json::to_string(&msg).unwrap();
         let back: BackendToShell = serde_json::from_str(&json).unwrap();
@@ -409,8 +427,8 @@ mod tests {
 
     #[test]
     fn shutdown_variants_are_type_distinct() {
-        let shell_shutdown    = serde_json::to_string(&BackendToShell::Shutdown).unwrap();
-        let browser_shutdown  = serde_json::to_string(&BrowserMessage::Shutdown).unwrap();
+        let shell_shutdown = serde_json::to_string(&BackendToShell::Shutdown).unwrap();
+        let browser_shutdown = serde_json::to_string(&BrowserMessage::Shutdown).unwrap();
         assert_eq!(shell_shutdown, browser_shutdown);
     }
 
@@ -421,14 +439,19 @@ mod tests {
         let json = serde_json::to_string(&msg).unwrap();
         assert!(json.contains("\"challenge\""), "method key wrong: {json}");
         // No token in the challenge — must not leak the secret.
-        assert!(!json.contains("token"), "token must not appear in Challenge: {json}");
+        assert!(
+            !json.contains("token"),
+            "token must not appear in Challenge: {json}"
+        );
     }
 
     /// Handshake Response carries the token field.
     #[test]
     fn handshake_response_roundtrip() {
         let token = "deadbeef".to_owned();
-        let msg = HandshakeMessage::Response { token: token.clone() };
+        let msg = HandshakeMessage::Response {
+            token: token.clone(),
+        };
         let json = serde_json::to_string(&msg).unwrap();
         let back: HandshakeMessage = serde_json::from_str(&json).unwrap();
         match back {
@@ -442,7 +465,10 @@ mod tests {
     fn auth_token_format() {
         let tok = generate_auth_token();
         assert_eq!(tok.len(), 64, "expected 64 hex chars, got {}", tok.len());
-        assert!(tok.chars().all(|c| c.is_ascii_hexdigit()), "non-hex chars in token");
+        assert!(
+            tok.chars().all(|c| c.is_ascii_hexdigit()),
+            "non-hex chars in token"
+        );
     }
 
     /// Two consecutive tokens must not be identical.

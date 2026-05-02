@@ -4,13 +4,11 @@
 //! to the DevPanel's Unix socket, completes the authentication handshake, and
 //! then forwards messages in both directions.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use tokio::sync::mpsc;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 
-use crate::protocol::{
-    BrowserMessage, DevPanelMessage, HandshakeMessage, HANDSHAKE_TIMEOUT_MS,
-};
+use crate::protocol::{BrowserMessage, DevPanelMessage, HANDSHAKE_TIMEOUT_MS, HandshakeMessage};
 use crate::transport;
 
 const CHAN_CAP: usize = 256;
@@ -18,7 +16,7 @@ const CHAN_CAP: usize = 256;
 /// Handle returned by [`BridgeClient::connect`].
 pub struct BridgeClient {
     /// Messages arriving from the DevPanel (e.g. `EvalJs`, `SlmRequest`).
-    pub inbound:  mpsc::Receiver<DevPanelMessage>,
+    pub inbound: mpsc::Receiver<DevPanelMessage>,
     /// Queue a message to be sent to the DevPanel.
     pub outbound: mpsc::Sender<BrowserMessage>,
 }
@@ -33,11 +31,7 @@ impl BridgeClient {
     /// Retries up to `retries` times with 100 ms back-off (the DevPanel may
     /// still be starting its GPUI event loop when Diatom calls connect).
     #[cfg(unix)]
-    pub async fn connect(
-        socket_path: &str,
-        auth_token:  &str,
-        retries:     u8,
-    ) -> Result<Self> {
+    pub async fn connect(socket_path: &str, auth_token: &str, retries: u8) -> Result<Self> {
         use tokio::net::UnixStream;
         use tokio::time::sleep;
 
@@ -49,9 +43,7 @@ impl BridgeClient {
                     break;
                 }
                 Err(e) if attempt < retries => {
-                    log::debug!(
-                        "[bridge-client] connect attempt {attempt} failed ({e}), retrying"
-                    );
+                    log::debug!("[bridge-client] connect attempt {attempt} failed ({e}), retrying");
                     sleep(Duration::from_millis(100)).await;
                 }
                 Err(e) => return Err(e).context("connect to DevPanel socket"),
@@ -63,7 +55,7 @@ impl BridgeClient {
         // --- Handshake before any message traffic ---
         perform_handshake(&mut reader, &mut writer, auth_token).await?;
 
-        let (inbound_tx,  inbound_rx)  = mpsc::channel::<DevPanelMessage>(CHAN_CAP);
+        let (inbound_tx, inbound_rx) = mpsc::channel::<DevPanelMessage>(CHAN_CAP);
         let (outbound_tx, outbound_rx) = mpsc::channel::<BrowserMessage>(CHAN_CAP);
 
         // Read task: forward DevPanelMessages from the socket to `inbound`.
@@ -71,7 +63,9 @@ impl BridgeClient {
             loop {
                 match transport::recv::<_, DevPanelMessage>(&mut reader).await {
                     Ok(Some(msg)) => {
-                        if inbound_tx.send(msg).await.is_err() { break; }
+                        if inbound_tx.send(msg).await.is_err() {
+                            break;
+                        }
                     }
                     Ok(None) => {
                         log::info!("[bridge-client] DevPanel disconnected");
@@ -97,24 +91,23 @@ impl BridgeClient {
         });
 
         Ok(Self {
-            inbound:  inbound_rx,
+            inbound: inbound_rx,
             outbound: outbound_tx,
         })
     }
 
     #[cfg(windows)]
-    pub async fn connect(
-        pipe_name:  &str,
-        auth_token: &str,
-        retries:    u8,
-    ) -> Result<Self> {
+    pub async fn connect(pipe_name: &str, auth_token: &str, retries: u8) -> Result<Self> {
         use tokio::net::windows::named_pipe::ClientOptions;
         use tokio::time::sleep;
 
         let mut pipe = None;
         for attempt in 0..=retries {
             match ClientOptions::new().open(pipe_name) {
-                Ok(p) => { pipe = Some(p); break; }
+                Ok(p) => {
+                    pipe = Some(p);
+                    break;
+                }
                 Err(e) if attempt < retries => {
                     sleep(Duration::from_millis(100)).await;
                     let _ = e;
@@ -135,7 +128,7 @@ impl BridgeClient {
             perform_handshake(&mut r, &mut w, auth_token).await?;
         }
 
-        let (inbound_tx,  inbound_rx)  = mpsc::channel::<DevPanelMessage>(CHAN_CAP);
+        let (inbound_tx, inbound_rx) = mpsc::channel::<DevPanelMessage>(CHAN_CAP);
         let (outbound_tx, outbound_rx) = mpsc::channel::<BrowserMessage>(CHAN_CAP);
 
         let read_pipe = Arc::clone(&pipe);
@@ -145,7 +138,9 @@ impl BridgeClient {
                 match transport::recv::<_, DevPanelMessage>(&mut *guard).await {
                     Ok(Some(msg)) => {
                         drop(guard);
-                        if inbound_tx.send(msg).await.is_err() { break; }
+                        if inbound_tx.send(msg).await.is_err() {
+                            break;
+                        }
                     }
                     Ok(None) => break,
                     Err(e) => {
@@ -169,7 +164,7 @@ impl BridgeClient {
         });
 
         Ok(Self {
-            inbound:  inbound_rx,
+            inbound: inbound_rx,
             outbound: outbound_tx,
         })
     }
@@ -191,13 +186,9 @@ impl BridgeClient {
 /// 2. Sends `HandshakeMessage::Response { token: auth_token }`.
 /// 3. Waits for `HandshakeMessage::Accepted`.
 /// 4. Returns `Ok(())` on success, `Err` on any failure.
-async fn perform_handshake<R, W>(
-    reader:     &mut R,
-    writer:     &mut W,
-    auth_token: &str,
-) -> Result<()>
+async fn perform_handshake<R, W>(reader: &mut R, writer: &mut W, auth_token: &str) -> Result<()>
 where
-    R: tokio::io::AsyncRead  + Unpin,
+    R: tokio::io::AsyncRead + Unpin,
     W: tokio::io::AsyncWrite + Unpin,
 {
     let deadline = Duration::from_millis(HANDSHAKE_TIMEOUT_MS);
@@ -211,13 +202,16 @@ where
     match frame {
         Some(HandshakeMessage::Challenge) => {}
         Some(other) => bail!("handshake: expected Challenge, got {other:?}"),
-        None        => bail!("handshake: server closed connection before Challenge"),
+        None => bail!("handshake: server closed connection before Challenge"),
     }
 
     // Step 2 — send Response.
-    transport::send(writer, &HandshakeMessage::Response {
-        token: auth_token.to_owned(),
-    })
+    transport::send(
+        writer,
+        &HandshakeMessage::Response {
+            token: auth_token.to_owned(),
+        },
+    )
     .await
     .context("handshake: send Response")?;
 
@@ -236,6 +230,6 @@ where
             bail!("handshake rejected by server: {reason}")
         }
         Some(other) => bail!("handshake: unexpected verdict frame: {other:?}"),
-        None        => bail!("handshake: server closed connection before verdict"),
+        None => bail!("handshake: server closed connection before verdict"),
     }
 }

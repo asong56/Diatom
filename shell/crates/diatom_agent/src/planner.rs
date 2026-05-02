@@ -62,7 +62,10 @@ async fn try_plan(client: &DiatomSlmClient, goal: &str, strict: bool) -> Result<
     };
 
     let messages = vec![
-        ChatMessage { role: "system".into(), content: system.into() },
+        ChatMessage {
+            role: "system".into(),
+            content: system.into(),
+        },
         ChatMessage {
             role: "user".into(),
             content: format!("Goal: {goal}"),
@@ -91,11 +94,12 @@ fn parse_plan(raw: &str) -> Result<Vec<String>> {
     };
 
     // Find the first '[' in case there is preamble text.
-    let start = json.find('[').ok_or_else(|| anyhow::anyhow!("no JSON array in planner output"))?;
+    let start = json
+        .find('[')
+        .ok_or_else(|| anyhow::anyhow!("no JSON array in planner output"))?;
     let json = &json[start..];
 
-    let steps: Vec<String> = serde_json::from_str(json)
-        .context("parse planner JSON array")?;
+    let steps: Vec<String> = serde_json::from_str(json).context("parse planner JSON array")?;
 
     if steps.is_empty() {
         bail!("planner returned empty steps array");

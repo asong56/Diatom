@@ -1,6 +1,5 @@
-
-use anyhow::{bail, Context, Result};
-use serde::{de::DeserializeOwned, Serialize};
+use anyhow::{Context, Result, bail};
+use serde::{Serialize, de::DeserializeOwned};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// Maximum allowed message body length (64 KiB).
@@ -38,7 +37,7 @@ where
 {
     let mut len_buf = [0u8; 4];
     match reader.read_exact(&mut len_buf).await {
-        Ok(()) => {}
+        Ok(_) => {}
         Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(None),
         Err(e) => return Err(e).context("read length prefix"),
     }
@@ -55,7 +54,6 @@ where
     Ok(Some(msg))
 }
 
-
 /// Returns the platform-appropriate socket path for the given Diatom instance.
 ///
 /// On macOS/Linux: `$TMPDIR/diatom-devpanel-<pid>.sock`
@@ -71,4 +69,3 @@ pub fn socket_path(pid: u32) -> String {
         format!(r"\\.\pipe\diatom-devpanel-{}", pid)
     }
 }
-

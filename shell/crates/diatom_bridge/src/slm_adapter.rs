@@ -1,24 +1,22 @@
-
 use anyhow::{Context, Result};
-use futures::{Stream, StreamExt};
+use futures::Stream;
 use serde::{Deserialize, Serialize};
 
 /// The local SLM endpoint provided by Diatom's `slm.rs`.
 const SLM_BASE: &str = "http://127.0.0.1:11435";
 
-
 #[derive(Serialize)]
 struct ChatRequest<'a> {
-    model:    &'a str,
+    model: &'a str,
     messages: &'a [ChatMessage],
-    stream:   bool,
+    stream: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     max_tokens: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ChatMessage {
-    pub role:    String,
+    pub role: String,
     pub content: String,
 }
 
@@ -29,7 +27,7 @@ struct ChatChunk {
 
 #[derive(Deserialize, Debug)]
 struct ChunkChoice {
-    delta:         DeltaContent,
+    delta: DeltaContent,
     finish_reason: Option<String>,
 }
 
@@ -39,12 +37,11 @@ struct DeltaContent {
     content: String,
 }
 
-
 /// Stateless HTTP client for Diatom's SLM endpoint.
 /// Cheap to clone — wraps a `reqwest::Client` (connection-pooled internally).
 #[derive(Clone, Debug)]
 pub struct DiatomSlmClient {
-    http:  reqwest::Client,
+    http: reqwest::Client,
     model: String,
 }
 
@@ -53,7 +50,7 @@ impl DiatomSlmClient {
     /// Model names come from Diatom's curated catalogue (e.g. "phi-3-mini").
     pub fn new(model: impl Into<String>) -> Self {
         Self {
-            http:  reqwest::Client::new(),
+            http: reqwest::Client::new(),
             model: model.into(),
         }
     }
@@ -87,9 +84,9 @@ impl DiatomSlmClient {
         max_tokens: Option<u32>,
     ) -> Result<String> {
         let body = ChatRequest {
-            model:    &self.model,
+            model: &self.model,
             messages,
-            stream:   false,
+            stream: false,
             max_tokens,
         };
 
@@ -129,7 +126,7 @@ impl DiatomSlmClient {
         messages: Vec<ChatMessage>,
         max_tokens: Option<u32>,
     ) -> impl Stream<Item = Result<String>> + 'static {
-        let http  = self.http.clone();
+        let http = self.http.clone();
         let model = self.model.clone();
 
         async_stream::try_stream! {
@@ -150,8 +147,8 @@ impl DiatomSlmClient {
                 .context("SLM stream error status")?;
 
             let mut buf = String::new();
-            while let Some(chunk) = resp.chunk().await.context("read chunk")? {
-                buf.push_str(&String::from_utf8_lossy(&chunk));
+            while let Some(bytes) = resp.chunk().await.context("read chunk")? {
+                buf.push_str(&String::from_utf8_lossy(&bytes));
                 while let Some(nl) = buf.find("\n\n") {
                     let line = buf.drain(..nl + 2).collect::<String>();
                     let trimmed = line.trim();
@@ -159,8 +156,8 @@ impl DiatomSlmClient {
                         return;
                     }
                     if let Some(json_str) = trimmed.strip_prefix("data: ") {
-                        if let Ok(chunk) = serde_json::from_str::<ChatChunk>(json_str) {
-                            for choice in chunk.choices {
+                        if let Ok(parsed) = serde_json::from_str::<ChatChunk>(json_str) {
+                            for choice in parsed.choices {
                                 if !choice.delta.content.is_empty() {
                                     yield choice.delta.content;
                                 }
@@ -176,17 +173,12 @@ impl DiatomSlmClient {
     }
 }
 
-
 /// Ask the SLM to complete `prefix` in the language `lang`.
 /// Used by the DevPanel editor for inline ghost-text completion.
-pub async fn inline_complete(
-    client: &DiatomSlmClient,
-    prefix: &str,
-    lang: &str,
-) -> Result<String> {
+pub async fn inline_complete(client: &DiatomSlmClient, prefix: &str, lang: &str) -> Result<String> {
     let messages = vec![
         ChatMessage {
-            role:    "system".into(),
+            role: "system".into(),
             content: format!(
                 "You are a code completion assistant. \
                  Complete the following {lang} code. \
@@ -194,10 +186,9 @@ pub async fn inline_complete(
             ),
         },
         ChatMessage {
-            role:    "user".into(),
+            role: "user".into(),
             content: prefix.to_string(),
         },
     ];
     client.complete(&messages, Some(256)).await
 }
-

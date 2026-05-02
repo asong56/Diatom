@@ -1,4 +1,3 @@
-
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 use tokio::net::UnixListener;
@@ -59,7 +58,10 @@ impl ZedContextServer {
             accept_loop(listener, tx_clone).await;
         });
 
-        log::info!("[zed-link] Resonance context server listening at {:?}", path);
+        log::info!(
+            "[zed-link] Resonance context server listening at {:?}",
+            path
+        );
         Ok(Self { tx })
     }
 
@@ -69,7 +71,6 @@ impl ZedContextServer {
         let _ = self.tx.send(ctx);
     }
 }
-
 
 async fn accept_loop(listener: UnixListener, tx: broadcast::Sender<ResonanceContext>) {
     loop {
@@ -111,4 +112,3 @@ async fn serve_zed_client(
         }
     }
 }
-

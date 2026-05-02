@@ -9,7 +9,7 @@
 //!   cargo test -p diatom_bridge --test integration_handshake
 
 use diatom_bridge::protocol::{
-    generate_auth_token, BrowserMessage, DevPanelMessage, HandshakeMessage,
+    BrowserMessage, DevPanelMessage, HandshakeMessage, generate_auth_token,
 };
 use diatom_bridge::{BridgeClient, BridgeServer};
 use std::time::Duration;
@@ -25,7 +25,7 @@ fn tmp_sock(label: &str) -> String {
 #[tokio::test]
 async fn handshake_accepted_on_correct_token() {
     let token = generate_auth_token();
-    let path  = tmp_sock("accept");
+    let path = tmp_sock("accept");
 
     let server = BridgeServer::start(&path, token.clone())
         .await
@@ -55,7 +55,7 @@ async fn handshake_accepted_on_correct_token() {
 #[tokio::test]
 async fn handshake_rejected_on_wrong_token() {
     let server_token = generate_auth_token();
-    let wrong_token  = generate_auth_token(); // different token
+    let wrong_token = generate_auth_token(); // different token
     assert_ne!(server_token, wrong_token);
 
     let path = tmp_sock("reject");
@@ -83,18 +83,15 @@ async fn handshake_rejected_on_wrong_token() {
 #[tokio::test]
 async fn handshake_rejected_on_empty_token() {
     let token = generate_auth_token();
-    let path  = tmp_sock("empty");
+    let path = tmp_sock("empty");
 
     let _server = BridgeServer::start(&path, token)
         .await
         .expect("server bind");
 
-    let result = timeout(
-        Duration::from_secs(5),
-        BridgeClient::connect(&path, "", 3),
-    )
-    .await
-    .expect("timeout");
+    let result = timeout(Duration::from_secs(5), BridgeClient::connect(&path, "", 3))
+        .await
+        .expect("timeout");
 
     assert!(result.is_err(), "empty token should be rejected");
     let _ = std::fs::remove_file(&path);
@@ -105,8 +102,7 @@ async fn handshake_rejected_on_empty_token() {
 #[tokio::test]
 async fn generated_tokens_are_unique() {
     let tokens: Vec<String> = (0..100).map(|_| generate_auth_token()).collect();
-    let unique: std::collections::HashSet<&str> =
-        tokens.iter().map(|s| s.as_str()).collect();
+    let unique: std::collections::HashSet<&str> = tokens.iter().map(|s| s.as_str()).collect();
     assert_eq!(
         tokens.len(),
         unique.len(),
@@ -131,7 +127,7 @@ async fn generated_tokens_are_64_hex_chars() {
 #[tokio::test]
 async fn messages_flow_after_successful_handshake() {
     let token = generate_auth_token();
-    let path  = tmp_sock("flow");
+    let path = tmp_sock("flow");
 
     let mut server = BridgeServer::start(&path, token.clone())
         .await

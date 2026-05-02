@@ -1,16 +1,24 @@
-pub mod protocol;
-pub mod transport;
-pub mod server;
 pub mod client;
+pub mod protocol;
+pub mod server;
 pub mod slm_adapter;
+pub mod transport;
 pub mod zed_link;
 
+pub use client::BridgeClient;
 pub use protocol::{
-    BrowserMessage, DevPanelMessage, RequestId,
-    ShellMessage, BackendToShell, ShellTab,    // Shell ↔ Backend direction
-    DomNode, ConsoleLevel, NetworkEventPayload,
-    SlmMessage, ResonanceContext, ActiveSource,
+    ActiveSource,
+    BackendToShell,
+    BrowserMessage,
+    ConsoleLevel,
+    DevPanelMessage,
+    DomNode,
+    NetworkEventPayload,
+    RequestId,
+    ResonanceContext,
+    ShellMessage,
+    ShellTab, // Shell ↔ Backend direction
+    SlmMessage,
 };
 pub use server::BridgeServer;
-pub use client::BridgeClient;
 pub use zed_link::ZedContextServer;

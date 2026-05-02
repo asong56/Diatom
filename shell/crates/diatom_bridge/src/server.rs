@@ -4,14 +4,12 @@
 //! socket, accepts exactly one connection from the Diatom backend, completes
 //! the authentication handshake, and then forwards messages in both directions.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use std::path::Path;
 use tokio::sync::mpsc;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 
-use crate::protocol::{
-    BrowserMessage, DevPanelMessage, HandshakeMessage, HANDSHAKE_TIMEOUT_MS,
-};
+use crate::protocol::{BrowserMessage, DevPanelMessage, HANDSHAKE_TIMEOUT_MS, HandshakeMessage};
 use crate::transport;
 
 /// Capacity of the inbound message channel.
@@ -20,7 +18,7 @@ const CHAN_CAP: usize = 256;
 /// Handle returned by [`BridgeServer::start`].
 pub struct BridgeServer {
     /// Receive BrowserMessages arriving from the Diatom backend.
-    pub inbound:  mpsc::Receiver<BrowserMessage>,
+    pub inbound: mpsc::Receiver<BrowserMessage>,
     /// Send DevPanelMessages back to the Diatom backend.
     pub outbound: mpsc::Sender<DevPanelMessage>,
 }
@@ -35,10 +33,7 @@ impl BridgeServer {
     ///
     /// Returns immediately; the actual I/O runs on background tokio tasks.
     #[cfg(unix)]
-    pub async fn start(
-        socket_path: impl AsRef<Path>,
-        auth_token:  String,
-    ) -> Result<Self> {
+    pub async fn start(socket_path: impl AsRef<Path>, auth_token: String) -> Result<Self> {
         use tokio::net::UnixListener;
 
         let path = socket_path.as_ref();
@@ -58,22 +53,19 @@ impl BridgeServer {
                 .context("set socket permissions")?;
         }
 
-        let (inbound_tx,  inbound_rx)  = mpsc::channel::<BrowserMessage>(CHAN_CAP);
+        let (inbound_tx, inbound_rx) = mpsc::channel::<BrowserMessage>(CHAN_CAP);
         let (outbound_tx, outbound_rx) = mpsc::channel::<DevPanelMessage>(CHAN_CAP);
 
         tokio::spawn(accept_unix(listener, auth_token, inbound_tx, outbound_rx));
 
         Ok(Self {
-            inbound:  inbound_rx,
+            inbound: inbound_rx,
             outbound: outbound_tx,
         })
     }
 
     #[cfg(windows)]
-    pub async fn start(
-        pipe_name:  impl AsRef<str>,
-        auth_token: String,
-    ) -> Result<Self> {
+    pub async fn start(pipe_name: impl AsRef<str>, auth_token: String) -> Result<Self> {
         use tokio::net::windows::named_pipe::ServerOptions;
 
         let name = pipe_name.as_ref();
@@ -82,13 +74,13 @@ impl BridgeServer {
             .create(name)
             .context("create named pipe")?;
 
-        let (inbound_tx,  inbound_rx)  = mpsc::channel::<BrowserMessage>(CHAN_CAP);
+        let (inbound_tx, inbound_rx) = mpsc::channel::<BrowserMessage>(CHAN_CAP);
         let (outbound_tx, outbound_rx) = mpsc::channel::<DevPanelMessage>(CHAN_CAP);
 
         tokio::spawn(accept_windows(server, auth_token, inbound_tx, outbound_rx));
 
         Ok(Self {
-            inbound:  inbound_rx,
+            inbound: inbound_rx,
             outbound: outbound_tx,
         })
     }
@@ -104,13 +96,9 @@ impl BridgeServer {
 /// 4. Sends `Accepted` or `Rejected` and returns `Ok(true)` / `Ok(false)`.
 ///
 /// All I/O errors are surfaced as `Err`.
-async fn perform_handshake<R, W>(
-    reader:     &mut R,
-    writer:     &mut W,
-    auth_token: &str,
-) -> Result<bool>
+async fn perform_handshake<R, W>(reader: &mut R, writer: &mut W, auth_token: &str) -> Result<bool>
 where
-    R: tokio::io::AsyncRead  + Unpin,
+    R: tokio::io::AsyncRead + Unpin,
     W: tokio::io::AsyncWrite + Unpin,
 {
     let deadline = Duration::from_millis(HANDSHAKE_TIMEOUT_MS);
@@ -150,7 +138,9 @@ where
     } else {
         let _ = transport::send(
             writer,
-            &HandshakeMessage::Rejected { reason: "invalid token".to_owned() },
+            &HandshakeMessage::Rejected {
+                reason: "invalid token".to_owned(),
+            },
         )
         .await;
         log::warn!("[bridge-server] authentication failed — connection rejected");
@@ -174,13 +164,13 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 
 #[cfg(unix)]
 async fn accept_unix(
-    listener:    tokio::net::UnixListener,
-    auth_token:  String,
-    inbound_tx:  mpsc::Sender<BrowserMessage>,
+    listener: tokio::net::UnixListener,
+    auth_token: String,
+    inbound_tx: mpsc::Sender<BrowserMessage>,
     outbound_rx: mpsc::Receiver<DevPanelMessage>,
 ) {
     let (stream, _addr) = match listener.accept().await {
-        Ok(x)  => x,
+        Ok(x) => x,
         Err(e) => {
             log::error!("[bridge-server] accept failed: {e}");
             return;
@@ -191,7 +181,7 @@ async fn accept_unix(
 
     // --- Handshake must succeed before normal I/O begins ---
     match perform_handshake(&mut reader, &mut writer, &auth_token).await {
-        Ok(true)  => log::info!("[bridge-server] handshake accepted"),
+        Ok(true) => log::info!("[bridge-server] handshake accepted"),
         Ok(false) => {
             log::warn!("[bridge-server] handshake rejected — dropping connection");
             return;
@@ -209,9 +199,9 @@ async fn accept_unix(
 
 #[cfg(windows)]
 async fn accept_windows(
-    mut server:  tokio::net::windows::named_pipe::NamedPipeServer,
-    auth_token:  String,
-    inbound_tx:  mpsc::Sender<BrowserMessage>,
+    mut server: tokio::net::windows::named_pipe::NamedPipeServer,
+    auth_token: String,
+    inbound_tx: mpsc::Sender<BrowserMessage>,
     outbound_rx: mpsc::Receiver<DevPanelMessage>,
 ) {
     if let Err(e) = server.connect().await {
@@ -228,7 +218,7 @@ async fn accept_windows(
         let mut guard = pipe.lock().await;
         let (mut r, mut w) = tokio::io::split(&mut *guard);
         match perform_handshake(&mut r, &mut w, &auth_token).await {
-            Ok(true)  => log::info!("[bridge-server] handshake accepted"),
+            Ok(true) => log::info!("[bridge-server] handshake accepted"),
             Ok(false) => {
                 log::warn!("[bridge-server] handshake rejected — dropping connection");
                 return;
@@ -241,7 +231,7 @@ async fn accept_windows(
     }
 
     // Post-handshake I/O (Windows uses Arc<Mutex<_>> to share the pipe).
-    let read_pipe  = Arc::clone(&pipe);
+    let read_pipe = Arc::clone(&pipe);
     let write_pipe = Arc::clone(&pipe);
 
     let read_task = tokio::spawn(async move {
@@ -250,7 +240,9 @@ async fn accept_windows(
             match transport::recv::<_, BrowserMessage>(&mut *guard).await {
                 Ok(Some(msg)) => {
                     drop(guard);
-                    if inbound_tx.send(msg).await.is_err() { break; }
+                    if inbound_tx.send(msg).await.is_err() {
+                        break;
+                    }
                 }
                 Ok(None) => break,
                 Err(e) => {
@@ -282,12 +274,12 @@ async fn accept_windows(
 
 #[cfg(unix)]
 async fn run_io_loop<R, W>(
-    reader:      R,
-    writer:      W,
-    inbound_tx:  mpsc::Sender<BrowserMessage>,
+    reader: R,
+    writer: W,
+    inbound_tx: mpsc::Sender<BrowserMessage>,
     mut outbound_rx: mpsc::Receiver<DevPanelMessage>,
 ) where
-    R: tokio::io::AsyncRead  + Unpin + Send + 'static,
+    R: tokio::io::AsyncRead + Unpin + Send + 'static,
     W: tokio::io::AsyncWrite + Unpin + Send + 'static,
 {
     let mut reader = reader;
@@ -299,7 +291,9 @@ async fn run_io_loop<R, W>(
             loop {
                 match transport::recv::<_, BrowserMessage>(&mut reader).await {
                     Ok(Some(msg)) => {
-                        if tx.send(msg).await.is_err() { break; }
+                        if tx.send(msg).await.is_err() {
+                            break;
+                        }
                     }
                     Ok(None) => {
                         log::info!("[bridge-server] peer closed connection");

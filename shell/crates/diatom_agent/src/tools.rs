@@ -72,7 +72,12 @@ pub enum ToolCall {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ScrollDir { Up, Down, Left, Right }
+pub enum ScrollDir {
+    Up,
+    Down,
+    Left,
+    Right,
+}
 
 impl ToolCall {
     /// Parse and validate a raw JSON string from the SLM.
@@ -91,7 +96,9 @@ impl ToolCall {
         };
 
         // Find the first `{` in case the model emits preamble text.
-        let start = json.find('{').ok_or_else(|| anyhow::anyhow!("no JSON object found"))?;
+        let start = json
+            .find('{')
+            .ok_or_else(|| anyhow::anyhow!("no JSON object found"))?;
         let json = &json[start..];
 
         let call: ToolCall = serde_json::from_str(json)?;
@@ -136,11 +143,19 @@ pub struct ToolResult {
 
 impl ToolResult {
     pub fn success(output: impl Into<String>) -> Self {
-        Self { ok: true, output: output.into(), image_b64: None }
+        Self {
+            ok: true,
+            output: output.into(),
+            image_b64: None,
+        }
     }
 
     pub fn failure(output: impl Into<String>) -> Self {
-        Self { ok: false, output: output.into(), image_b64: None }
+        Self {
+            ok: false,
+            output: output.into(),
+            image_b64: None,
+        }
     }
 }
 
