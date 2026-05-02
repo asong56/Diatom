@@ -1,5 +1,4 @@
-
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -65,8 +64,8 @@ pub struct WasmPlugin {
 impl WasmPlugin {
     /// Load a plugin from a .wasm file.  Verifies hash integrity.
     pub fn load(path: PathBuf, expected_hash: Option<&str>) -> Result<Self> {
-        let wasm_bytes = std::fs::read(&path)
-            .with_context(|| format!("read plugin: {}", path.display()))?;
+        let wasm_bytes =
+            std::fs::read(&path).with_context(|| format!("read plugin: {}", path.display()))?;
 
         let actual_hash = hex::encode(blake3::hash(&wasm_bytes).as_bytes());
         if let Some(expected) = expected_hash {
@@ -81,7 +80,8 @@ impl WasmPlugin {
 
         let manifest = PluginManifest {
             id: Uuid::new_v4(),
-            name: path.file_stem()
+            name: path
+                .file_stem()
                 .and_then(|s| s.to_str())
                 .unwrap_or("unknown")
                 .to_owned(),
@@ -92,7 +92,11 @@ impl WasmPlugin {
             installed_at: crate::storage::db::unix_now(),
         };
 
-        Ok(Self { manifest, wasm_bytes, _engine_placeholder: () })
+        Ok(Self {
+            manifest,
+            wasm_bytes,
+            _engine_placeholder: (),
+        })
     }
 
     /// Call the plugin's `on-page-load` hook.
@@ -159,7 +163,9 @@ impl PluginRegistry {
     }
 
     pub fn list_manifests(&self) -> Vec<PluginManifest> {
-        self.plugins.lock().unwrap()
+        self.plugins
+            .lock()
+            .unwrap()
             .values()
             .map(|p| p.manifest.clone())
             .collect()
@@ -178,11 +184,17 @@ impl PluginRegistry {
     /// Collect panel HTML from all enabled plugins that have a panel.
     pub fn collect_panels(&self) -> Vec<PluginPanelResult> {
         let plugins = self.plugins.lock().unwrap();
-        plugins.values()
+        plugins
+            .values()
             .filter(|p| p.manifest.enabled)
             .filter_map(|p| {
-                p.get_panel_html().ok().filter(|h| !h.is_empty())
-                    .map(|html| PluginPanelResult { plugin_id: p.manifest.id, html })
+                p.get_panel_html()
+                    .ok()
+                    .filter(|h| !h.is_empty())
+                    .map(|html| PluginPanelResult {
+                        plugin_id: p.manifest.id,
+                        html,
+                    })
             })
             .collect()
     }
@@ -226,4 +238,3 @@ mod tests {
         std::fs::remove_file(tmp).ok();
     }
 }
-

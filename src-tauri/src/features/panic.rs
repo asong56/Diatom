@@ -1,7 +1,5 @@
-
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager};
 
 /// Global panic state — shared between the hotkey handler and the restore path.
@@ -22,10 +20,10 @@ pub struct PanicConfig {
 impl Default for PanicConfig {
     fn default() -> Self {
         Self {
-            hotkey:      "CmdOrCtrl+Shift+Period".to_owned(),
-            decoy_url:   "https://calendar.google.com".to_owned(),
+            hotkey: "CmdOrCtrl+Shift+Period".to_owned(),
+            decoy_url: "https://calendar.google.com".to_owned(),
             decoy_title: "Google Calendar".to_owned(),
-            wipe_mode:   false,
+            wipe_mode: false,
         }
     }
 }
@@ -48,11 +46,14 @@ pub fn activate(app: &AppHandle, config: &PanicConfig) {
         }
     }
 
-    let _ = app.emit("diatom:panic-activate", serde_json::json!({
-        "decoy_url":   config.decoy_url,
-        "decoy_title": config.decoy_title,
-        "wipe_mode":   config.wipe_mode,
-    }));
+    let _ = app.emit(
+        "diatom:panic-activate",
+        serde_json::json!({
+            "decoy_url":   config.decoy_url,
+            "decoy_title": config.decoy_title,
+            "wipe_mode":   config.wipe_mode,
+        }),
+    );
 }
 
 /// Restore from panic mode: un-minimize windows and remove the decoy overlay.
@@ -106,4 +107,3 @@ mod tests {
         assert!(!cfg.wipe_mode); // wipe mode must default OFF — destructive
     }
 }
-

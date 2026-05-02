@@ -3,11 +3,9 @@
   "version": "1.0.0",
   "identifier": "com.ansel-s.diatom",
   "build": {
-    "frontendDist": {
-      "path": "../src"
-    },
+    "frontendDist": "../src",
     "beforeDevCommand": "",
-    "beforeBuildCommand": "cd ../zed-core && cargo build --release -p diatom_devtools -p diatom_shell"
+    "beforeBuildCommand": ""
   },
   "app": {
     "windows": [],
@@ -36,8 +34,6 @@
     "shortDescription": "A minimalist, privacy-first, local-AI browser + developer tools.",
     "longDescription": "Diatom is a browser built on the principle of digital sovereignty. No accounts, no cloud, no telemetry. Integrated developer tools powered by Zed's editor core. All computation stays on your device.",
     "resources": [
-      "../zed-core/target/release/diatom-devpanel",
-      "../zed-core/target/release/diatom-shell",
       "resources/"
     ],
     "macOS": {
@@ -47,10 +43,6 @@
       "frameworks": []
     },
     "windows": {
-      "resources": [
-        "../zed-core/target/release/diatom-devpanel.exe",
-        "../zed-core/target/release/diatom-shell.exe"
-      ],
       "wix": {
         "language": "en-US"
       },
@@ -76,8 +68,5 @@
       "open": true
     },
     "notification": {}
-  },
-  "process": {
-    "maxRss": 57671680
   }
 }

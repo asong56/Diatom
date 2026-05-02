@@ -1,4 +1,3 @@
-
 use crate::storage::db::WarReportRow;
 use serde::{Deserialize, Serialize};
 
@@ -174,4 +173,3 @@ mod tests {
         assert!(!r.block_narrative.is_empty());
     }
 }
-

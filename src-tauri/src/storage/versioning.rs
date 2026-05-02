@@ -1,4 +1,3 @@
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write as _;
 
@@ -8,7 +7,7 @@ pub struct MuseumVersion {
     pub museum_id: String,
     pub url: String,
     pub frozen_at: i64,
-    pub content_hash: String,   // Blake3 hex
+    pub content_hash: String,           // Blake3 hex
     pub diff_from_prev: Option<String>, // unified diff, None for first version
     pub size_bytes: u64,
     pub title: String,
@@ -23,7 +22,7 @@ pub struct DiffResult {
     pub unified_diff: String,
     pub lines_added: usize,
     pub lines_removed: usize,
-    pub change_ratio: f32,  // 0.0–1.0
+    pub change_ratio: f32, // 0.0–1.0
     pub verdict: TamperVerdict,
 }
 
@@ -32,11 +31,11 @@ pub struct DiffResult {
 pub enum TamperVerdict {
     /// contentidenticalmatches
     Identical,
- /// Negligible difference (<2%) — likely just ads or timestamps updating.
+    /// Negligible difference (<2%) — likely just ads or timestamps updating.
     MinorUpdate,
- /// Minor change (2–20%) — worth noting to the user.
+    /// Minor change (2–20%) — worth noting to the user.
     SignificantChange,
- /// Significant change (>20%) — triggers the "Historical Truth" audit banner.
+    /// Significant change (>20%) — triggers the "Historical Truth" audit banner.
     MajorAlteration,
 }
 
@@ -52,14 +51,17 @@ pub fn compute_diff(old_text: &str, new_text: &str) -> String {
     let mut lcs_i = 0usize;
 
     while oi < old_lines.len() || ni < new_lines.len() {
-        if lcs_i < lcs.len() && oi < old_lines.len() && ni < new_lines.len()
-            && old_lines[oi] == lcs[lcs_i] && new_lines[ni] == lcs[lcs_i]
+        if lcs_i < lcs.len()
+            && oi < old_lines.len()
+            && ni < new_lines.len()
+            && old_lines[oi] == lcs[lcs_i]
+            && new_lines[ni] == lcs[lcs_i]
         {
             let _ = write!(result, " {}\n", old_lines[oi]);
-            oi += 1; ni += 1; lcs_i += 1;
-        } else if ni < new_lines.len()
-            && (lcs_i >= lcs.len() || new_lines[ni] != lcs[lcs_i])
-        {
+            oi += 1;
+            ni += 1;
+            lcs_i += 1;
+        } else if ni < new_lines.len() && (lcs_i >= lcs.len() || new_lines[ni] != lcs[lcs_i]) {
             let _ = write!(result, "+{}\n", new_lines[ni]);
             ni += 1;
         } else {
@@ -81,23 +83,25 @@ fn lcs_lines<'a>(a: &[&'a str], b: &[&'a str]) -> Vec<&'a str> {
     let mut dp = vec![vec![0usize; n + 1]; m + 1];
     for i in 1..=m {
         for j in 1..=n {
-            dp[i][j] = if a[i-1] == b[j-1] {
-                dp[i-1][j-1] + 1
+            dp[i][j] = if a[i - 1] == b[j - 1] {
+                dp[i - 1][j - 1] + 1
             } else {
-                dp[i-1][j].max(dp[i][j-1])
+                dp[i - 1][j].max(dp[i][j - 1])
             };
         }
     }
     let mut result = Vec::new();
     let (mut i, mut j) = (m, n);
     while i > 0 && j > 0 {
-        if a[i-1] == b[j-1] {
-            result.push(a[i-1]);
+        if a[i - 1] == b[j - 1] {
+            result.push(a[i - 1]);
             i -= 1;
             j -= 1;
+        } else if dp[i - 1][j] > dp[i][j - 1] {
+            i -= 1;
+        } else {
+            j -= 1;
         }
-        else if dp[i-1][j] > dp[i][j-1] { i -= 1; }
-        else { j -= 1; }
     }
     result.reverse();
     result
@@ -105,10 +109,13 @@ fn lcs_lines<'a>(a: &[&'a str], b: &[&'a str]) -> Vec<&'a str> {
 
 /// Compute the content-change ratio
 pub fn change_ratio(old_text: &str, new_text: &str) -> f32 {
-    let old_len = old_text.len().max(1);
-    let new_len = new_text.len();
+    let _old_len = old_text.len().max(1);
+    let _new_len = new_text.len();
     let diff = compute_diff(old_text, new_text);
-    let changed_lines = diff.lines().filter(|l| l.starts_with('+') || l.starts_with('-')).count();
+    let changed_lines = diff
+        .lines()
+        .filter(|l| l.starts_with('+') || l.starts_with('-'))
+        .count();
     let total_lines = old_text.lines().count().max(1);
     (changed_lines as f32 / total_lines as f32).clamp(0.0, 1.0)
 }
@@ -116,9 +123,9 @@ pub fn change_ratio(old_text: &str, new_text: &str) -> f32 {
 pub fn tamper_verdict(ratio: f32) -> TamperVerdict {
     match ratio {
         r if r < 0.001 => TamperVerdict::Identical,
-        r if r < 0.02  => TamperVerdict::MinorUpdate,
-        r if r < 0.20  => TamperVerdict::SignificantChange,
-        _              => TamperVerdict::MajorAlteration,
+        r if r < 0.02 => TamperVerdict::MinorUpdate,
+        r if r < 0.20 => TamperVerdict::SignificantChange,
+        _ => TamperVerdict::MajorAlteration,
     }
 }
 
@@ -147,6 +154,9 @@ mod tests {
 
     #[test]
     fn major_alteration_verdict() {
-        assert!(matches!(tamper_verdict(0.5), TamperVerdict::MajorAlteration));
+        assert!(matches!(
+            tamper_verdict(0.5),
+            TamperVerdict::MajorAlteration
+        ));
     }
 }

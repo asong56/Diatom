@@ -1,5 +1,4 @@
-
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 /// Injected into the chrome WebView on startup.
 /// Each entry maps a CSS selector to an ARIA attribute set.
@@ -191,4 +190,3 @@ mod tests {
         }
     }
 }
-

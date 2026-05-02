@@ -22,15 +22,10 @@ pub async fn cmd_zen_activate(state: St<'_>) -> Result<(), String> {
 /// the length check is skipped.  This is a user-initiated opt-out, never
 /// a silent bypass.
 #[tauri::command]
-pub async fn cmd_zen_deactivate(
-    unlock_phrase: String,
-    state: St<'_>,
-) -> Result<bool, String> {
+pub async fn cmd_zen_deactivate(unlock_phrase: String, state: St<'_>) -> Result<bool, String> {
     let zen = state.zen.lock().unwrap();
     if zen.require_intent_gate && unlock_phrase.trim().chars().count() < 50 {
-        return Err(
-            "Intent declaration must be at least 50 characters (Axiom 2).".into()
-        );
+        return Err("Intent declaration must be at least 50 characters (Axiom 2).".into());
     }
     drop(zen);
     state.zen.lock().unwrap().deactivate(&state.db);
@@ -45,17 +40,28 @@ pub async fn cmd_rss_feeds_list(state: St<'_>) -> Result<serde_json::Value, Stri
 
 #[tauri::command]
 pub async fn cmd_rss_feed_add(url: String, state: St<'_>) -> Result<String, String> {
-    state.rss.lock().unwrap().add_feed(url, &state.db).map_err(es)
+    state
+        .rss
+        .lock()
+        .unwrap()
+        .add_feed(url, &state.db)
+        .map_err(es)
 }
 
 #[tauri::command]
 pub async fn cmd_rss_feed_remove(id: String, state: St<'_>) -> Result<(), String> {
-    state.rss.lock().unwrap().remove_feed(&id, &state.db).map_err(es)
+    state
+        .rss
+        .lock()
+        .unwrap()
+        .remove_feed(&id, &state.db)
+        .map_err(es)
 }
 
 #[tauri::command]
 pub async fn cmd_rss_items(
-    feed_id: Option<String>, state: St<'_>,
+    feed_id: Option<String>,
+    state: St<'_>,
 ) -> Result<serde_json::Value, String> {
     let items = state.rss.lock().unwrap().items(feed_id.as_deref(), 50);
     Ok(serde_json::json!({ "items": items }))
@@ -63,13 +69,16 @@ pub async fn cmd_rss_items(
 
 #[tauri::command]
 pub async fn cmd_rss_mark_read(item_id: String, state: St<'_>) -> Result<(), String> {
-    state.rss.lock().unwrap().mark_read(&item_id, &state.db).map_err(es)
+    state
+        .rss
+        .lock()
+        .unwrap()
+        .mark_read(&item_id, &state.db)
+        .map_err(es)
 }
 
 #[tauri::command]
-pub async fn cmd_panic_toggle(
-    app_handle: tauri::AppHandle, state: St<'_>,
-) -> Result<(), String> {
+pub async fn cmd_panic_toggle(app_handle: tauri::AppHandle, state: St<'_>) -> Result<(), String> {
     let cfg = crate::features::panic::load_config(&state.db);
     crate::features::panic::toggle(&app_handle, &cfg);
     Ok(())
@@ -84,7 +93,8 @@ pub async fn cmd_panic_config_get(
 
 #[tauri::command]
 pub async fn cmd_panic_config_set(
-    config: crate::features::panic::PanicConfig, state: St<'_>,
+    config: crate::features::panic::PanicConfig,
+    state: St<'_>,
 ) -> Result<(), String> {
     crate::features::panic::save_config(&state.db, &config).map_err(es)
 }
@@ -99,13 +109,9 @@ pub async fn cmd_breach_check_password(
     password: String,
     state: St<'_>,
 ) -> Result<crate::features::breach::PasswordBreachResult, String> {
-    crate::features::breach::check_password_cached(
-        &reqwest::Client::new(),
-        &state.db,
-        &password,
-    )
-    .await
-    .map_err(es)
+    crate::features::breach::check_password_cached(&reqwest::Client::new(), &state.db, &password)
+        .await
+        .map_err(es)
 }
 
 #[tauri::command]
@@ -113,23 +119,23 @@ pub async fn cmd_breach_check_email(
     email: String,
     state: St<'_>,
 ) -> Result<crate::features::breach::EmailBreachResult, String> {
-    if state.db.get_setting("breach_monitor_email_optin").as_deref() != Some("true") {
+    if state
+        .db
+        .get_setting("breach_monitor_email_optin")
+        .as_deref()
+        != Some("true")
+    {
         return Err("Email breach check requires explicit opt-in".into());
     }
-    let api_key = state.db
-        .get_setting("hibp_api_key")
-        .unwrap_or_default();
-    crate::features::breach::check_email(
-        &reqwest::Client::new(),
-        &email,
-        &api_key,
-    )
-    .await
-    .map_err(es)
+    let api_key = state.db.get_setting("hibp_api_key").unwrap_or_default();
+    crate::features::breach::check_email(&reqwest::Client::new(), &email, &api_key)
+        .await
+        .map_err(es)
 }
 
 #[tauri::command]
-pub async fn cmd_search_engines_list() -> Result<Vec<crate::features::search::SearchEngine>, String> {
+pub async fn cmd_search_engines_list() -> Result<Vec<crate::features::search::SearchEngine>, String>
+{
     Ok(crate::features::search::builtin_engines())
 }
 
@@ -139,9 +145,7 @@ pub async fn cmd_search_engine_get_default(state: St<'_>) -> Result<String, Stri
 }
 
 #[tauri::command]
-pub async fn cmd_search_engine_set_default(
-    engine_id: String, state: St<'_>,
-) -> Result<(), String> {
+pub async fn cmd_search_engine_set_default(engine_id: String, state: St<'_>) -> Result<(), String> {
     crate::features::search::set_default(&state.db, &engine_id).map_err(es)
 }
 

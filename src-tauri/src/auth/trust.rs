@@ -1,25 +1,29 @@
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum TrustLevel { Untrusted, Standard, Trusted, Allowlisted }
+pub enum TrustLevel {
+    Untrusted,
+    Standard,
+    Trusted,
+    Allowlisted,
+}
 
 impl TrustLevel {
     pub fn from_str(s: &str) -> Self {
         match s {
-            "untrusted"   => TrustLevel::Untrusted,
-            "trusted"     => TrustLevel::Trusted,
+            "untrusted" => TrustLevel::Untrusted,
+            "trusted" => TrustLevel::Trusted,
             "allowlisted" => TrustLevel::Allowlisted,
-            _             => TrustLevel::Standard,
+            _ => TrustLevel::Standard,
         }
     }
     pub fn as_str(&self) -> &'static str {
         match self {
-            TrustLevel::Untrusted   => "untrusted",
-            TrustLevel::Standard    => "standard",
-            TrustLevel::Trusted     => "trusted",
+            TrustLevel::Untrusted => "untrusted",
+            TrustLevel::Standard => "standard",
+            TrustLevel::Trusted => "trusted",
             TrustLevel::Allowlisted => "allowlisted",
         }
     }
@@ -49,26 +53,38 @@ impl TrustStore {
     pub fn load_from_db(db: &crate::storage::db::Db) -> Self {
         let mut profiles = HashMap::new();
         for raw in db.trust_list_raw().unwrap_or_default() {
-            profiles.insert(raw.domain.clone(), TrustProfile {
-                domain: raw.domain, level: TrustLevel::from_str(&raw.level),
-                source: raw.source, set_at: raw.set_at,
-            });
+            profiles.insert(
+                raw.domain.clone(),
+                TrustProfile {
+                    domain: raw.domain,
+                    level: TrustLevel::from_str(&raw.level),
+                    source: raw.source,
+                    set_at: raw.set_at,
+                },
+            );
         }
         TrustStore { profiles }
     }
 
     pub fn get(&self, domain: &str) -> TrustProfile {
-        self.profiles.get(domain).cloned().unwrap_or_else(|| TrustProfile {
-            domain: domain.to_owned(), level: TrustLevel::Standard,
-            source: "default".to_owned(), set_at: 0,
-        })
+        self.profiles
+            .get(domain)
+            .cloned()
+            .unwrap_or_else(|| TrustProfile {
+                domain: domain.to_owned(),
+                level: TrustLevel::Standard,
+                source: "default".to_owned(),
+                set_at: 0,
+            })
     }
 
     pub fn set(&mut self, domain: &str, level: &str, source: &str, db: &crate::storage::db::Db) {
         let now = crate::storage::db::unix_now();
         let p = TrustProfile {
-            domain: domain.to_owned(), level: TrustLevel::from_str(level),
-            source: source.to_owned(), set_at: now,
+            domain: domain.to_owned(),
+            level: TrustLevel::from_str(level),
+            source: source.to_owned(),
+            set_at: now,
         };
         self.profiles.insert(domain.to_owned(), p);
         let _ = db.trust_set(domain, level, source, now);
@@ -99,4 +115,3 @@ mod tests {
         assert_eq!(store.get("example.com").level, TrustLevel::Standard);
     }
 }
-

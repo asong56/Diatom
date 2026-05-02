@@ -1,4 +1,3 @@
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -49,7 +48,8 @@ impl RssStore {
                 title: raw.title,
                 category: raw.category,
                 fetch_interval: raw.fetch_interval_m as u32,
-                last_fetched: raw.last_fetched, enabled: raw.enabled,
+                last_fetched: raw.last_fetched,
+                enabled: raw.enabled,
                 added_at: raw.added_at,
             };
             for item_raw in db.rss_items_for_feed(&raw.id).unwrap_or_default() {
@@ -61,18 +61,28 @@ impl RssStore {
                     title: item_raw.title,
                     url: item_raw.url,
                     summary: item_raw.summary,
-                    published: item_raw.published, read: item_raw.read,
+                    published: item_raw.published,
+                    read: item_raw.read,
                     fetched_at: item_raw.fetched_at,
                 });
             }
             feeds.insert(raw.id, feed);
         }
-        RssStore { feeds, items, guid_index }
+        RssStore {
+            feeds,
+            items,
+            guid_index,
+        }
     }
 
     /// Add a new feed. Category is None unless the user provides one.
-    pub fn add(&mut self, url: &str, category: Option<String>, db: &crate::storage::db::Db) -> Feed {
-        let id  = crate::storage::db::new_id();
+    pub fn add(
+        &mut self,
+        url: &str,
+        category: Option<String>,
+        db: &crate::storage::db::Db,
+    ) -> Feed {
+        let id = crate::storage::db::new_id();
         let now = crate::storage::db::unix_now();
         let feed = Feed {
             id: id.clone(),
@@ -88,8 +98,11 @@ impl RssStore {
             id: id.clone(),
             url: url.to_owned(),
             title: url.to_owned(),
-            category, fetch_interval_m: 60, last_fetched: None,
-            enabled: true, added_at: now,
+            category,
+            fetch_interval_m: 60,
+            last_fetched: None,
+            enabled: true,
+            added_at: now,
         };
         let _ = db.rss_feed_upsert(&raw);
         self.feeds.insert(id, feed.clone());
@@ -116,7 +129,9 @@ impl RssStore {
             if i.feed_id == id {
                 self.guid_index.remove(&i.guid);
                 false
-            } else { true }
+            } else {
+                true
+            }
         });
         let _ = db.rss_feed_delete(id);
     }
@@ -136,22 +151,31 @@ impl RssStore {
         }
 
         for (guid, item_title, item_url, summary, published) in extract_items(xml) {
-            if self.guid_index.contains_key(&guid) { continue; }
-            let id   = crate::storage::db::new_id();
+            if self.guid_index.contains_key(&guid) {
+                continue;
+            }
+            let id = crate::storage::db::new_id();
             let item = Item {
                 id: id.clone(),
                 feed_id: feed_id.to_owned(),
                 guid: guid.clone(),
-                title: item_title, url: crate::engine::blocker::strip_params(&item_url),
-                summary, published, read: false, fetched_at: now,
+                title: item_title,
+                url: crate::engine::blocker::strip_params(&item_url),
+                summary,
+                published,
+                read: false,
+                fetched_at: now,
             };
             let raw = crate::storage::db::RssItemRaw {
                 id: id.clone(),
                 feed_id: feed_id.to_owned(),
                 guid: guid.clone(),
-                title: item.title.clone(), url: item.url.clone(),
-                summary: item.summary.clone(), published: item.published,
-                read: false, fetched_at: now,
+                title: item.title.clone(),
+                url: item.url.clone(),
+                summary: item.summary.clone(),
+                published: item.published,
+                read: false,
+                fetched_at: now,
             };
             let _ = db.rss_item_upsert(&raw);
             self.guid_index.insert(guid, id);
@@ -174,7 +198,9 @@ impl RssStore {
     /// Return items, optionally filtered by feed and read state.
     /// Items are sorted newest-first (by fetched_at).
     pub fn items(&self, feed_id: Option<&str>, unread_only: bool, limit: usize) -> Vec<Item> {
-        let mut v: Vec<&Item> = self.items.iter()
+        let mut v: Vec<&Item> = self
+            .items
+            .iter()
             .filter(|i| feed_id.map_or(true, |fid| i.feed_id == fid))
             .filter(|i| !unread_only || !i.read)
             .collect();
@@ -195,26 +221,34 @@ fn feed_to_raw(f: &Feed) -> crate::storage::db::RssFeedRaw {
         id: f.id.clone(),
         url: f.url.clone(),
         title: f.title.clone(),
-        category: f.category.clone(), fetch_interval_m: f.fetch_interval as i32,
+        category: f.category.clone(),
+        fetch_interval_m: f.fetch_interval as i32,
         last_fetched: f.last_fetched,
         enabled: f.enabled,
         added_at: f.added_at,
     }
 }
 
-fn extract_channel_title(xml: &str) -> Option<String> { extract_tag(xml, "title") }
+fn extract_channel_title(xml: &str) -> Option<String> {
+    extract_tag(xml, "title")
+}
 
 fn extract_items(xml: &str) -> Vec<(String, String, String, String, Option<i64>)> {
     let mut out = Vec::new();
     let (delimiter, close_delim) = if xml.contains("<entry") {
         ("<entry", "</entry>")
-    } else { ("<item", "</item>") };
+    } else {
+        ("<item", "</item>")
+    };
 
     for chunk in xml.split(delimiter).skip(1) {
-        let chunk = match chunk.split(close_delim).next() { Some(c) => c, None => continue };
+        let chunk = match chunk.split(close_delim).next() {
+            Some(c) => c,
+            None => continue,
+        };
         let title = extract_tag(chunk, "title").unwrap_or_default();
-        let url   = extract_link(chunk);
-        let guid  = extract_tag(chunk, "guid")
+        let url = extract_link(chunk);
+        let guid = extract_tag(chunk, "guid")
             .or_else(|| extract_tag(chunk, "id"))
             .unwrap_or_else(|| url.clone());
         let summary = extract_tag(chunk, "description")
@@ -227,24 +261,30 @@ fn extract_items(xml: &str) -> Vec<(String, String, String, String, Option<i64>)
             .or_else(|| extract_tag(chunk, "published"))
             .or_else(|| extract_tag(chunk, "updated"))
             .and_then(|d| parse_rfc2822_date(&d).or_else(|| parse_iso8601_date(&d)));
-        if !url.is_empty() { out.push((guid, title, url, summary, published)); }
+        if !url.is_empty() {
+            out.push((guid, title, url, summary, published));
+        }
     }
     out
 }
 
 fn extract_tag(xml: &str, tag: &str) -> Option<String> {
-    let open  = format!("<{}", tag);
+    let open = format!("<{}", tag);
     let close = format!("</{}>", tag);
     let start = xml.find(&open)? + open.len();
     let start = xml[start..].find('>')? + start + 1;
-    let end   = xml.find(&close)?;
-    if end <= start { return None; }
+    let end = xml.find(&close)?;
+    if end <= start {
+        return None;
+    }
     Some(unescape_xml(xml[start..end].trim()))
 }
 
 fn extract_link(xml: &str) -> String {
     if let Some(v) = extract_tag(xml, "link") {
-        if v.starts_with("http") { return v; }
+        if v.starts_with("http") {
+            return v;
+        }
     }
     if let Some(pos) = xml.find("<link ") {
         let chunk = &xml[pos..];
@@ -262,21 +302,35 @@ fn strip_html_tags(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut in_tag = false;
     for c in s.chars() {
-        match c { '<' => in_tag = true, '>' => in_tag = false,
-            _ => if !in_tag { out.push(c) } }
+        match c {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            _ => {
+                if !in_tag {
+                    out.push(c)
+                }
+            }
+        }
     }
     out
 }
 
 fn unescape_xml(s: &str) -> String {
-    s.replace("&amp;","&").replace("&lt;","<").replace("&gt;",">")
-     .replace("&quot;","\"").replace("&apos;","'").replace("&#039;","'")
+    s.replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        .replace("&#039;", "'")
 }
 
 fn parse_rfc2822_date(s: &str) -> Option<i64> {
-    chrono::DateTime::parse_from_rfc2822(s.trim()).ok().map(|dt| dt.timestamp())
+    chrono::DateTime::parse_from_rfc2822(s.trim())
+        .ok()
+        .map(|dt| dt.timestamp())
 }
 fn parse_iso8601_date(s: &str) -> Option<i64> {
-    chrono::DateTime::parse_from_rfc3339(s.trim()).ok().map(|dt| dt.timestamp())
+    chrono::DateTime::parse_from_rfc3339(s.trim())
+        .ok()
+        .map(|dt| dt.timestamp())
 }
-

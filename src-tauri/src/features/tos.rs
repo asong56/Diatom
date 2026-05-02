@@ -1,4 +1,3 @@
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6,7 +5,7 @@ pub struct TosFlag {
     pub severity: FlagSeverity,
     pub category: FlagCategory,
     pub title: String,
- pub evidence: String, // Matched evidence text (up to 200 chars).
+    pub evidence: String, // Matched evidence text (up to 200 chars).
     pub explanation: String,
 }
 
@@ -37,7 +36,7 @@ pub enum FlagCategory {
 pub struct TosAuditResult {
     pub url: String,
     pub flags: Vec<TosFlag>,
-    pub risk_score: u8,       // 0–100
+    pub risk_score: u8, // 0–100
     pub summary: String,
     pub audited_at: i64,
     pub text_length: usize,
@@ -53,60 +52,111 @@ struct TosRule {
 
 const TOS_RULES: &[TosRule] = &[
     TosRule {
-        patterns: &["train", "training data", "machine learning", "ai model", "improve our ai", "for training", "model training"],
+        patterns: &[
+            "train",
+            "training data",
+            "machine learning",
+            "ai model",
+            "improve our ai",
+            "for training",
+            "model training",
+        ],
         severity: FlagSeverity::Critical,
         category: FlagCategory::AiTraining,
- title: "Content used to train AI models",
+        title: "Content used to train AI models",
         explanation: "Your data may be used to train AI models, and this consent is often irrevocable.",
     },
     TosRule {
-        patterns: &["share with third parties", "share with our partners", "share with third parties", "partner sharing", "transfer to affiliates"],
+        patterns: &[
+            "share with third parties",
+            "share with our partners",
+            "share with third parties",
+            "partner sharing",
+            "transfer to affiliates",
+        ],
         severity: FlagSeverity::High,
         category: FlagCategory::DataSharing,
         title: "data shared with third parties",
         explanation: "Your personal data may be shared with advertisers, analytics companies, or other third parties.",
     },
     TosRule {
-        patterns: &["cannot delete", "may retain", "we may keep", "retained indefinitely", "cannot fully delete", "retain a copy"],
+        patterns: &[
+            "cannot delete",
+            "may retain",
+            "we may keep",
+            "retained indefinitely",
+            "cannot fully delete",
+            "retain a copy",
+        ],
         severity: FlagSeverity::High,
         category: FlagCategory::AccountDeletion,
- title: "Account data cannot be fully deleted",
+        title: "Account data cannot be fully deleted",
         explanation: "Even after you delete your account, the platform may retain copies of your data.",
     },
     TosRule {
- patterns: &["you grant us a license", "worldwide, royalty-free", "perpetual license", "irrevocable license", "you grant us a"],
+        patterns: &[
+            "you grant us a license",
+            "worldwide, royalty-free",
+            "perpetual license",
+            "irrevocable license",
+            "you grant us a",
+        ],
         severity: FlagSeverity::High,
         category: FlagCategory::IntellectualProperty,
         title: "Perpetual copyright licence",
         explanation: "Content you upload may be used by the platform permanently and for free, even after you delete it.",
     },
     TosRule {
-        patterns: &["binding arbitration", "class action waiver", "waive your right to", "arbitration clause", "class action waiver"],
+        patterns: &[
+            "binding arbitration",
+            "class action waiver",
+            "waive your right to",
+            "arbitration clause",
+            "class action waiver",
+        ],
         severity: FlagSeverity::Medium,
         category: FlagCategory::ArbitrationClause,
- title: "Mandatory arbitration / class action waiver",
+        title: "Mandatory arbitration / class action waiver",
         explanation: "You may be forced to use private arbitration instead of courts, and may be unable to join class action lawsuits.",
     },
     TosRule {
-        patterns: &["auto-renew", "automatically renew", "auto-renewal", "automatic billing", "unless cancelled"],
+        patterns: &[
+            "auto-renew",
+            "automatically renew",
+            "auto-renewal",
+            "automatic billing",
+            "unless cancelled",
+        ],
         severity: FlagSeverity::Medium,
         category: FlagCategory::AutoRenewal,
         title: "auto-renewal",
- explanation: "Subscription auto-renews; cancellation may be difficult.",
+        explanation: "Subscription auto-renews; cancellation may be difficult.",
     },
     TosRule {
-        patterns: &["track your activity", "behavioral advertising", "interest-based ads", "behavioural tracking", "personalised advertising", "cross-site tracking"],
+        patterns: &[
+            "track your activity",
+            "behavioral advertising",
+            "interest-based ads",
+            "behavioural tracking",
+            "personalised advertising",
+            "cross-site tracking",
+        ],
         severity: FlagSeverity::Medium,
         category: FlagCategory::ThirdPartyTracking,
- title: "Cross-site behavioural tracking",
- explanation: "Your data may be used for personalised advertising.",
+        title: "Cross-site behavioural tracking",
+        explanation: "Your data may be used for personalised advertising.",
     },
     TosRule {
-        patterns: &["retain your data for", "keep for up to", "data retention", "retention period"],
+        patterns: &[
+            "retain your data for",
+            "keep for up to",
+            "data retention",
+            "retention period",
+        ],
         severity: FlagSeverity::Low,
         category: FlagCategory::DataRetention,
- title: "Opaque data retention policy",
- explanation: "Unclear data retention policy — it is not stated whether data is ever deleted.",
+        title: "Opaque data retention policy",
+        explanation: "Unclear data retention policy — it is not stated whether data is ever deleted.",
     },
 ];
 
@@ -129,27 +179,38 @@ pub fn audit_tos(url: &str, text: &str) -> TosAuditResult {
                     evidence,
                     explanation: rule.explanation.to_owned(),
                 });
- break; // Only first match per rule — avoid duplicate flags for same clause
+                break; // Only first match per rule — avoid duplicate flags for same clause
             }
         }
     }
 
     flags.sort_by(|a, b| b.severity.cmp(&a.severity));
 
-    let risk_score = flags.iter().map(|f| match f.severity {
-        FlagSeverity::Critical => 30u32,
-        FlagSeverity::High     => 20,
-        FlagSeverity::Medium   => 10,
-        FlagSeverity::Low      => 3,
-    }).sum::<u32>().min(100) as u8;
+    let risk_score = flags
+        .iter()
+        .map(|f| match f.severity {
+            FlagSeverity::Critical => 30u32,
+            FlagSeverity::High => 20,
+            FlagSeverity::Medium => 10,
+            FlagSeverity::Low => 3,
+        })
+        .sum::<u32>()
+        .min(100) as u8;
 
     let summary = if flags.is_empty() {
- "No red-flag clauses found. The policy appears standard.".to_owned()
+        "No red-flag clauses found. The policy appears standard.".to_owned()
     } else {
- format!("Found {} red-flag clause(s): {} critical, {} warnings.",
+        format!(
+            "Found {} red-flag clause(s): {} critical, {} warnings.",
             flags.len(),
-            flags.iter().filter(|f| f.severity >= FlagSeverity::High).count(),
-            flags.iter().filter(|f| f.severity == FlagSeverity::Medium).count(),
+            flags
+                .iter()
+                .filter(|f| f.severity >= FlagSeverity::High)
+                .count(),
+            flags
+                .iter()
+                .filter(|f| f.severity == FlagSeverity::Medium)
+                .count(),
         )
     };
 
@@ -224,7 +285,12 @@ mod tests {
     fn audit_detects_ai_training() {
         let text = "We may use your content to train our AI models and improve our services.";
         let result = audit_tos("https://example.com/tos", text);
-        assert!(result.flags.iter().any(|f| matches!(f.category, FlagCategory::AiTraining)));
+        assert!(
+            result
+                .flags
+                .iter()
+                .any(|f| matches!(f.category, FlagCategory::AiTraining))
+        );
         assert!(result.risk_score >= 30);
     }
 
@@ -235,4 +301,3 @@ mod tests {
         assert!(result.flags.is_empty() || result.risk_score < 20);
     }
 }
-

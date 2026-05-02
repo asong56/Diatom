@@ -1,10 +1,9 @@
-
 use aes_gcm::{
     Aes256Gcm, Nonce,
     aead::{Aead, KeyInit},
 };
 use anyhow::{Context, Result, bail};
-use rand::{RngCore, Rng};
+use rand::{Rng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use url::Url;
@@ -69,9 +68,9 @@ pub struct VaultCard {
     pub id: String,
     pub title: String,
     pub cardholder: String,
-    pub number: String,  // decrypted card number
-    pub expiry: String,  // MM/YY — not sensitive but stored encrypted for consistency
-    pub cvv: String,     // decrypted CVV
+    pub number: String, // decrypted card number
+    pub expiry: String, // MM/YY — not sensitive but stored encrypted for consistency
+    pub cvv: String,    // decrypted CVV
     pub notes: String,
     pub tags: Vec<String>,
     pub created_at: i64,
@@ -124,19 +123,17 @@ pub struct NoteSummary {
 }
 
 static WORDLIST: &[&str] = &[
-    "apple", "bridge", "castle", "dancer", "earth", "forest", "garden", "harbor",
-    "island", "jungle", "kite", "lemon", "mountain", "night", "ocean", "planet",
-    "quest", "river", "sunset", "tower", "umbrella", "valley", "winter", "yellow",
-    "zenith", "anchor", "breeze", "candle", "diamond", "ember", "falcon", "glacier",
-    "honey", "ivory", "jasper", "lantern", "marble", "nectar", "opal", "pearl",
-    "quartz", "rainbow", "silver", "thunder", "ultra", "violet", "walnut", "xenon",
-    "yacht", "zephyr", "amber", "bronze", "coral", "dusk", "eclipse", "flame",
-    "grove", "haze", "iris", "jade", "karma", "lotus", "mist", "nova",
-    "orbit", "prism", "ripple", "storm", "tide", "unity", "venom", "wave",
-    "xerus", "yarn", "zest", "blaze", "cipher", "delta", "echo", "flint",
-    "glyph", "halo", "index", "jewel", "knight", "lyric", "manor", "neon",
-    "onyx", "pixel", "quill", "raven", "spark", "thorn", "umber", "vortex",
-    "warden", "xray", "yield", "zeal",
+    "apple", "bridge", "castle", "dancer", "earth", "forest", "garden", "harbor", "island",
+    "jungle", "kite", "lemon", "mountain", "night", "ocean", "planet", "quest", "river", "sunset",
+    "tower", "umbrella", "valley", "winter", "yellow", "zenith", "anchor", "breeze", "candle",
+    "diamond", "ember", "falcon", "glacier", "honey", "ivory", "jasper", "lantern", "marble",
+    "nectar", "opal", "pearl", "quartz", "rainbow", "silver", "thunder", "ultra", "violet",
+    "walnut", "xenon", "yacht", "zephyr", "amber", "bronze", "coral", "dusk", "eclipse", "flame",
+    "grove", "haze", "iris", "jade", "karma", "lotus", "mist", "nova", "orbit", "prism", "ripple",
+    "storm", "tide", "unity", "venom", "wave", "xerus", "yarn", "zest", "blaze", "cipher", "delta",
+    "echo", "flint", "glyph", "halo", "index", "jewel", "knight", "lyric", "manor", "neon", "onyx",
+    "pixel", "quill", "raven", "spark", "thorn", "umber", "vortex", "warden", "xray", "yield",
+    "zeal",
 ];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -149,10 +146,12 @@ pub struct PasswordConfig {
 
 impl Default for PasswordConfig {
     fn default() -> Self {
-        Self { length: 20,
-        uppercase: true,
-        numbers: true,
-        symbols: true },
+        Self {
+            length: 20,
+            uppercase: true,
+            numbers: true,
+            symbols: true,
+        }
     }
 }
 
@@ -178,20 +177,34 @@ impl Default for PassphraseConfig {
 pub fn generate_password(cfg: &PasswordConfig) -> String {
     let mut rng = rand::thread_rng();
     let mut charset: Vec<u8> = b"abcdefghijklmnopqrstuvwxyz".to_vec();
-    if cfg.uppercase { charset.extend_from_slice(b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"); }
-    if cfg.numbers   { charset.extend_from_slice(b"0123456789"); }
-    if cfg.symbols   { charset.extend_from_slice(b"!@#$%^&*()-_=+[]{}|;:,.<>?"); }
+    if cfg.uppercase {
+        charset.extend_from_slice(b"ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+    }
+    if cfg.numbers {
+        charset.extend_from_slice(b"0123456789");
+    }
+    if cfg.symbols {
+        charset.extend_from_slice(b"!@#$%^&*()-_=+[]{}|;:,.<>?");
+    }
 
     let len = cfg.length.clamp(8, 128);
-    let mut pw: Vec<u8> = (0..len).map(|_| charset[rng.gen_range(0..charset.len())]).collect();
+    let mut pw: Vec<u8> = (0..len)
+        .map(|_| charset[rng.gen_range(0..charset.len())])
+        .collect();
 
     let mut ensure = |chars: &[u8]| {
         let pos = rng.gen_range(0..len);
         pw[pos] = chars[rng.gen_range(0..chars.len())];
     };
-    if cfg.uppercase { ensure(b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"); }
-    if cfg.numbers   { ensure(b"0123456789"); }
-    if cfg.symbols   { ensure(b"!@#$%^&*"); }
+    if cfg.uppercase {
+        ensure(b"ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+    }
+    if cfg.numbers {
+        ensure(b"0123456789");
+    }
+    if cfg.symbols {
+        ensure(b"!@#$%^&*");
+    }
 
     String::from_utf8(pw).unwrap_or_default()
 }
@@ -204,7 +217,9 @@ pub fn generate_passphrase(cfg: &PassphraseConfig) -> String {
             let word = WORDLIST[rng.gen_range(0..WORDLIST.len())];
             if cfg.capitalise {
                 let mut c = word.chars();
-                c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()
+                c.next()
+                    .map(|f| f.to_uppercase().collect::<String>() + c.as_str())
+                    .unwrap_or_default()
             } else {
                 word.to_owned()
             }
@@ -219,75 +234,103 @@ pub fn generate_passphrase(cfg: &PassphraseConfig) -> String {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StrengthScore {
-    pub score: u8,        // 0–4 (like zxcvbn)
+    pub score: u8,           // 0–4 (like zxcvbn)
     pub label: &'static str, // "Very Weak" .. "Very Strong"
     pub entropy_bits: f64,
 }
 
 pub fn score_password(pw: &str) -> StrengthScore {
     if pw.is_empty() {
-        return StrengthScore { score: 0, label: "Empty", entropy_bits: 0.0 };
+        return StrengthScore {
+            score: 0,
+            label: "Empty",
+            entropy_bits: 0.0,
+        };
     }
     let len = pw.len() as f64;
     let mut pool = 0u32;
-    let has_lower   = pw.chars().any(|c| c.is_ascii_lowercase());
-    let has_upper   = pw.chars().any(|c| c.is_ascii_uppercase());
-    let has_digit   = pw.chars().any(|c| c.is_ascii_digit());
-    let has_symbol  = pw.chars().any(|c| !c.is_alphanumeric());
-    if has_lower  { pool += 26; }
-    if has_upper  { pool += 26; }
-    if has_digit  { pool += 10; }
-    if has_symbol { pool += 32; }
+    let has_lower = pw.chars().any(|c| c.is_ascii_lowercase());
+    let has_upper = pw.chars().any(|c| c.is_ascii_uppercase());
+    let has_digit = pw.chars().any(|c| c.is_ascii_digit());
+    let has_symbol = pw.chars().any(|c| !c.is_alphanumeric());
+    if has_lower {
+        pool += 26;
+    }
+    if has_upper {
+        pool += 26;
+    }
+    if has_digit {
+        pool += 10;
+    }
+    if has_symbol {
+        pool += 32;
+    }
     let entropy = len * (pool as f64).log2().max(0.0);
 
     let (score, label) = match entropy as u32 {
-        0..=27    => (0, "Very Weak"),
-        28..=35   => (1, "Weak"),
-        36..=59   => (2, "Fair"),
-        60..=99   => (3, "Strong"),
-        _          => (4, "Very Strong"),
+        0..=27 => (0, "Very Weak"),
+        28..=35 => (1, "Weak"),
+        36..=59 => (2, "Fair"),
+        60..=99 => (3, "Strong"),
+        _ => (4, "Very Strong"),
     };
-    StrengthScore { score, label, entropy_bits: entropy }
+    StrengthScore {
+        score,
+        label,
+        entropy_bits: entropy,
+    }
 }
 
 #[derive(Default)]
 pub struct VaultStore {
     logins: HashMap<String, VaultLogin>,
-    cards:  HashMap<String, VaultCard>,
-    notes:  HashMap<String, VaultNote>,
+    cards: HashMap<String, VaultCard>,
+    notes: HashMap<String, VaultNote>,
 }
 
 impl VaultStore {
     /// Load all entries from DB, decrypting with master_key.
     pub fn load_from_db(db: &crate::storage::db::Db, key: &[u8; 32]) -> Self {
         let mut logins = HashMap::new();
-        let mut cards  = HashMap::new();
-        let mut notes  = HashMap::new();
+        let mut cards = HashMap::new();
+        let mut notes = HashMap::new();
 
         for raw in db.vault_logins_raw().unwrap_or_default() {
             match Self::decrypt_login(&raw, key) {
-                Ok(login) => { logins.insert(login.id.clone(), login); }
+                Ok(login) => {
+                    logins.insert(login.id.clone(), login);
+                }
                 Err(e) => tracing::warn!("skip vault login {}: {e}", raw.id),
             }
         }
         for raw in db.vault_cards_raw().unwrap_or_default() {
             match Self::decrypt_card(&raw, key) {
-                Ok(card) => { cards.insert(card.id.clone(), card); }
+                Ok(card) => {
+                    cards.insert(card.id.clone(), card);
+                }
                 Err(e) => tracing::warn!("skip vault card {}: {e}", raw.id),
             }
         }
         for raw in db.vault_notes_raw().unwrap_or_default() {
             match Self::decrypt_note(&raw, key) {
-                Ok(note) => { notes.insert(note.id.clone(), note); }
+                Ok(note) => {
+                    notes.insert(note.id.clone(), note);
+                }
                 Err(e) => tracing::warn!("skip vault note {}: {e}", raw.id),
             }
         }
-        VaultStore { logins, cards, notes }
+        VaultStore {
+            logins,
+            cards,
+            notes,
+        }
     }
 
-    fn decrypt_login(raw: &crate::storage::db::VaultLoginRaw, key: &[u8; 32]) -> Result<VaultLogin> {
-        let password = decrypt_field(&raw.password_enc, key)
-            .context("decrypt password")?;
+    fn decrypt_login(
+        raw: &crate::storage::db::VaultLoginRaw,
+        key: &[u8; 32],
+    ) -> Result<VaultLogin> {
+        let password = decrypt_field(&raw.password_enc, key).context("decrypt password")?;
         let notes = if raw.notes_enc.is_empty() {
             String::new()
         } else {
@@ -308,13 +351,22 @@ impl VaultStore {
     }
 
     fn decrypt_card(raw: &crate::storage::db::VaultCardRaw, key: &[u8; 32]) -> Result<VaultCard> {
-        let number    = decrypt_field(&raw.number_enc, key).context("decrypt card number")?;
-        let cvv       = if raw.cvv_enc.is_empty() { String::new() }
-                        else { decrypt_field(&raw.cvv_enc, key).context("decrypt cvv")? };
-        let cardholder = if raw.cardholder_enc.is_empty() { String::new() }
-                         else { decrypt_field(&raw.cardholder_enc, key).context("decrypt cardholder")? };
-        let notes     = if raw.notes_enc.is_empty() { String::new() }
-                        else { decrypt_field(&raw.notes_enc, key).context("decrypt card notes")? };
+        let number = decrypt_field(&raw.number_enc, key).context("decrypt card number")?;
+        let cvv = if raw.cvv_enc.is_empty() {
+            String::new()
+        } else {
+            decrypt_field(&raw.cvv_enc, key).context("decrypt cvv")?
+        };
+        let cardholder = if raw.cardholder_enc.is_empty() {
+            String::new()
+        } else {
+            decrypt_field(&raw.cardholder_enc, key).context("decrypt cardholder")?
+        };
+        let notes = if raw.notes_enc.is_empty() {
+            String::new()
+        } else {
+            decrypt_field(&raw.notes_enc, key).context("decrypt card notes")?
+        };
         Ok(VaultCard {
             id: raw.id.clone(),
             title: raw.title.clone(),
@@ -353,18 +405,25 @@ impl VaultStore {
         db: &crate::storage::db::Db,
         key: &[u8; 32],
     ) -> Result<LoginSummary> {
-        let id  = crate::storage::db::new_id();
+        let id = crate::storage::db::new_id();
         let now = crate::storage::db::unix_now();
         let password_enc = encrypt_field(password, key)?;
-        let notes_enc    = if notes.is_empty() { String::new() } else { encrypt_field(notes, key)? };
-        let urls_json    = serde_json::to_string(&urls)?;
-        let tags_json    = serde_json::to_string(&tags)?;
+        let notes_enc = if notes.is_empty() {
+            String::new()
+        } else {
+            encrypt_field(notes, key)?
+        };
+        let urls_json = serde_json::to_string(&urls)?;
+        let tags_json = serde_json::to_string(&tags)?;
 
         let raw = crate::storage::db::VaultLoginRaw {
             id: id.clone(),
             title: title.to_owned(),
             username: username.to_owned(),
-            password_enc, notes_enc, urls_json, tags_json,
+            password_enc,
+            notes_enc,
+            urls_json,
+            tags_json,
             totp_uri: totp_uri.clone(),
             created_at: now,
             updated_at: now,
@@ -378,7 +437,8 @@ impl VaultStore {
             password: password.to_owned(),
             urls: urls.clone(),
             notes: notes.to_owned(),
-            tags: tags.clone(), totp_uri,
+            tags: tags.clone(),
+            totp_uri,
             created_at: now,
             updated_at: now,
         };
@@ -400,29 +460,38 @@ impl VaultStore {
         db: &crate::storage::db::Db,
         key: &[u8; 32],
     ) -> Result<LoginSummary> {
-        let entry = self.logins.get(id)
+        let entry = self
+            .logins
+            .get(id)
             .ok_or_else(|| anyhow::anyhow!("vault login {id} not found"))?
             .clone();
 
-        let new_title    = title.unwrap_or(entry.title.clone());
+        let new_title = title.unwrap_or(entry.title.clone());
         let new_username = username.unwrap_or(entry.username.clone());
         let new_password = password.unwrap_or(entry.password.clone());
-        let new_urls     = urls.unwrap_or(entry.urls.clone());
-        let new_notes    = notes.unwrap_or(entry.notes.clone());
-        let new_tags     = tags.unwrap_or(entry.tags.clone());
+        let new_urls = urls.unwrap_or(entry.urls.clone());
+        let new_notes = notes.unwrap_or(entry.notes.clone());
+        let new_tags = tags.unwrap_or(entry.tags.clone());
         let new_totp_uri = totp_uri.unwrap_or(entry.totp_uri.clone());
-        let now          = crate::storage::db::unix_now();
+        let now = crate::storage::db::unix_now();
 
         let password_enc = encrypt_field(&new_password, key)?;
-        let notes_enc    = if new_notes.is_empty() { String::new() } else { encrypt_field(&new_notes, key)? };
-        let urls_json    = serde_json::to_string(&new_urls)?;
-        let tags_json    = serde_json::to_string(&new_tags)?;
+        let notes_enc = if new_notes.is_empty() {
+            String::new()
+        } else {
+            encrypt_field(&new_notes, key)?
+        };
+        let urls_json = serde_json::to_string(&new_urls)?;
+        let tags_json = serde_json::to_string(&new_tags)?;
 
         let raw = crate::storage::db::VaultLoginRaw {
             id: id.to_owned(),
             title: new_title.clone(),
             username: new_username.clone(),
-            password_enc, notes_enc, urls_json, tags_json,
+            password_enc,
+            notes_enc,
+            urls_json,
+            tags_json,
             totp_uri: new_totp_uri.clone(),
             created_at: entry.created_at,
             updated_at: now,
@@ -456,19 +525,24 @@ impl VaultStore {
     }
 
     pub fn list_logins(&self) -> Vec<LoginSummary> {
-        let mut v: Vec<_> = self.logins.values().map(|l| self.login_summary(l)).collect();
+        let mut v: Vec<_> = self
+            .logins
+            .values()
+            .map(|l| self.login_summary(l))
+            .collect();
         v.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
         v
     }
 
     pub fn search_logins(&self, query: &str) -> Vec<LoginSummary> {
         let q = query.to_lowercase();
-        self.logins.values()
+        self.logins
+            .values()
             .filter(|l| {
-                l.title.to_lowercase().contains(&q) ||
-                l.username.to_lowercase().contains(&q) ||
-                l.urls.iter().any(|u| u.to_lowercase().contains(&q)) ||
-                l.tags.iter().any(|t| t.to_lowercase().contains(&q))
+                l.title.to_lowercase().contains(&q)
+                    || l.username.to_lowercase().contains(&q)
+                    || l.urls.iter().any(|u| u.to_lowercase().contains(&q))
+                    || l.tags.iter().any(|t| t.to_lowercase().contains(&q))
             })
             .map(|l| self.login_summary(l))
             .collect()
@@ -478,15 +552,19 @@ impl VaultStore {
 
     pub fn match_domain(&self, domain: &str) -> Vec<LoginSummary> {
         let dlc = domain.to_lowercase();
-        self.logins.values()
-            .filter(|l| l.urls.iter().any(|u| {
-                let host = Url::parse(u).ok()
-                    .and_then(|p| p.host_str().map(|h| h.to_lowercase()));
-                match host {
-                    Some(h) => h == dlc || dlc.ends_with(&format!(".{h}")),
-                    None => false,
-                }
-            }))
+        self.logins
+            .values()
+            .filter(|l| {
+                l.urls.iter().any(|u| {
+                    let host = Url::parse(u)
+                        .ok()
+                        .and_then(|p| p.host_str().map(|h| h.to_lowercase()));
+                    match host {
+                        Some(h) => h == dlc || dlc.ends_with(&format!(".{h}")),
+                        None => false,
+                    }
+                })
+            })
             .map(|l| self.login_summary(l))
             .collect()
     }
@@ -516,18 +594,37 @@ impl VaultStore {
         db: &crate::storage::db::Db,
         key: &[u8; 32],
     ) -> Result<CardSummary> {
-        let id  = crate::storage::db::new_id();
+        let id = crate::storage::db::new_id();
         let now = crate::storage::db::unix_now();
-        let cardholder_enc = if cardholder.is_empty() { String::new() } else { encrypt_field(cardholder, key)? };
-        let number_enc     = encrypt_field(number, key)?;
-        let cvv_enc        = if cvv.is_empty() { String::new() } else { encrypt_field(cvv, key)? };
-        let notes_enc      = if notes.is_empty() { String::new() } else { encrypt_field(notes, key)? };
-        let tags_json      = serde_json::to_string(&tags)?;
+        let cardholder_enc = if cardholder.is_empty() {
+            String::new()
+        } else {
+            encrypt_field(cardholder, key)?
+        };
+        let number_enc = encrypt_field(number, key)?;
+        let cvv_enc = if cvv.is_empty() {
+            String::new()
+        } else {
+            encrypt_field(cvv, key)?
+        };
+        let notes_enc = if notes.is_empty() {
+            String::new()
+        } else {
+            encrypt_field(notes, key)?
+        };
+        let tags_json = serde_json::to_string(&tags)?;
 
         let raw = crate::storage::db::VaultCardRaw {
-            id: id.clone(), title: title.to_owned(),
-            cardholder_enc, number_enc, expiry: expiry.to_owned(),
-            cvv_enc, notes_enc, tags_json, created_at: now, updated_at: now,
+            id: id.clone(),
+            title: title.to_owned(),
+            cardholder_enc,
+            number_enc,
+            expiry: expiry.to_owned(),
+            cvv_enc,
+            notes_enc,
+            tags_json,
+            created_at: now,
+            updated_at: now,
         };
         db.vault_card_upsert(&raw)?;
 
@@ -564,14 +661,24 @@ impl VaultStore {
     }
 
     fn card_summary(c: &VaultCard) -> CardSummary {
-        let last_four = c.number.chars().rev().take(4).collect::<String>()
-            .chars().rev().collect::<String>();
+        let last_four = c
+            .number
+            .chars()
+            .rev()
+            .take(4)
+            .collect::<String>()
+            .chars()
+            .rev()
+            .collect::<String>();
         CardSummary {
             id: c.id.clone(),
             title: c.title.clone(),
             cardholder: c.cardholder.clone(),
-            last_four, expiry: c.expiry.clone(), tags: c.tags.clone(),
-            created_at: c.created_at, updated_at: c.updated_at,
+            last_four,
+            expiry: c.expiry.clone(),
+            tags: c.tags.clone(),
+            created_at: c.created_at,
+            updated_at: c.updated_at,
         }
     }
 
@@ -583,14 +690,18 @@ impl VaultStore {
         db: &crate::storage::db::Db,
         key: &[u8; 32],
     ) -> Result<NoteSummary> {
-        let id  = crate::storage::db::new_id();
+        let id = crate::storage::db::new_id();
         let now = crate::storage::db::unix_now();
         let content_enc = encrypt_field(content, key)?;
-        let tags_json   = serde_json::to_string(&tags)?;
+        let tags_json = serde_json::to_string(&tags)?;
 
         let raw = crate::storage::db::VaultNoteRaw {
-            id: id.clone(), title: title.to_owned(),
-            content_enc, tags_json, created_at: now, updated_at: now,
+            id: id.clone(),
+            title: title.to_owned(),
+            content_enc,
+            tags_json,
+            created_at: now,
+            updated_at: now,
         };
         db.vault_note_upsert(&raw)?;
 
@@ -627,7 +738,8 @@ impl VaultStore {
             id: n.id.clone(),
             title: n.title.clone(),
             tags: n.tags.clone(),
-            created_at: n.created_at, updated_at: n.updated_at,
+            created_at: n.created_at,
+            updated_at: n.updated_at,
         }
     }
 
@@ -646,19 +758,19 @@ impl VaultStore {
             .flexible(true)
             .from_reader(csv.as_bytes());
 
-        let headers: Vec<String> = reader.headers()?.iter()
-            .map(|h| h.to_lowercase())
-            .collect();
+        let headers: Vec<String> = reader.headers()?.iter().map(|h| h.to_lowercase()).collect();
 
         let col = |names: &[&str]| -> Option<usize> {
-            names.iter().find_map(|n| headers.iter().position(|h| h == n))
+            names
+                .iter()
+                .find_map(|n| headers.iter().position(|h| h == n))
         };
 
-        let c_title    = col(&["name", "title", "item name"]);
-        let c_user     = col(&["username", "login_username", "user_name", "email"]);
+        let c_title = col(&["name", "title", "item name"]);
+        let c_user = col(&["username", "login_username", "user_name", "email"]);
         let c_password = col(&["password", "login_password"]);
-        let c_url      = col(&["url", "login_uri", "uri", "website"]);
-        let c_notes    = col(&["notes", "extra", "comment"]);
+        let c_url = col(&["url", "login_uri", "uri", "website"]);
+        let c_notes = col(&["notes", "extra", "comment"]);
 
         let mut imported = 0usize;
         for result in reader.records() {
@@ -666,19 +778,30 @@ impl VaultStore {
             let get = |idx: Option<usize>| -> &str {
                 idx.and_then(|i| record.get(i)).unwrap_or("").trim()
             };
-            let title    = get(c_title);
+            let title = get(c_title);
             let username = get(c_user);
             let password = get(c_password);
-            let url_raw  = get(c_url);
-            let notes    = get(c_notes);
+            let url_raw = get(c_url);
+            let notes = get(c_notes);
 
             if title.is_empty() && username.is_empty() && password.is_empty() {
                 continue;
             }
-            let urls = if url_raw.is_empty() { vec![] } else { vec![url_raw.to_owned()] };
+            let urls = if url_raw.is_empty() {
+                vec![]
+            } else {
+                vec![url_raw.to_owned()]
+            };
             self.add_login(
                 if title.is_empty() { "Imported" } else { title },
-                username, password, urls, notes, vec![], None, db, key,
+                username,
+                password,
+                urls,
+                notes,
+                vec![],
+                None,
+                db,
+                key,
             )?;
             imported += 1;
         }
@@ -686,7 +809,9 @@ impl VaultStore {
     }
 
     pub fn stats(&self) -> VaultStats {
-        let weak_count = self.logins.values()
+        let weak_count = self
+            .logins
+            .values()
             .filter(|l| score_password(&l.password).score < 2)
             .count();
         let reused: HashMap<&str, usize> = {
@@ -700,8 +825,8 @@ impl VaultStore {
 
         VaultStats {
             login_count: self.logins.len(),
-            card_count:  self.cards.len(),
-            note_count:  self.notes.len(),
+            card_count: self.cards.len(),
+            note_count: self.notes.len(),
             weak_count,
             reused_count,
         }
@@ -710,10 +835,10 @@ impl VaultStore {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VaultStats {
-    pub login_count:  usize,
-    pub card_count:   usize,
-    pub note_count:   usize,
-    pub weak_count:   usize,
+    pub login_count: usize,
+    pub card_count: usize,
+    pub note_count: usize,
+    pub weak_count: usize,
     pub reused_count: usize,
 }
 
@@ -739,10 +864,12 @@ mod tests {
 
     #[test]
     fn generate_password_respects_length() {
-        let cfg = PasswordConfig { length: 24,
-        uppercase: true,
-        numbers: true,
-        symbols: true };,
+        let cfg = PasswordConfig {
+            length: 24,
+            uppercase: true,
+            numbers: true,
+            symbols: true,
+        };
         let pw = generate_password(&cfg);
         assert_eq!(pw.len(), 24);
         assert!(pw.chars().any(|c| c.is_ascii_uppercase()));
@@ -778,4 +905,3 @@ mod tests {
         assert_ne!(enc1, enc2);
     }
 }
-

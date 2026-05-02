@@ -1,5 +1,4 @@
-
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 
 /// OHTTP Key Configuration (from the relay's /.well-known/ohttp-gateway endpoint).
@@ -23,19 +22,27 @@ impl OhttpKeyConfig {
         if raw.len() < 8 {
             bail!("key config too short: {} bytes", raw.len());
         }
-        let key_id   = raw[0];
-        let kem_id   = u16::from_be_bytes([raw[1], raw[2]]);
-        let pk_len   = u16::from_be_bytes([raw[3], raw[4]]) as usize;
+        let key_id = raw[0];
+        let kem_id = u16::from_be_bytes([raw[1], raw[2]]);
+        let pk_len = u16::from_be_bytes([raw[3], raw[4]]) as usize;
         if raw.len() < 5 + pk_len + 2 {
             bail!("key config truncated at public key");
         }
         let public_key_bytes = raw[5..5 + pk_len].to_vec();
-        let kdf_id  = u16::from_be_bytes([raw[5 + pk_len], raw[5 + pk_len + 1]]);
+        let kdf_id = u16::from_be_bytes([raw[5 + pk_len], raw[5 + pk_len + 1]]);
         let aead_id = if raw.len() >= 5 + pk_len + 4 {
             u16::from_be_bytes([raw[5 + pk_len + 2], raw[5 + pk_len + 3]])
-        } else { 0x0001 };
+        } else {
+            0x0001
+        };
 
-        Ok(Self { key_id, public_key_bytes, kem_id, kdf_id, aead_id })
+        Ok(Self {
+            key_id,
+            public_key_bytes,
+            kem_id,
+            kdf_id,
+            aead_id,
+        })
     }
 }
 
@@ -62,11 +69,17 @@ pub fn encapsulate_get(
     url_path: &str,
     extra_headers: &[(&str, &str)],
 ) -> Result<OhttpRequest> {
-    let bhttp = build_bhttp_request("GET", target_scheme, target_authority, url_path, extra_headers, &[])
-        .context("build bhttp")?;
+    let bhttp = build_bhttp_request(
+        "GET",
+        target_scheme,
+        target_authority,
+        url_path,
+        extra_headers,
+        &[],
+    )
+    .context("build bhttp")?;
 
-    let (enc, ct, response_context) = hpke_seal(config, &bhttp)
-        .context("hpke seal")?;
+    let (enc, ct, response_context) = hpke_seal(config, &bhttp).context("hpke seal")?;
 
     let mut encapsulated = Vec::new();
     encapsulated.push(config.key_id);
@@ -76,14 +89,17 @@ pub fn encapsulate_get(
     encapsulated.extend_from_slice(&enc);
     encapsulated.extend_from_slice(&ct);
 
-    Ok(OhttpRequest { encapsulated, response_context, key_config_id: config.key_id })
+    Ok(OhttpRequest {
+        encapsulated,
+        response_context,
+        key_config_id: config.key_id,
+    })
 }
 
 /// Decapsulate an OHTTP response (the encrypted blob returned by the relay).
 /// Returns the plaintext HTTP response body as bytes.
 pub fn decapsulate_response(req: &OhttpRequest, response_bytes: &[u8]) -> Result<Vec<u8>> {
-    hpke_open_response(&req.response_context, response_bytes)
-        .context("hpke open response")
+    hpke_open_response(&req.response_context, response_bytes).context("hpke open response")
 }
 
 //
@@ -95,20 +111,20 @@ pub fn decapsulate_response(req: &OhttpRequest, response_bytes: &[u8]) -> Result
 //   enc (65 bytes) || exporter_secret (32 bytes) = 97 bytes total.
 // Both halves are needed to derive the response decryption key per §4.2 of RFC 9458.
 
-const P256_PK_LEN: usize = 65;   // uncompressed SEC1
+const P256_PK_LEN: usize = 65; // uncompressed SEC1
 
 /// RFC 9180 §4 — LabeledExtract using a fixed suite_id.
 /// Returns the HKDF PRK bytes directly (32 bytes for SHA-256).
-fn labeled_extract(
-    suite_id: &[u8],
-    salt: Option<&[u8]>,
-    label: &[u8],
-    ikm: &[u8],
-) -> [u8; 32] {
+fn labeled_extract(suite_id: &[u8], salt: Option<&[u8]>, label: &[u8], ikm: &[u8]) -> [u8; 32] {
     use hkdf::Hkdf;
     use sha2::Sha256;
-    let labeled_ikm: Vec<u8> = b"HPKE-v1".iter()
-        .chain(suite_id).chain(label).chain(ikm).copied().collect();
+    let labeled_ikm: Vec<u8> = b"HPKE-v1"
+        .iter()
+        .chain(suite_id)
+        .chain(label)
+        .chain(ikm)
+        .copied()
+        .collect();
     let (prk, _) = Hkdf::<Sha256>::extract(salt, &labeled_ikm);
     let mut out = [0u8; 32];
     out.copy_from_slice(&prk);
@@ -126,9 +142,15 @@ fn labeled_expand(
     use hkdf::Hkdf;
     use sha2::Sha256;
     let len = out.len() as u16;
-    let labeled_info: Vec<u8> = len.to_be_bytes().iter()
-        .chain(b"HPKE-v1").chain(suite_id).chain(label).chain(info)
-        .copied().collect();
+    let labeled_info: Vec<u8> = len
+        .to_be_bytes()
+        .iter()
+        .chain(b"HPKE-v1")
+        .chain(suite_id)
+        .chain(label)
+        .chain(info)
+        .copied()
+        .collect();
     let hk = Hkdf::<Sha256>::from_prk(prk)
         .map_err(|_| anyhow::anyhow!("labeled_expand: invalid PRK length"))?;
     hk.expand(&labeled_info, out)
@@ -142,16 +164,22 @@ fn labeled_expand(
 ///   enc              = ephemeral public key (65 bytes, uncompressed SEC1)
 ///   shared_secret    = 32-byte KEM shared secret
 ///   exporter_secret  = 32-byte HPKE exporter secret (from KeySchedule)
-fn hpke_seal(
-    config: &OhttpKeyConfig,
-    plaintext: &[u8],
-) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>)> {
-    use aes_gcm::{Aes128Gcm, KeyInit, aead::{Aead, Payload}};
+fn hpke_seal(config: &OhttpKeyConfig, plaintext: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>)> {
+    use aes_gcm::{
+        Aes128Gcm, KeyInit,
+        aead::{Aead, Payload},
+    };
     use p256::{EncodedPoint, PublicKey, ecdh::EphemeralSecret};
 
-    if config.kem_id  != 0x0010 { bail!("unsupported KEM 0x{:04x}", config.kem_id);  }
-    if config.kdf_id  != 0x0001 { bail!("unsupported KDF 0x{:04x}", config.kdf_id);  }
-    if config.aead_id != 0x0001 { bail!("unsupported AEAD 0x{:04x}", config.aead_id); }
+    if config.kem_id != 0x0010 {
+        bail!("unsupported KEM 0x{:04x}", config.kem_id);
+    }
+    if config.kdf_id != 0x0001 {
+        bail!("unsupported KDF 0x{:04x}", config.kdf_id);
+    }
+    if config.aead_id != 0x0001 {
+        bail!("unsupported AEAD 0x{:04x}", config.aead_id);
+    }
 
     // RFC 9180 §7.1: suite_id for the KEM layer
     let kem_suite_id: &[u8] = b"KEM\x00\x10";
@@ -163,9 +191,9 @@ fn hpke_seal(
         .map_err(|e| anyhow::anyhow!("invalid recipient public key: {e}"))?;
 
     // Generate ephemeral key pair
-    let eph_sk   = EphemeralSecret::random(&mut rand::rngs::OsRng);
-    let eph_pk   = EncodedPoint::from(eph_sk.public_key());
-    let enc: Vec<u8> = eph_pk.as_bytes().to_vec();           // 65 bytes
+    let eph_sk = EphemeralSecret::random(&mut rand::rngs::OsRng);
+    let eph_pk = EncodedPoint::from(eph_sk.public_key());
+    let enc: Vec<u8> = eph_pk.as_bytes().to_vec(); // 65 bytes
     assert_eq!(enc.len(), P256_PK_LEN);
 
     // DH shared secret
@@ -179,23 +207,49 @@ fn hpke_seal(
     // ExtractAndExpand → shared_secret (32 bytes)
     let prk_kem = labeled_extract(kem_suite_id, None, b"shared_secret", dh_bytes);
     let mut shared_secret = [0u8; 32];
-    labeled_expand(&prk_kem, kem_suite_id, b"shared_secret", &kem_context, &mut shared_secret)?;
+    labeled_expand(
+        &prk_kem,
+        kem_suite_id,
+        b"shared_secret",
+        &kem_context,
+        &mut shared_secret,
+    )?;
 
     // KeySchedule — base mode (mode = 0, empty psk / psk_id / info)
     let psk_id_hash = labeled_extract(hpke_suite_id, Some(b""), b"psk_id_hash", b"");
-    let info_hash   = labeled_extract(hpke_suite_id, Some(b""), b"info_hash",   b"");
-    let ks_context: Vec<u8> = std::iter::once(0u8)  // mode_base
-        .chain(psk_id_hash).chain(info_hash).collect();
+    let info_hash = labeled_extract(hpke_suite_id, Some(b""), b"info_hash", b"");
+    let ks_context: Vec<u8> = std::iter::once(0u8) // mode_base
+        .chain(psk_id_hash)
+        .chain(info_hash)
+        .collect();
 
     // secret = LabeledExtract(shared_secret, "secret", psk="")
     let secret_prk = labeled_extract(hpke_suite_id, Some(&shared_secret), b"secret", b"");
 
-    let mut key_bytes   = [0u8; 16]; // Nk = 16 for AES-128-GCM
+    let mut key_bytes = [0u8; 16]; // Nk = 16 for AES-128-GCM
     let mut nonce_bytes = [0u8; 12]; // Nn = 12
-    let mut exp_secret  = [0u8; 32]; // Nh = 32
-    labeled_expand(&secret_prk, hpke_suite_id, b"key",        &ks_context, &mut key_bytes)?;
-    labeled_expand(&secret_prk, hpke_suite_id, b"base_nonce", &ks_context, &mut nonce_bytes)?;
-    labeled_expand(&secret_prk, hpke_suite_id, b"exp",        &ks_context, &mut exp_secret)?;
+    let mut exp_secret = [0u8; 32]; // Nh = 32
+    labeled_expand(
+        &secret_prk,
+        hpke_suite_id,
+        b"key",
+        &ks_context,
+        &mut key_bytes,
+    )?;
+    labeled_expand(
+        &secret_prk,
+        hpke_suite_id,
+        b"base_nonce",
+        &ks_context,
+        &mut nonce_bytes,
+    )?;
+    labeled_expand(
+        &secret_prk,
+        hpke_suite_id,
+        b"exp",
+        &ks_context,
+        &mut exp_secret,
+    )?;
 
     // RFC 9458 §3.3: AAD = request header bytes
     let mut aad = vec![config.key_id];
@@ -204,10 +258,15 @@ fn hpke_seal(
     aad.extend_from_slice(&config.aead_id.to_be_bytes());
 
     let cipher = Aes128Gcm::new_from_slice(&key_bytes).context("aes128gcm init")?;
-    let ct = cipher.encrypt(
-        aes_gcm::Nonce::from_slice(&nonce_bytes),
-        Payload { msg: plaintext, aad: &aad },
-    ).map_err(|e| anyhow::anyhow!("aes-gcm encrypt: {e}"))?;
+    let ct = cipher
+        .encrypt(
+            aes_gcm::Nonce::from_slice(&nonce_bytes),
+            Payload {
+                msg: plaintext,
+                aad: &aad,
+            },
+        )
+        .map_err(|e| anyhow::anyhow!("aes-gcm encrypt: {e}"))?;
 
     // response_context = enc || exp_secret (97 bytes) so hpke_open_response can
     // derive the response key per RFC 9458 §4.2 (salt = enc || response_nonce).
@@ -223,13 +282,20 @@ fn hpke_seal(
 /// `response_bytes` from the relay:
 ///   response_nonce (16 bytes) || AEAD ciphertext.
 fn hpke_open_response(response_context: &[u8], response_bytes: &[u8]) -> Result<Vec<u8>> {
-    use aes_gcm::{Aes128Gcm, KeyInit, aead::{Aead, Payload}};
+    use aes_gcm::{
+        Aes128Gcm, KeyInit,
+        aead::{Aead, Payload},
+    };
     use hkdf::Hkdf;
     use sha2::Sha256;
 
     // Unpack response_context = enc || exp_secret
     if response_context.len() != P256_PK_LEN + 32 {
-        bail!("response_context wrong length: {} (expected {})", response_context.len(), P256_PK_LEN + 32);
+        bail!(
+            "response_context wrong length: {} (expected {})",
+            response_context.len(),
+            P256_PK_LEN + 32
+        );
     }
     let enc = &response_context[..P256_PK_LEN];
     let exp_secret = &response_context[P256_PK_LEN..];
@@ -240,7 +306,7 @@ fn hpke_open_response(response_context: &[u8], response_bytes: &[u8]) -> Result<
         bail!("OHTTP response too short: {} bytes", response_bytes.len());
     }
     let response_nonce = &response_bytes[..RESPONSE_NONCE_LEN];
-    let ct             = &response_bytes[RESPONSE_NONCE_LEN..];
+    let ct = &response_bytes[RESPONSE_NONCE_LEN..];
 
     // RFC 9458 §4.2:
     //   secret = HPKE.Export("message/bhttp response", Nk=16)
@@ -256,25 +322,31 @@ fn hpke_open_response(response_context: &[u8], response_bytes: &[u8]) -> Result<
     let hpke_suite_id: &[u8] = b"HPKE\x00\x10\x00\x01\x00\x01";
     let export_label = b"message/bhttp response";
     let export_len: u16 = 16;
-    let labeled_info: Vec<u8> = export_len.to_be_bytes().iter()
-        .chain(b"HPKE-v1").chain(hpke_suite_id)
-        .chain(b"sec").chain(export_label)
-        .copied().collect();
+    let labeled_info: Vec<u8> = export_len
+        .to_be_bytes()
+        .iter()
+        .chain(b"HPKE-v1")
+        .chain(hpke_suite_id)
+        .chain(b"sec")
+        .chain(export_label)
+        .copied()
+        .collect();
     let hk_exp = Hkdf::<Sha256>::from_prk(exp_secret)
         .map_err(|_| anyhow::anyhow!("invalid exporter_secret length"))?;
     let mut secret = [0u8; 16];
-    hk_exp.expand(&labeled_info, &mut secret)
+    hk_exp
+        .expand(&labeled_info, &mut secret)
         .map_err(|_| anyhow::anyhow!("HPKE export expand failed"))?;
 
     // salt = enc || response_nonce
     let salt: Vec<u8> = enc.iter().chain(response_nonce).copied().collect();
     let (prk, _) = Hkdf::<Sha256>::extract(Some(&salt), &secret);
 
-    let mut aead_key   = [0u8; 16];
+    let mut aead_key = [0u8; 16];
     let mut aead_nonce = [0u8; 12];
     Hkdf::<Sha256>::from_prk(&prk)
         .map_err(|_| anyhow::anyhow!("response PRK invalid"))?
-        .expand(b"key",   &mut aead_key)
+        .expand(b"key", &mut aead_key)
         .map_err(|_| anyhow::anyhow!("response key expand failed"))?;
     Hkdf::<Sha256>::from_prk(&prk)
         .map_err(|_| anyhow::anyhow!("response PRK invalid"))?
@@ -282,10 +354,12 @@ fn hpke_open_response(response_context: &[u8], response_bytes: &[u8]) -> Result<
         .map_err(|_| anyhow::anyhow!("response nonce expand failed"))?;
 
     let cipher = Aes128Gcm::new_from_slice(&aead_key).context("aes128gcm init")?;
-    cipher.decrypt(
-        aes_gcm::Nonce::from_slice(&aead_nonce),
-        Payload { msg: ct, aad: b"" },
-    ).map_err(|e| anyhow::anyhow!("aes-gcm decrypt: {e}"))
+    cipher
+        .decrypt(
+            aes_gcm::Nonce::from_slice(&aead_nonce),
+            Payload { msg: ct, aad: b"" },
+        )
+        .map_err(|e| anyhow::anyhow!("aes-gcm decrypt: {e}"))
 }
 
 fn write_varint(buf: &mut Vec<u8>, n: u64) {
@@ -338,10 +412,7 @@ fn build_bhttp_request(
 }
 
 /// Known OHTTP relay endpoints supported by Diatom.
-pub const OHTTP_RELAYS: &[&str] = &[
-    "https://ohttp.fastly.com/",
-    "https://ohttp.brave.com/",
-];
+pub const OHTTP_RELAYS: &[&str] = &["https://ohttp.fastly.com/", "https://ohttp.brave.com/"];
 
 /// Fetch the OHTTP key configuration from a relay.
 /// Endpoint: GET <relay>/.well-known/ohttp-gateway
@@ -351,7 +422,8 @@ pub async fn fetch_key_config(client: &reqwest::Client, relay: &str) -> Result<O
         .get(&url)
         .header("Accept", "application/ohttp-keys")
         .timeout(std::time::Duration::from_secs(10))
-        .send().await
+        .send()
+        .await
         .with_context(|| format!("fetch key config from {relay}"))?
         .error_for_status()
         .context("key config status")?;
@@ -371,7 +443,8 @@ pub async fn ohttp_fetch(
         .header("Content-Type", "application/ohttp-req")
         .body(req.encapsulated.clone())
         .timeout(std::time::Duration::from_secs(30))
-        .send().await
+        .send()
+        .await
         .with_context(|| format!("ohttp relay POST to {relay_url}"))?
         .error_for_status()
         .context("ohttp relay response status")?;
@@ -387,10 +460,14 @@ mod tests {
     #[test]
     fn bhttp_request_roundtrip_structure() {
         let bhttp = build_bhttp_request(
-            "GET", "https", "example.com:443", "/test",
+            "GET",
+            "https",
+            "example.com:443",
+            "/test",
             &[("Accept", "text/plain")],
             &[],
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(bhttp[0], 0x00);
         assert!(bhttp.len() > 10);
     }
@@ -416,4 +493,3 @@ mod tests {
         assert_eq!(buf[0] & 0xC0, 0x40); // two-byte prefix
     }
 }
-

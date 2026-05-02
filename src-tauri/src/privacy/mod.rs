@@ -1,9 +1,9 @@
 // Fingerprint resistance, anonymity, and threat detection.
 pub mod config;
 pub mod fingerprint_norm;
-pub mod pir;
 pub mod ohttp;
 pub mod onion;
+pub mod pir;
 pub mod threat;
 pub mod wifi;
 

@@ -1,4 +1,3 @@
-
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -45,7 +44,10 @@ pub async fn suggest_via_slm(ctx: &DownloadContext) -> Result<RenameResult> {
 
     let client = reqwest::Client::new();
     let resp: serde_json::Value = client
-        .post(format!("http://127.0.0.1:{}/v1/chat/completions", crate::slm::SLM_PORT))
+        .post(format!(
+            "http://127.0.0.1:{}/v1/chat/completions",
+            crate::slm::SLM_PORT
+        ))
         .json(&serde_json::json!({
             "model": "diatom-fast",
             "messages": [{"role": "user", "content": prompt}],
@@ -71,8 +73,8 @@ pub async fn suggest_via_slm(ctx: &DownloadContext) -> Result<RenameResult> {
         .trim_end_matches("```")
         .trim();
 
-    let parsed: serde_json::Value = serde_json::from_str(clean)
-        .context("SLM output not valid JSON")?;
+    let parsed: serde_json::Value =
+        serde_json::from_str(clean).context("SLM output not valid JSON")?;
 
     let suggested = parsed["suggested_name"]
         .as_str()
@@ -80,7 +82,10 @@ pub async fn suggest_via_slm(ctx: &DownloadContext) -> Result<RenameResult> {
         .ok_or_else(|| anyhow::anyhow!("SLM did not return suggested_name"))?;
 
     let safe = sanitize_filename(suggested, &ctx.original_filename);
-    Ok(RenameResult { suggested_name: safe, ai_generated: true })
+    Ok(RenameResult {
+        suggested_name: safe,
+        ai_generated: true,
+    })
 }
 
 /// Generate a deterministic slug from the page title when SLM is unavailable.
@@ -101,12 +106,21 @@ pub fn suggest_from_title(ctx: &DownloadContext) -> RenameResult {
         format!("{}.{}", slug, ext)
     };
 
-    RenameResult { suggested_name: name, ai_generated: false }
+    RenameResult {
+        suggested_name: name,
+        ai_generated: false,
+    }
 }
 
 fn slugify(s: &str, max_len: usize) -> String {
     s.chars()
-        .map(|c| if c.is_alphanumeric() { c.to_ascii_lowercase() } else { '-' })
+        .map(|c| {
+            if c.is_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
         .collect::<String>()
         .split('-')
         .filter(|p| !p.is_empty())
@@ -132,8 +146,15 @@ fn sanitize_filename(suggested: &str, original: &str) -> String {
         .and_then(|n| n.to_str())
         .unwrap_or(suggested);
 
-    let safe: String = base.chars()
-        .map(|c| if c.is_alphanumeric() || matches!(c, '-' | '_' | '.') { c } else { '-' })
+    let safe: String = base
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || matches!(c, '-' | '_' | '.') {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect();
 
     let sugg_ext = Path::new(&safe)
@@ -159,7 +180,10 @@ mod tests {
 
     #[test]
     fn slugify_basic() {
-        assert_eq!(slugify("TensorFlow 2.0 Release Notes", 60), "tensorflow-2-0-release-notes");
+        assert_eq!(
+            slugify("TensorFlow 2.0 Release Notes", 60),
+            "tensorflow-2-0-release-notes"
+        );
     }
 
     #[test]
@@ -178,7 +202,13 @@ mod tests {
     fn sanitize_strips_path_components() {
         let result = sanitize_filename("../../etc/passwd.pdf", "report.pdf");
         assert!(!result.contains('/'));
-        assert!(!result.contains('.').then_some(()).map(|_| result.starts_with(".")).unwrap_or(false));
+        assert!(
+            !result
+                .contains('.')
+                .then_some(())
+                .map(|_| result.starts_with("."))
+                .unwrap_or(false)
+        );
     }
 
     #[test]
@@ -195,4 +225,3 @@ mod tests {
         assert!(result.suggested_name.ends_with(".pdf"));
     }
 }
-

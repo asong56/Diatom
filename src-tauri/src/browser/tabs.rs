@@ -1,4 +1,3 @@
-
 use lz4_flex::{compress_prepend_size, decompress_size_prepended};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
@@ -53,7 +52,7 @@ impl Tab {
 
     /// Wake from sleep: release compressed bytes, reset memory estimate.
     pub fn wake(&mut self) {
-        self.zram  = None;   // Drop the Vec<u8> — returns memory to the allocator.
+        self.zram = None; // Drop the Vec<u8> — returns memory to the allocator.
         self.sleep = SleepState::Awake;
         self.mem_weight = 150 * 1024 * 1024; // Reset to default estimate.
         self.last_active = crate::storage::db::unix_now();
@@ -79,14 +78,17 @@ impl TabStore {
         self.order.push_front(id.to_owned());
         self.active = Some(id.to_owned());
         // SAFETY: we just inserted `id` into `self.tabs` on the line above.
-        self.tabs.get(id).expect("tab must exist immediately after insertion")
+        self.tabs
+            .get(id)
+            .expect("tab must exist immediately after insertion")
     }
 
     /// Convenience wrapper for JS-initiated tab opens.
     /// Generates a new ULid-style ID and uses the default workspace.
     pub fn open(&mut self, url: String) -> String {
         let id = crate::storage::db::new_id();
-        let ws = self.active
+        let ws = self
+            .active
             .as_ref()
             .and_then(|a| self.tabs.get(a))
             .map(|t| t.workspace_id.clone())
@@ -142,13 +144,13 @@ impl TabStore {
         self.all_lru()
             .into_iter()
             .map(|t| TabInfo {
-                id:          t.id.clone(),
-                url:         t.url.clone(),
-                title:       t.title.clone(),
-                sleep:       t.sleep.clone(),
-                mem_weight:  t.mem_weight,
+                id: t.id.clone(),
+                url: t.url.clone(),
+                title: t.title.clone(),
+                sleep: t.sleep.clone(),
+                mem_weight: t.mem_weight,
                 last_active: t.last_active,
-                zram_bytes:  t.zram_size(),
+                zram_bytes: t.zram_size(),
             })
             .collect()
     }
@@ -156,7 +158,7 @@ impl TabStore {
     /// Update URL + title after navigation; reset mem_weight estimate.
     pub fn update(&mut self, id: &str, url: &str, title: &str, dwell_ms: Option<u64>) {
         if let Some(tab) = self.tabs.get_mut(id) {
-            tab.url   = url.to_owned();
+            tab.url = url.to_owned();
             tab.title = title.to_owned();
             // A dwell time ≥ 5 s means the user actually read this page;
             // bump the weight slightly above the default to deprioritise it
@@ -277,9 +279,9 @@ pub struct TabInfo {
 impl From<&TabStore> for TabsState {
     fn from(store: &TabStore) -> Self {
         TabsState {
-            tabs:      store.list(),
+            tabs: store.list(),
             active_id: store.active_id().map(|s| s.to_owned()),
-            count:     store.count(),
+            count: store.count(),
         }
     }
 }
@@ -313,4 +315,3 @@ mod tests {
         assert_ne!(candidate.unwrap().id, "a");
     }
 }
-

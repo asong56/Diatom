@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Write as _;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 /// Supported proxy protocols.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -30,8 +30,8 @@ impl ProxyConfig {
     pub fn pac_string(&self) -> String {
         let proto = match self.protocol {
             ProxyProtocol::Socks5 => "SOCKS5",
-            ProxyProtocol::Http   => "PROXY",
-            ProxyProtocol::Https  => "HTTPS",
+            ProxyProtocol::Http => "PROXY",
+            ProxyProtocol::Https => "HTTPS",
         };
         format!("{} {}:{}", proto, self.host, self.port)
     }
@@ -58,23 +58,25 @@ pub struct TabProxyRegistry {
 }
 
 impl TabProxyRegistry {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Set or clear the proxy for a tab.
     pub fn set(&self, tab_id: &str, proxy: Option<ProxyConfig>) -> Result<()> {
         if let Some(ref p) = proxy {
             p.validate().context("proxy validation")?;
         }
-        self.entries.lock().unwrap().insert(tab_id.to_owned(), proxy);
+        self.entries
+            .lock()
+            .unwrap()
+            .insert(tab_id.to_owned(), proxy);
         Ok(())
     }
 
     /// Get the proxy for a tab (None = use workspace/global default).
     pub fn get(&self, tab_id: &str) -> Option<ProxyConfig> {
-        self.entries.lock().unwrap()
-            .get(tab_id)
-            .cloned()
-            .flatten()
+        self.entries.lock().unwrap().get(tab_id).cloned().flatten()
     }
 
     /// Remove all proxy entries for a closed tab.

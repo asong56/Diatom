@@ -12,7 +12,9 @@ pub struct TabBudgetConfig {
 
 impl Default for TabBudgetConfig {
     fn default() -> Self {
-        TabBudgetConfig { max_tabs: DEFAULT_TAB_LIMIT }
+        TabBudgetConfig {
+            max_tabs: DEFAULT_TAB_LIMIT,
+        }
     }
 }
 
@@ -38,7 +40,7 @@ impl TabBudgetConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TabBudget {
     /// The active tab limit.
-    pub t_max:         u32,
+    pub t_max: u32,
     /// True when `current_count + 1 >= t_max` (approaching the limit).
     pub pressure_high: bool,
     /// Seconds before an inactive tab is promoted to shallow sleep.
@@ -60,14 +62,14 @@ impl TabBudget {
 /// - 80 %–100 % fill:     linearly interpolated 10 → 5 minutes.
 /// - At or above limit:   5 minutes.
 pub fn compute_budget(cfg: &TabBudgetConfig, current_tab_count: u32) -> TabBudget {
-    let t_max      = cfg.max_tabs.max(1);
+    let t_max = cfg.max_tabs.max(1);
     let fill_ratio = current_tab_count as f64 / t_max as f64;
 
     let sleep_timer_s = if fill_ratio >= 1.0 {
         5 * 60
     } else if fill_ratio >= 0.8 {
         let overage = (fill_ratio - 0.8) / 0.2;
-        let range   = (10 * 60 - 5 * 60) as f64;
+        let range = (10 * 60 - 5 * 60) as f64;
         (10.0 * 60.0 - overage * range) as u64
     } else {
         10 * 60
@@ -98,14 +100,14 @@ mod tests {
     #[test]
     fn pressure_flag() {
         let cfg = TabBudgetConfig { max_tabs: 5 };
-        assert!( compute_budget(&cfg, 5).pressure_high);
+        assert!(compute_budget(&cfg, 5).pressure_high);
         assert!(!compute_budget(&cfg, 3).pressure_high);
     }
 
     #[test]
     fn sleep_timer_shortens_under_load() {
-        let cfg  = TabBudgetConfig { max_tabs: 10 };
-        let low  = compute_budget(&cfg, 2);
+        let cfg = TabBudgetConfig { max_tabs: 10 };
+        let low = compute_budget(&cfg, 2);
         let high = compute_budget(&cfg, 9);
         assert!(high.sleep_timer_s < low.sleep_timer_s);
     }

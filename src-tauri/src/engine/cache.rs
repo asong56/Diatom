@@ -1,4 +1,3 @@
-
 use anyhow::{Context, Result};
 
 /// Cached conditional-GET metadata for a single filter list URL.
@@ -27,9 +26,12 @@ pub fn url_cache_key(url: &str) -> String {
 
 pub fn load(db: &crate::storage::db::Db, url: &str) -> CachedResponse {
     let key = url_cache_key(url);
-    let etag          = db.get_setting(&format!("{key}:etag"));
+    let etag = db.get_setting(&format!("{key}:etag"));
     let last_modified = db.get_setting(&format!("{key}:lm"));
-    CachedResponse { etag, last_modified }
+    CachedResponse {
+        etag,
+        last_modified,
+    }
 }
 
 /// Persist ETag and Last-Modified headers after a 200 OK response.
@@ -83,7 +85,9 @@ pub async fn conditional_get(
 
     match resp.status().as_u16() {
         304 => {
-            tracing::debug!("[etag] 304 Not Modified (no cached body) — re-downloading full list: {url}");
+            tracing::debug!(
+                "[etag] 304 Not Modified (no cached body) — re-downloading full list: {url}"
+            );
             let full = client
                 .get(url)
                 .header("User-Agent", user_agent)
@@ -138,4 +142,3 @@ mod tests {
         assert!(cr.etag.is_some());
     }
 }
-

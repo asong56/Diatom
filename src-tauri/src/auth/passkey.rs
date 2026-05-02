@@ -1,4 +1,3 @@
-
 use anyhow::Result;
 
 /// Reason biometric/platform auth is unavailable. Sent to the frontend so it can
@@ -19,13 +18,19 @@ pub enum BiometricUnavailableReason {
 /// Check if platform biometric authentication is available.
 pub fn is_biometric_available() -> bool {
     #[cfg(target_os = "macos")]
-    { macos_biometric_available() }
+    {
+        macos_biometric_available()
+    }
 
     #[cfg(target_os = "windows")]
-    { windows_hello_available() }
+    {
+        windows_hello_available()
+    }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    { linux_biometric_available() }
+    {
+        linux_biometric_available()
+    }
 }
 
 /// Return the reason auth is unavailable, or None if it is available.
@@ -36,8 +41,10 @@ pub fn biometric_unavailable_reason() -> Option<BiometricUnavailableReason> {
     #[cfg(target_os = "macos")]
     {
         if std::path::Path::new(
-            "/System/Library/Frameworks/LocalAuthentication.framework/LocalAuthentication"
-        ).exists() {
+            "/System/Library/Frameworks/LocalAuthentication.framework/LocalAuthentication",
+        )
+        .exists()
+        {
             return Some(BiometricUnavailableReason::NotEnrolled);
         }
         return Some(BiometricUnavailableReason::NoHardware);
@@ -63,20 +70,27 @@ pub fn biometric_unavailable_reason() -> Option<BiometricUnavailableReason> {
 /// `Err` if the API itself failed.
 pub async fn authenticate(reason: &str) -> Result<bool> {
     #[cfg(target_os = "macos")]
-    { macos_authenticate(reason).await }
+    {
+        macos_authenticate(reason).await
+    }
 
     #[cfg(target_os = "windows")]
-    { windows_authenticate(reason).await }
+    {
+        windows_authenticate(reason).await
+    }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    { linux_authenticate(reason).await }
+    {
+        linux_authenticate(reason).await
+    }
 }
 
 #[cfg(target_os = "macos")]
 fn macos_biometric_available() -> bool {
     std::path::Path::new(
-        "/System/Library/Frameworks/LocalAuthentication.framework/LocalAuthentication"
-    ).exists()
+        "/System/Library/Frameworks/LocalAuthentication.framework/LocalAuthentication",
+    )
+    .exists()
 }
 
 #[cfg(target_os = "macos")]
@@ -91,15 +105,16 @@ async fn macos_authenticate(reason: &str) -> Result<bool> {
         let policy = LAPolicy::DeviceOwnerAuthenticationWithBiometrics;
         let mut error = std::ptr::null_mut();
 
-        let can_evaluate = unsafe {
-            context.canEvaluatePolicy_error(policy, &mut error)
-        };
+        let can_evaluate = unsafe { context.canEvaluatePolicy_error(policy, &mut error) };
         if !can_evaluate {
             tracing::debug!("passkey: LAContext canEvaluatePolicy returned false");
             let policy_pw = LAPolicy::DeviceOwnerAuthentication;
-            let can_pw = unsafe { context.canEvaluatePolicy_error(policy_pw, &mut std::ptr::null_mut()) };
+            let can_pw =
+                unsafe { context.canEvaluatePolicy_error(policy_pw, &mut std::ptr::null_mut()) };
             if !can_pw {
-                tracing::warn!("passkey: no auth hardware or enrolled credentials on macOS — denying");
+                tracing::warn!(
+                    "passkey: no auth hardware or enrolled credentials on macOS — denying"
+                );
                 return false;
             }
         }
@@ -114,16 +129,20 @@ async fn macos_authenticate(reason: &str) -> Result<bool> {
             context.evaluatePolicy_localizedReason_reply(
                 policy,
                 &reason_ns,
-                objc2::block2::RcBlock::new(move |success: bool, _err: *mut objc2_foundation::NSError| {
-                    let mut val = sema2.lock().unwrap();
-                    *val = success;
-                    condvar2.notify_one();
-                }),
+                objc2::block2::RcBlock::new(
+                    move |success: bool, _err: *mut objc2_foundation::NSError| {
+                        let mut val = sema2.lock().unwrap();
+                        *val = success;
+                        condvar2.notify_one();
+                    },
+                ),
             );
         }
 
         let val = sema.lock().unwrap();
-        let (result, _) = condvar.wait_timeout(val, std::time::Duration::from_secs(60)).unwrap();
+        let (result, _) = condvar
+            .wait_timeout(val, std::time::Duration::from_secs(60))
+            .unwrap();
         *result
     })
     .await
@@ -139,15 +158,13 @@ fn windows_hello_available() -> bool {
 
 #[cfg(target_os = "windows")]
 async fn windows_authenticate(reason: &str) -> Result<bool> {
-    use windows::Security::Credentials::UI::{
-        UserConsentVerifier, UserConsentVerificationResult,
-    };
+    use windows::Security::Credentials::UI::{UserConsentVerificationResult, UserConsentVerifier};
     use windows_core::HSTRING;
 
     let reason_hs = HSTRING::from(reason);
     let result = tokio::task::spawn_blocking(move || -> bool {
-        let async_op = UserConsentVerifier::RequestVerificationAsync(&reason_hs)
-            .unwrap_or_else(|e| {
+        let async_op =
+            UserConsentVerifier::RequestVerificationAsync(&reason_hs).unwrap_or_else(|e| {
                 tracing::warn!("passkey: RequestVerificationAsync failed: {:?}", e);
                 return false.into(); // will not compile — handled below
             });
@@ -176,7 +193,10 @@ async fn windows_authenticate(reason: &str) -> Result<bool> {
 pub async fn cmd_local_auth_impl(reason: String) -> bool {
     if !is_biometric_available() {
         let why = biometric_unavailable_reason();
-        tracing::warn!("passkey: auth unavailable ({:?}) — denying (not silently allowing)", why);
+        tracing::warn!(
+            "passkey: auth unavailable ({:?}) — denying (not silently allowing)",
+            why
+        );
         return false;
     }
     match authenticate(&reason).await {
@@ -225,8 +245,10 @@ async fn linux_authenticate(reason: &str) -> anyhow::Result<bool> {
         let output = tokio::process::Command::new("zenity")
             .args([
                 "--password",
-                "--title", "Diatom — Authentication Required",
-                "--text", &reason_owned,
+                "--title",
+                "Diatom — Authentication Required",
+                "--text",
+                &reason_owned,
             ])
             .output()
             .await;
@@ -258,4 +280,3 @@ fn which_available(cmd: &str) -> bool {
         .map(|o| o.status.success())
         .unwrap_or(false)
 }
-

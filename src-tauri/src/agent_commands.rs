@@ -12,11 +12,11 @@
 //! ])
 //! ```
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
-use diatom_agent::{AgentConfig, AgentEvent, AgentIo, AgentRunner, ToolResult};
 use diatom_agent::executor::PageContext;
+use diatom_agent::{AgentConfig, AgentEvent, AgentIo, AgentRunner, ToolResult};
 use tauri::{AppHandle, Manager, State};
 use tokio::sync::Mutex;
 
@@ -30,7 +30,9 @@ pub struct ActiveAgent {
 
 impl ActiveAgent {
     pub fn new() -> Self {
-        Self { runner: Mutex::new(None) }
+        Self {
+            runner: Mutex::new(None),
+        }
     }
 }
 
@@ -67,7 +69,7 @@ impl AgentIo for TauriAgentIo {
         if let Some(win) = self.app.get_webview_window("main") {
             let _ = win.eval(
                 "window.__diatom_agent_ctx = \
-                 JSON.stringify(window.extractPageContext?.() ?? {})"
+                 JSON.stringify(window.extractPageContext?.() ?? {})",
             );
         }
 
@@ -86,9 +88,9 @@ impl AgentIo for TauriAgentIo {
 /// Pass `model: ""` to use the user's currently configured SLM model.
 #[tauri::command]
 pub async fn cmd_agent_start(
-    goal:         String,
-    model:        String,
-    app:          AppHandle,
+    goal: String,
+    model: String,
+    app: AppHandle,
     active_agent: State<'_, ActiveAgent>,
 ) -> Result<u64, String> {
     let plan_id = NEXT_PLAN_ID.fetch_add(1, Ordering::Relaxed);
@@ -126,13 +128,10 @@ pub async fn cmd_agent_start(
 ///
 /// Returns `true` if a plan was running and was cancelled, `false` otherwise.
 #[tauri::command]
-pub async fn cmd_agent_abort(
-    plan_id:      u64,
-    active_agent: State<'_, ActiveAgent>,
-) -> bool {
+pub async fn cmd_agent_abort(plan_id: u64, active_agent: State<'_, ActiveAgent>) -> bool {
     let mut guard = active_agent.runner.lock().await;
     if guard.is_some() {
-        *guard = None;  // Drop aborts the inner tokio task via CancellationToken.
+        *guard = None; // Drop aborts the inner tokio task via CancellationToken.
         log::info!("[agent-commands] aborted plan_id={plan_id}");
         true
     } else {
@@ -152,15 +151,19 @@ pub async fn cmd_agent_abort(
 /// ```
 #[tauri::command]
 pub async fn cmd_agent_tool_result(
-    plan_id:      u64,   // reserved for future multi-agent support
-    ok:           bool,
-    output:       String,
-    imageb64:     Option<String>,
+    plan_id: u64, // reserved for future multi-agent support
+    ok: bool,
+    output: String,
+    imageb64: Option<String>,
     active_agent: State<'_, ActiveAgent>,
 ) -> bool {
     let guard = active_agent.runner.lock().await;
     if let Some(runner) = guard.as_ref() {
-        let result = ToolResult { ok, output, image_b64: imageb64 };
+        let result = ToolResult {
+            ok,
+            output,
+            image_b64: imageb64,
+        };
         runner.result_tx.deliver(result).await
     } else {
         log::warn!("[agent-commands] cmd_agent_tool_result(plan_id={plan_id}): no active runner");

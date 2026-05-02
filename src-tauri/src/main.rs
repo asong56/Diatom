@@ -10,8 +10,8 @@
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-pub mod ai;
 pub mod agent_commands;
+pub mod ai;
 pub mod auth;
 pub mod browser;
 pub mod commands;
@@ -25,6 +25,7 @@ pub mod sync;
 pub mod utils;
 
 use state::AppState;
+use tauri::Manager;
 
 fn main() {
     if let Err(e) = run() {
@@ -36,8 +37,8 @@ fn main() {
 fn run() -> anyhow::Result<()> {
     let initial_power = features::sentinel::power_budget_current();
 
-    let app_data = tauri::api::path::app_data_dir(&tauri::Config::default())
-        .ok_or_else(|| anyhow::anyhow!("could not resolve app data directory"))?;
+    let app_data = tauri::path::app_data_dir(&tauri::Config::default())
+        .map_err(|e| anyhow::anyhow!("Failed to get app data dir: {}", e))?;
 
     let state = AppState::new(app_data, initial_power)
         .map_err(|e| anyhow::anyhow!("AppState initialisation failed: {e:#}"))?;
@@ -169,7 +170,7 @@ fn run() -> anyhow::Result<()> {
             let state: tauri::State<AppState> = app.state();
 
             // Fetch built-in filter lists; exits cleanly on window close.
-            let blocker  = state.live_blocker.clone();
+            let blocker = state.live_blocker.clone();
             let shutdown = state.shutdown_token.clone();
             tauri::async_runtime::spawn(async move {
                 tokio::select! {
@@ -182,13 +183,17 @@ fn run() -> anyhow::Result<()> {
 
             // Start the local AI server if the lab is enabled.
             if features::labs::is_lab_enabled(&state.db, "slm_server") {
-                let privacy_mode = state.privacy.read()
-                    .map(|p| p.extreme_mode).unwrap_or(false);
-                let slm_cache    = state.slm_cache.clone();
-                let slm_tok_ref  = state.slm_shutdown_token.clone();
+                let privacy_mode = state
+                    .privacy
+                    .read()
+                    .map(|p| p.extreme_mode)
+                    .unwrap_or(false);
+                let slm_cache = state.slm_cache.clone();
+                let slm_tok_ref = state.slm_shutdown_token.clone();
                 let slm_shutdown = tokio_util::sync::CancellationToken::new();
                 *slm_tok_ref.lock().unwrap() = Some(slm_shutdown.clone());
-                let preferred = state.db
+                let preferred = state
+                    .db
                     .get_setting("slm_preferred_model")
                     .unwrap_or_else(|| "diatom-balanced".to_owned());
 
@@ -205,7 +210,7 @@ fn run() -> anyhow::Result<()> {
             // Sentinel UA-normalisation loop — delayed 10 s so startup paint
             // is not blocked by network requests.
             {
-                let handle   = app_handle.clone();
+                let handle = app_handle.clone();
                 let shutdown = state.shutdown_token.clone();
                 tauri::async_runtime::spawn(async move {
                     features::sentinel::run_sentinel_loop(handle, 10, shutdown).await;
@@ -213,8 +218,8 @@ fn run() -> anyhow::Result<()> {
             }
 
             // Show the window once the shell signals readiness, or after 3 s.
-            let token    = state.window_ready_token.clone();
-            let handle   = app_handle.clone();
+            let token = state.window_ready_token.clone();
+            let handle = app_handle.clone();
             let shutdown = state.shutdown_token.clone();
             tauri::async_runtime::spawn(async move {
                 tokio::select! {
@@ -232,12 +237,13 @@ fn run() -> anyhow::Result<()> {
         .on_window_event(|window, event| {
             // Cancel all background tasks on close or process teardown.
             match event {
-                tauri::WindowEvent::CloseRequested { .. }
-                | tauri::WindowEvent::Destroyed => {
+                tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed => {
                     if let Some(state) = window.try_state::<AppState>() {
                         state.shutdown_token.cancel();
                         if let Ok(mut tok) = state.slm_shutdown_token.lock() {
-                            if let Some(t) = tok.take() { t.cancel(); }
+                            if let Some(t) = tok.take() {
+                                t.cancel();
+                            }
                         }
                     }
                 }

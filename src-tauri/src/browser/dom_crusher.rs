@@ -1,12 +1,11 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 
 const MAX_SELECTOR_LEN: usize = 512;
 
 /// Selectors that would crush the entire visible page.
 const DISALLOWED_ROOTS: &[&str] = &[
-    ":root", ":host", "html ", "html>", "html,",
-    "body ", "body>", "body,", "* {", "*{",
+    ":root", ":host", "html ", "html>", "html,", "body ", "body>", "body,", "* {", "*{",
 ];
 
 /// Validate a CSS selector before storing it.
@@ -45,21 +44,15 @@ pub fn clean_selector(selector: &str) -> String {
 
 /// Validate, clean, and insert a DOM-crusher block rule for `domain`.
 /// Returns the new rule ID.
-pub fn add_rule(
-    db: &crate::storage::db::Db,
-    domain: &str,
-    selector: &str,
-) -> Result<String> {
+pub fn add_rule(db: &crate::storage::db::Db, domain: &str, selector: &str) -> Result<String> {
     let clean = clean_selector(selector);
     validate_selector(&clean).context("invalid selector")?;
-    db.insert_dom_block(domain, &clean).context("insert_dom_block")
+    db.insert_dom_block(domain, &clean)
+        .context("insert_dom_block")
 }
 
 /// Return all CSS selectors currently blocking elements on `domain`.
-pub fn rules_for_domain(
-    db: &crate::storage::db::Db,
-    domain: &str,
-) -> Result<Vec<String>> {
+pub fn rules_for_domain(db: &crate::storage::db::Db, domain: &str) -> Result<Vec<String>> {
     Ok(db
         .dom_blocks_for(domain)
         .context("dom_blocks_for")?

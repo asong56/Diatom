@@ -22,6 +22,7 @@ tauri-plugin-shell             = "2"
 tauri-plugin-store             = "2"
 tauri-plugin-notification      = "2"
 
+diatom_agent = { path = "../shell/crates/diatom_agent" }
 diatom_bridge = { path = "../shell/crates/diatom_bridge" }
 
 # mimalloc reduces heap fragmentation in long-running sessions.
@@ -52,6 +53,35 @@ url         = "2"
 urlencoding = "2"
 
 rusqlite = { version = "0.31", features = ["bundled","backup"] }
+tracing = "0.1"
+anyhow = "1"
+log = "0.4.29"
+zeroize = { version = "1", features = ["derive"] }
+hex = "0.4"
+blake3 = "1"
+rand = "0.8"
+base64 = "0.22"
+image = "0.25"
+uuid = "1"
+features = "0.10.0"
+chrono = "0.4"
+aes-gcm = "0.10"
+csv = "1.3"
+base32 = "0.4"
+aho-corasick = "1"
+tokio-tungstenite = "0.24"
+subtle = "2"
+lz4_flex = "0.11"
+sha1 = "0.10"
+flate2 = "1"
+hkdf = "0.12"
+sha2 = "0.10"
+p256 = { version = "0.13", features = ["ecdh"] }
+snow = "0.9"
+secp256k1 = "0.28"
+futures-util = "0.3"
+hmac = "0.12"
+futures = "0.3.32"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework         = { version = "2", features = ["OSX_10_15"] }
@@ -106,6 +136,7 @@ labs            = []
 labs_alpha      = []
 full            = ["labs", "labs_alpha"]
 # plugin-sandbox = ["dep:wasmtime", "dep:wasmtime-wasi"]
+secret-service = []
 
 [profile.dev]
 opt-level = 1

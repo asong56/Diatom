@@ -1,4 +1,3 @@
-
 use serde::Serialize;
 
 /// A known hidden-service alternative for a surface-web domain.
@@ -54,7 +53,7 @@ static KNOWN_MIRRORS: &[(&str, &str, HiddenNetwork, &str)] = &[
     ),
     (
         "wikipedia.org",
-        "www.wikimedia-censorship.onion",  // mirrors vary by language; link to meta
+        "www.wikimedia-censorship.onion", // mirrors vary by language; link to meta
         HiddenNetwork::Tor,
         "Wikimedia — Tor .onion portal (select language inside)",
     ),
@@ -90,7 +89,7 @@ static KNOWN_MIRRORS: &[(&str, &str, HiddenNetwork, &str)] = &[
     ),
     (
         "tails.boum.org",
-        "http://tails.boum.org",  // retained surface URL — .onion via official doc
+        "http://tails.boum.org", // retained surface URL — .onion via official doc
         HiddenNetwork::Tor,
         "Tails OS — check tails.boum.org/doc for current .onion",
     ),
@@ -119,7 +118,6 @@ pub fn lookup(host: &str) -> Option<OnionSuggestion> {
 
 /// Called by the JS navigation hook when the user loads a new URL.
 /// Returns a suggestion if a hidden-service mirror is available.
-#[tauri::command]
 pub async fn cmd_onion_suggest(host: String) -> Result<Option<OnionSuggestion>, String> {
     Ok(lookup(&host))
 }
@@ -151,4 +149,3 @@ mod tests {
         assert!(lookup("www.duckduckgo.com").is_some());
     }
 }
-

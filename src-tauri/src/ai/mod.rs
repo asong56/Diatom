@@ -1,8 +1,8 @@
 // Local AI: SLM microkernel, download renamer, shadow index, MCP host.
-pub mod slm;
+pub mod mcp;
 pub mod renamer;
 pub mod shadow_index;
-pub mod mcp;
+pub mod slm;
 
 pub use renamer::{DownloadContext, RenameResult};
 pub use slm::SlmServer;

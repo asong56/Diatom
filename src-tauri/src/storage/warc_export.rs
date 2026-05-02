@@ -50,10 +50,10 @@ use crate::storage::freeze::thaw_bundle;
 ///
 /// Returns `(records_written, records_skipped)`.
 pub fn export_warc(
-    db:           &Db,
-    bundles_dir:  &Path,
-    master_key:   &[u8; 32],
-    dest:         &Path,
+    db: &Db,
+    bundles_dir: &Path,
+    master_key: &[u8; 32],
+    dest: &Path,
 ) -> Result<(usize, usize)> {
     let rows = db.list_bundles().context("list Museum bundles")?;
 
@@ -66,8 +66,8 @@ pub fn export_warc(
     }
 
     let file = std::fs::File::create(dest).context("create WARC file")?;
-    let mut w   = BufWriter::new(file);
-    let mut ok  = 0usize;
+    let mut w = BufWriter::new(file);
+    let mut ok = 0usize;
     let mut err = 0usize;
 
     write_warcinfo(&mut w)?;
@@ -80,10 +80,7 @@ pub fn export_warc(
                 ok += 1;
             }
             Err(e) => {
-                tracing::warn!(
-                    "warc_export: skipping bundle {} ({}): {e}",
-                    row.id, row.url
-                );
+                tracing::warn!("warc_export: skipping bundle {} ({}): {e}", row.id, row.url);
                 err += 1;
             }
         }
@@ -116,8 +113,8 @@ fn write_warcinfo<W: Write>(w: &mut W) -> Result<()> {
          Content-Length: {len}\r\n\
          \r\n",
         date = iso8601_now(),
-        id   = Uuid::new_v4(),
-        len  = body_bytes.len(),
+        id = Uuid::new_v4(),
+        len = body_bytes.len(),
     )?;
 
     w.write_all(body_bytes)?;
@@ -126,11 +123,7 @@ fn write_warcinfo<W: Write>(w: &mut W) -> Result<()> {
 }
 
 /// Write one `response` record for a frozen page.
-fn write_response_record<W: Write>(
-    w:   &mut W,
-    row: &BundleRow,
-    html: &str,
-) -> Result<()> {
+fn write_response_record<W: Write>(w: &mut W, row: &BundleRow, html: &str) -> Result<()> {
     // Synthesise a minimal HTTP response header so the WARC is valid.
     let http_header = format!(
         "HTTP/1.1 200 OK\r\n\
@@ -139,7 +132,7 @@ fn write_response_record<W: Write>(
          X-Diatom-Frozen-At: {ts}\r\n\
          \r\n",
         html_len = html.len(),
-        ts       = row.frozen_at,
+        ts = row.frozen_at,
     );
 
     let block = format!("{http_header}{html}");
@@ -157,10 +150,10 @@ fn write_response_record<W: Write>(
          Content-Type: application/http; msgtype=response\r\n\
          Content-Length: {len}\r\n\
          \r\n",
-        url  = row.url,
+        url = row.url,
         date = date,
-        id   = Uuid::new_v4(),
-        len  = block_bytes.len(),
+        id = Uuid::new_v4(),
+        len = block_bytes.len(),
     )?;
 
     w.write_all(block_bytes)?;
@@ -184,16 +177,16 @@ fn unix_ts_to_iso8601(ts: i64) -> String {
         return "1970-01-01T00:00:00Z".to_owned();
     }
     let secs = ts as u64;
-    let s   = secs % 60;
-    let m   = (secs / 60) % 60;
-    let h   = (secs / 3600) % 24;
+    let s = secs % 60;
+    let m = (secs / 60) % 60;
+    let h = (secs / 3600) % 24;
     let days = secs / 86400;
     // Gregorian calendar reconstruction (no leap-second handling needed for WARC dates).
     let (y, mo, d) = days_to_ymd(days);
     format!("{y:04}-{mo:02}-{d:02}T{h:02}:{m:02}:{s:02}Z")
 }
 
-fn days_to_ymd(mut days: u64) -> (u64, u64, u64) {
+fn days_to_ymd(days: u64) -> (u64, u64, u64) {
     // Algorithm: https://www.howardhinnant.com/date_algorithms.html (civil_from_days)
     let z = days + 719468;
     let era = z / 146097;
@@ -243,10 +236,10 @@ mod tests {
     #[test]
     fn warc_response_record_contains_url() {
         let row = BundleRow {
-            id:          "test-id".to_owned(),
-            url:         "https://example.com/page".to_owned(),
-            title:       "Example Page".to_owned(),
-            frozen_at:   1705320000,
+            id: "test-id".to_owned(),
+            url: "https://example.com/page".to_owned(),
+            title: "Example Page".to_owned(),
+            frozen_at: 1705320000,
             bundle_path: "test.ewbn".to_owned(),
             bundle_size: 0,
             workspace_id: "default".to_owned(),

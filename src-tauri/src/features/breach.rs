@@ -1,30 +1,30 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use sha1::{Sha1, Digest};
+use sha1::{Digest, Sha1};
 
 const PWNED_PASSWORDS_URL: &str = "https://api.pwnedpasswords.com/range/";
-const PWNED_EMAIL_URL:      &str = "https://haveibeenpwned.com/api/v3/breachedaccount/";
+const PWNED_EMAIL_URL: &str = "https://haveibeenpwned.com/api/v3/breachedaccount/";
 /// Cache TTL: 7 days in seconds.
 const CACHE_TTL_SECS: i64 = 7 * 24 * 3_600;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PasswordBreachResult {
     /// True if the password appeared in at least one known breach.
-    pub pwned:       bool,
+    pub pwned: bool,
     /// Number of times this password appeared in breach datasets.
     pub pwned_count: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EmailBreachEntry {
-    pub name:         String,
-    pub breach_date:  String,
+    pub name: String,
+    pub breach_date: String,
     pub data_classes: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EmailBreachResult {
-    pub email:    String,
+    pub email: String,
     pub breaches: Vec<EmailBreachEntry>,
 }
 
@@ -32,7 +32,7 @@ pub struct EmailBreachResult {
 fn sha1_prefix(password: &str) -> (String, String) {
     let mut hasher = Sha1::new();
     hasher.update(password.as_bytes());
-    let hash   = format!("{:X}", hasher.finalize());
+    let hash = format!("{:X}", hasher.finalize());
     let prefix = hash[..5].to_owned();
     (hash, prefix)
 }
@@ -43,7 +43,7 @@ fn sha1_prefix(password: &str) -> (String, String) {
 /// the original password.  Response bytes are gzip-cached in `vault_breach_cache`
 /// for `CACHE_TTL_SECS` to minimise outbound HIBP requests.
 pub async fn check_password(
-    client:   &reqwest::Client,
+    client: &reqwest::Client,
     password: &str,
 ) -> Result<PasswordBreachResult> {
     let (full_hash, prefix) = sha1_prefix(password);
@@ -51,7 +51,7 @@ pub async fn check_password(
 
     let resp = client
         .get(&url)
-        .header("Add-Padding", "true")  // prevents response-size side-channel
+        .header("Add-Padding", "true") // prevents response-size side-channel
         .timeout(std::time::Duration::from_secs(10))
         .send()
         .await
@@ -69,8 +69,8 @@ pub async fn check_password(
 /// and stored in `vault_breach_cache`.  Subsequent lookups for any password
 /// sharing the same 5-char SHA-1 prefix hit the cache rather than the network.
 pub async fn check_password_cached(
-    client:   &reqwest::Client,
-    db:       &crate::storage::db::Db,
+    client: &reqwest::Client,
+    db: &crate::storage::db::Db,
     password: &str,
 ) -> Result<PasswordBreachResult> {
     let (full_hash, prefix) = sha1_prefix(password);
@@ -88,8 +88,12 @@ pub async fn check_password_cached(
         .get(&url)
         .header("Add-Padding", "true")
         .timeout(std::time::Duration::from_secs(10))
-        .send().await.context("HIBP request")?
-        .text().await.context("HIBP body")?;
+        .send()
+        .await
+        .context("HIBP request")?
+        .text()
+        .await
+        .context("HIBP body")?;
 
     // Compress and store — best-effort; a failure here is not fatal
     if let Ok(gz) = compress_gzip(body_text.as_bytes()) {
@@ -101,8 +105,8 @@ pub async fn check_password_cached(
 
 fn parse_hibp_range_response(
     full_hash: &str,
-    _prefix:   &str,
-    body:      &str,
+    _prefix: &str,
+    body: &str,
 ) -> Result<PasswordBreachResult> {
     let suffix = &full_hash[5..];
     for line in body.lines() {
@@ -110,11 +114,17 @@ fn parse_hibp_range_response(
         if let (Some(s), Some(c)) = (parts.next(), parts.next()) {
             if s.trim().eq_ignore_ascii_case(suffix) {
                 let count: u64 = c.trim().parse().unwrap_or(1);
-                return Ok(PasswordBreachResult { pwned: true, pwned_count: count });
+                return Ok(PasswordBreachResult {
+                    pwned: true,
+                    pwned_count: count,
+                });
             }
         }
     }
-    Ok(PasswordBreachResult { pwned: false, pwned_count: 0 })
+    Ok(PasswordBreachResult {
+        pwned: false,
+        pwned_count: 0,
+    })
 }
 
 /// Check a vault login's password and write the result back into the DB record.
@@ -123,8 +133,8 @@ fn parse_hibp_range_response(
 /// credential* rather than a standalone feature.  Call from the background
 /// scan task or when a vault record is created/updated.
 pub async fn scan_login_and_persist(
-    client:   &reqwest::Client,
-    db:       &crate::storage::db::Db,
+    client: &reqwest::Client,
+    db: &crate::storage::db::Db,
     login_id: &str,
     password: &str,
 ) -> Result<PasswordBreachResult> {
@@ -140,7 +150,7 @@ pub async fn scan_login_and_persist(
 }
 
 fn compress_gzip(data: &[u8]) -> Result<Vec<u8>> {
-    use flate2::{write::GzEncoder, Compression};
+    use flate2::{Compression, write::GzEncoder};
     use std::io::Write;
     let mut enc = GzEncoder::new(Vec::new(), Compression::fast());
     enc.write_all(data)?;
@@ -169,9 +179,9 @@ fn decompress_gzip(data: &[u8]) -> Result<Vec<u8>> {
 /// opted in via the `breach_monitor_email` toggle. Requests use a random
 /// User-Agent (not the Diatom UA) to reduce correlation with browsing activity.
 pub async fn check_email(
-    client:   &reqwest::Client,
-    email:    &str,
-    api_key:  &str,
+    client: &reqwest::Client,
+    email: &str,
+    api_key: &str,
 ) -> Result<EmailBreachResult> {
     if api_key.is_empty() {
         anyhow::bail!(
@@ -183,9 +193,9 @@ pub async fn check_email(
     #[derive(Deserialize)]
     struct HibpBreach {
         #[serde(rename = "Name")]
-        name:         String,
+        name: String,
         #[serde(rename = "BreachDate")]
-        breach_date:  String,
+        breach_date: String,
         #[serde(rename = "DataClasses")]
         data_classes: Vec<String>,
     }
@@ -205,9 +215,18 @@ pub async fn check_email(
     let status = resp.status().as_u16();
 
     match status {
-        404 => return Ok(EmailBreachResult { email: email.to_owned(), breaches: vec![] }),
-        401 => anyhow::bail!("HIBP rejected the API key (401 Unauthorized). Check your key at Settings → Privacy → Breach Monitor."),
-        403 => anyhow::bail!("HIBP user agent was blocked (403 Forbidden). This is a Diatom bug — please report it."),
+        404 => {
+            return Ok(EmailBreachResult {
+                email: email.to_owned(),
+                breaches: vec![],
+            });
+        }
+        401 => anyhow::bail!(
+            "HIBP rejected the API key (401 Unauthorized). Check your key at Settings → Privacy → Breach Monitor."
+        ),
+        403 => anyhow::bail!(
+            "HIBP user agent was blocked (403 Forbidden). This is a Diatom bug — please report it."
+        ),
         429 => anyhow::bail!("HIBP rate limit reached (429). Wait ~1 500 ms and retry."),
         s if !(200..300).contains(&(s as i32)) => {
             anyhow::bail!("HIBP email request failed with HTTP {s}");
@@ -216,13 +235,19 @@ pub async fn check_email(
     }
 
     let entries: Vec<HibpBreach> = resp.json().await.context("HIBP email response parse")?;
-    let breaches = entries.into_iter().map(|e| EmailBreachEntry {
-        name:         e.name,
-        breach_date:  e.breach_date,
-        data_classes: e.data_classes,
-    }).collect();
+    let breaches = entries
+        .into_iter()
+        .map(|e| EmailBreachEntry {
+            name: e.name,
+            breach_date: e.breach_date,
+            data_classes: e.data_classes,
+        })
+        .collect();
 
-    Ok(EmailBreachResult { email: email.to_owned(), breaches })
+    Ok(EmailBreachResult {
+        email: email.to_owned(),
+        breaches,
+    })
 }
 /// Return a generic browser UA to prevent Diatom correlation on HIBP calls.
 ///
@@ -295,7 +320,7 @@ mod tests {
     #[test]
     fn gzip_roundtrip() {
         let original = b"HIBP suffix response body text";
-        let compressed   = compress_gzip(original).unwrap();
+        let compressed = compress_gzip(original).unwrap();
         let decompressed = decompress_gzip(&compressed).unwrap();
         assert_eq!(decompressed, original);
     }

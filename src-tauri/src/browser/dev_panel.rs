@@ -1,35 +1,34 @@
-
+use crate::state::AppState;
 use anyhow::{Context, Result};
+use diatom_bridge::protocol::ResonanceContext;
 use diatom_bridge::{
+    BridgeClient, BrowserMessage, RequestId, ZedContextServer,
     transport::socket_path,
-    BridgeClient, BrowserMessage, DevPanelMessage, RequestId, ZedContextServer,
 };
-use diatom_bridge::protocol::{ActiveSource, ResonanceContext};
 use std::{
     path::PathBuf,
     process::{Child, Command, Stdio},
 };
-use crate::state::AppState;
 use tauri::{AppHandle, Manager, Runtime};
 use tokio::sync::Mutex;
 
 /// Held in `tauri::State<DevPanelState>`.
 pub struct DevPanelState {
-    inner:   Mutex<Option<DevPanelHandle>>,
+    inner: Mutex<Option<DevPanelHandle>>,
     /// Resonance ↔ Zed context bridge (started once, lives for the process).
     resonance: Mutex<Option<ZedContextServer>>,
 }
 
 struct DevPanelHandle {
     #[allow(dead_code)]
-    child:  Child,
+    child: Child,
     client: BridgeClient,
 }
 
 impl DevPanelState {
     pub fn new() -> Self {
         Self {
-            inner:     Mutex::new(None),
+            inner: Mutex::new(None),
             resonance: Mutex::new(None),
         }
     }
@@ -50,7 +49,10 @@ pub async fn dev_panel_open<R: Runtime>(
         let root = project_root.unwrap_or_default();
         handle
             .client
-            .send(BrowserMessage::Open { id: next_id(), project_root: root })
+            .send(BrowserMessage::Open {
+                id: next_id(),
+                project_root: root,
+            })
             .await
             .map_err(|e| e.to_string())?;
         return Ok(());
@@ -101,15 +103,21 @@ pub async fn dev_panel_console_entry(
 ) -> Result<(), String> {
     use diatom_bridge::protocol::ConsoleLevel;
     let level = match level.as_str() {
-        "warn"  => ConsoleLevel::Warn,
+        "warn" => ConsoleLevel::Warn,
         "error" => ConsoleLevel::Error,
-        "info"  => ConsoleLevel::Info,
+        "info" => ConsoleLevel::Info,
         "debug" => ConsoleLevel::Debug,
-        _       => ConsoleLevel::Log,
+        _ => ConsoleLevel::Log,
     };
-    send_if_open(&state, BrowserMessage::ConsoleEntry {
-        level, text, source_file, source_line,
-    })
+    send_if_open(
+        &state,
+        BrowserMessage::ConsoleEntry {
+            level,
+            text,
+            source_file,
+            source_line,
+        },
+    )
     .await
     .map_err(|e| e.to_string())
 }
@@ -121,32 +129,38 @@ pub async fn dev_panel_navigate(
     url: String,
     title: String,
 ) -> Result<(), String> {
-    push_resonance_context(&state, ResonanceContext {
-        page_url:      url.clone(),
-        page_title:    title.clone(),
-        console_errors: vec![],
-        dom_root:      None,
-        active_source: None,
-    })
+    push_resonance_context(
+        &state,
+        ResonanceContext {
+            page_url: url.clone(),
+            page_title: title.clone(),
+            console_errors: vec![],
+            dom_root: None,
+            active_source: None,
+        },
+    )
     .await;
 
-    send_if_open(&state, BrowserMessage::PageNavigated {
-        url,
-        title,
-        dom_snapshot: None,
-    })
+    send_if_open(
+        &state,
+        BrowserMessage::PageNavigated {
+            url,
+            title,
+            dom_snapshot: None,
+        },
+    )
     .await
     .map_err(|e| e.to_string())
 }
 
 async fn spawn_devpanel<R: Runtime>(
-    app:          &AppHandle<R>,
+    app: &AppHandle<R>,
     project_root: Option<String>,
-    auth_token:   &str,
+    auth_token: &str,
 ) -> Result<DevPanelHandle> {
-    let pid  = std::process::id();
+    let pid = std::process::id();
     let sock = socket_path(pid);
-    let bin  = devpanel_bin_path(app)?;
+    let bin = devpanel_bin_path(app)?;
 
     let child = Command::new(&bin)
         .arg("--diatom-pid")
@@ -170,7 +184,10 @@ async fn spawn_devpanel<R: Runtime>(
 
     if let Some(root) = project_root {
         client
-            .send(BrowserMessage::Open { id: next_id(), project_root: root })
+            .send(BrowserMessage::Open {
+                id: next_id(),
+                project_root: root,
+            })
             .await
             .ok();
     }
@@ -220,11 +237,11 @@ pub fn open_in_zed(url: &str, project_root: Option<&str>, line: Option<u32>) {
 
     let arg = match line {
         Some(l) => format!("{path}:{l}", path = path.display()),
-        None    => path.display().to_string(),
+        None => path.display().to_string(),
     };
 
     match std::process::Command::new("zed").arg(&arg).spawn() {
-        Ok(_)  => log::info!("[open-in-zed] opened {arg}"),
+        Ok(_) => log::info!("[open-in-zed] opened {arg}"),
         Err(e) => log::warn!("[open-in-zed] could not spawn zed: {e}"),
     }
 }
@@ -273,10 +290,7 @@ async fn push_resonance_context(state: &DevPanelState, ctx: ResonanceContext) {
     }
 }
 
-async fn send_if_open(
-    state: &tauri::State<'_, DevPanelState>,
-    msg: BrowserMessage,
-) -> Result<()> {
+async fn send_if_open(state: &tauri::State<'_, DevPanelState>, msg: BrowserMessage) -> Result<()> {
     let guard = state.inner.lock().await;
     if let Some(handle) = guard.as_ref() {
         handle.client.send(msg).await?;
@@ -318,14 +332,13 @@ pub async fn dev_panel_open_in_zed(
         Some(p) => {
             let arg = match line {
                 Some(l) => format!("{path}:{l}", path = p.display()),
-                None    => p.display().to_string(),
+                None => p.display().to_string(),
             };
             match std::process::Command::new("zed").arg(&arg).spawn() {
-                Ok(_)  => log::info!("[open-in-zed] opened {arg}"),
+                Ok(_) => log::info!("[open-in-zed] opened {arg}"),
                 Err(e) => log::warn!("[open-in-zed] could not spawn zed: {e}"),
             }
             Ok(true)
         }
     }
 }
-

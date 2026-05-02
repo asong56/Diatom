@@ -1,4 +1,3 @@
-
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
@@ -26,9 +25,9 @@ impl Default for StorageBudget {
     fn default() -> Self {
         StorageBudget {
             museum_budget_mb: 2_048,
-            kpack_budget_mb:  4_096,
-            index_budget_mb:  50,
-            warn_at_pct:      80,
+            kpack_budget_mb: 4_096,
+            index_budget_mb: 50,
+            warn_at_pct: 80,
             hard_cap_enabled: false,
         }
     }
@@ -41,16 +40,19 @@ impl StorageBudget {
     /// Centralised here so all callers (storage commands + state init) read the
     /// same logic rather than duplicating the parse-or-default pattern.
     pub fn load_from_db(db: &crate::storage::db::Db) -> Self {
-        let d     = Self::default();
+        let d = Self::default();
         let parse = |key: &str, fallback: u32| -> u32 {
-            db.get_setting(key).and_then(|s| s.parse().ok()).unwrap_or(fallback)
+            db.get_setting(key)
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(fallback)
         };
         StorageBudget {
             museum_budget_mb: parse("museum_budget_mb", d.museum_budget_mb as u32) as u64,
-            kpack_budget_mb:  parse("kpack_budget_mb",  d.kpack_budget_mb  as u32) as u64,
-            index_budget_mb:  parse("index_budget_mb",  d.index_budget_mb  as u32) as u64,
-            warn_at_pct:      parse("storage_warn_pct", d.warn_at_pct      as u32) as u8,
-            hard_cap_enabled: db.get_setting("storage_hard_cap")
+            kpack_budget_mb: parse("kpack_budget_mb", d.kpack_budget_mb as u32) as u64,
+            index_budget_mb: parse("index_budget_mb", d.index_budget_mb as u32) as u64,
+            warn_at_pct: parse("storage_warn_pct", d.warn_at_pct as u32) as u8,
+            hard_cap_enabled: db
+                .get_setting("storage_hard_cap")
                 .map(|v| v == "true")
                 .unwrap_or(d.hard_cap_enabled),
         }
@@ -137,12 +139,12 @@ pub fn report(db: &crate::storage::db::Db, budget: &StorageBudget) -> StorageRep
         )
         .unwrap_or(0);
 
-    let museum_mb  = museum_bytes  as f64 / 1_048_576.0;
-    let kpack_mb   = kpack_bytes   as f64 / 1_048_576.0;
-    let index_mb   = index_bytes   as f64 / 1_048_576.0;
+    let museum_mb = museum_bytes as f64 / 1_048_576.0;
+    let kpack_mb = kpack_bytes as f64 / 1_048_576.0;
+    let index_mb = index_bytes as f64 / 1_048_576.0;
     let museum_pct = ((museum_mb / budget.museum_budget_mb as f64) * 100.0).min(100.0) as u8;
-    let kpack_pct  = ((kpack_mb  / budget.kpack_budget_mb  as f64) * 100.0).min(100.0) as u8;
-    let index_pct  = ((index_mb  / budget.index_budget_mb  as f64) * 100.0).min(100.0) as u8;
+    let kpack_pct = ((kpack_mb / budget.kpack_budget_mb as f64) * 100.0).min(100.0) as u8;
+    let index_pct = ((index_mb / budget.index_budget_mb as f64) * 100.0).min(100.0) as u8;
 
     let oldest_iso = oldest_ts.map(|ts| {
         chrono::DateTime::from_timestamp_opt(ts, 0)
@@ -150,7 +152,7 @@ pub fn report(db: &crate::storage::db::Db, budget: &StorageBudget) -> StorageRep
             .unwrap_or_default()
     });
 
-    let warn         = museum_pct >= budget.warn_at_pct || kpack_pct >= budget.warn_at_pct;
+    let warn = museum_pct >= budget.warn_at_pct || kpack_pct >= budget.warn_at_pct;
     let hard_blocked = budget.hard_cap_enabled && museum_pct >= 100;
 
     StorageReport {
@@ -202,16 +204,18 @@ pub fn evict_lru(
 
     let mut current = total;
     let mut deleted = 0u32;
-    let mut freed   = 0u64;
+    let mut freed = 0u64;
 
     for (id, path, size) in bundles {
-        if current <= target_bytes { break; }
+        if current <= target_bytes {
+            break;
+        }
         let full_path = bundles_dir.join(&path);
         let _ = std::fs::remove_file(&full_path);
         conn.execute("DELETE FROM museum_bundles WHERE id = ?1", [&id])?;
-        current  -= size;
-        freed    += size as u64;
-        deleted  += 1;
+        current -= size;
+        freed += size as u64;
+        deleted += 1;
     }
 
     Ok((deleted, freed))
@@ -225,10 +229,7 @@ pub fn evict_lru(
 /// Removes: all FTS5 rows for that museum_id.
 ///
 /// Returns number of entries degraded.
-pub fn degrade_cold_indexes(
-    db: &crate::storage::db::Db,
-    budget: &StorageBudget,
-) -> Result<u32> {
+pub fn degrade_cold_indexes(db: &crate::storage::db::Db, budget: &StorageBudget) -> Result<u32> {
     let conn = db.0.lock().unwrap();
 
     let index_bytes: i64 = conn
@@ -245,8 +246,8 @@ pub fn degrade_cold_indexes(
         return Ok(0);
     }
 
-    let now_ts   = crate::storage::db::unix_now();
-    let cutoff   = now_ts - HOT_WINDOW_DAYS * 86_400;
+    let now_ts = crate::storage::db::unix_now();
+    let cutoff = now_ts - HOT_WINDOW_DAYS * 86_400;
 
     let candidates: Vec<String> = {
         let mut stmt = conn.prepare(
@@ -324,4 +325,3 @@ mod tests {
         assert_eq!(initial_tier(), IndexTier::Hot);
     }
 }
-

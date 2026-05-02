@@ -1,4 +1,3 @@
-
 use anyhow::{Context, Result};
 use rand::seq::SliceRandom;
 use std::time::Duration;
@@ -63,10 +62,13 @@ pub async fn pir_fetch(
         let url = target_url.to_owned();
         let jitter = rand::random::<u64>() % max_jitter_ms.max(1);
         handles.push(tokio::spawn(async move {
-            if jitter > 0 { sleep(Duration::from_millis(jitter)).await; }
+            if jitter > 0 {
+                sleep(Duration::from_millis(jitter)).await;
+            }
             c.get(&url)
                 .timeout(Duration::from_secs(30))
-                .send().await
+                .send()
+                .await
                 .ok()
         }));
     }
@@ -76,14 +78,16 @@ pub async fn pir_fetch(
         let url = cover_url.to_string();
         let jitter = rand::random::<u64>() % max_jitter_ms.max(1);
         tokio::spawn(async move {
-            if jitter > 0 { sleep(Duration::from_millis(jitter)).await; }
-            let _ = c.get(&url)
-                .timeout(Duration::from_secs(15))
-                .send().await;
+            if jitter > 0 {
+                sleep(Duration::from_millis(jitter)).await;
+            }
+            let _ = c.get(&url).timeout(Duration::from_secs(15)).send().await;
         });
     }
 
-    let real_resp = handles.into_iter().next()
+    let real_resp = handles
+        .into_iter()
+        .next()
         .expect("at least one handle")
         .await
         .context("real request task")?
@@ -92,10 +96,14 @@ pub async fn pir_fetch(
     let content = real_resp
         .error_for_status()
         .context("real request HTTP error")?
-        .text().await
+        .text()
+        .await
         .context("real request body")?;
 
-    Ok(PirResult { content, cover_count })
+    Ok(PirResult {
+        content,
+        cover_count,
+    })
 }
 
 /// Convenience wrapper: PIR-fetch a blocklist URL using the app's HTTP client.
@@ -105,11 +113,13 @@ pub async fn fetch_blocklist_private(
     url: &str,
     k: usize,
 ) -> Result<String> {
-    let result = pir_fetch(client, url, k, 200).await
+    let result = pir_fetch(client, url, k, 200)
+        .await
         .with_context(|| format!("PIR fetch {url}"))?;
     tracing::debug!(
         "[pir] fetched {} with {} cover requests",
-        url, result.cover_count
+        url,
+        result.cover_count
     );
     Ok(result.content)
 }
@@ -139,4 +149,3 @@ mod tests {
         assert_eq!(covers.len(), DEFAULT_K - 1);
     }
 }
-

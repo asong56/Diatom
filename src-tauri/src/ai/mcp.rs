@@ -1,4 +1,3 @@
-
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -96,13 +95,11 @@ pub fn available_tools() -> Vec<McpTool> {
                 }
             }),
         },
-
         // These tools replace the proprietary /scholar, /oracle, /scribe, /debug
         // slash-command syntax. Any MCP-capable client (Zed, VS Code, Claude
         // Desktop, …) can invoke these tools directly. The Diatom address bar is
         // just one entry point; it maps natural-language intent to these tools
         // rather than requiring the user to memorise private command syntax.
-
         McpTool {
             name: "browser_research",
             description: "Answer a research question by searching the local Museum archive and                           the current page context. Equivalent to the former /scholar command.                           Returns a summary with cited Museum entries.",
@@ -128,7 +125,6 @@ pub fn available_tools() -> Vec<McpTool> {
                 "required": ["question"]
             }),
         },
-
         McpTool {
             name: "page_debug",
             description: "Analyse the current page for JavaScript errors, network failures,                           and DOM anomalies. Equivalent to the former /debug command.                           Returns a structured diagnostic report.",
@@ -153,7 +149,6 @@ pub fn available_tools() -> Vec<McpTool> {
                 }
             }),
         },
-
         McpTool {
             name: "page_summarise",
             description: "Summarise the content of the current page or a Museum archive entry.                           Equivalent to the former /scribe command.                           Returns a structured summary with key points and TF-IDF tags.",
@@ -178,7 +173,6 @@ pub fn available_tools() -> Vec<McpTool> {
                 }
             }),
         },
-
         McpTool {
             name: "pricing_lookup",
             description: "Look up current pricing information for a product or service mentioned                           on the current page or in Museum archives. Equivalent to the former                           /oracle pricing command. All lookups use cached data — no new network                           requests are made.",
@@ -226,23 +220,30 @@ pub fn validate_token(header: &str, expected: &str) -> bool {
     provided.as_bytes().ct_eq(expected.as_bytes()).into()
 }
 
-pub async fn dispatch(
-    req: RpcRequest,
-    db: Arc<crate::storage::db::Db>,
-) -> RpcResponse {
+pub async fn dispatch(req: RpcRequest, db: Arc<crate::storage::db::Db>) -> RpcResponse {
     let result = match req.method.as_str() {
         "initialize" => handle_initialize(),
-        "tools/list"  => Ok(serde_json::json!({ "tools": available_tools() })),
-        "tools/call"  => handle_tool_call(req.params, db).await,
-        "ping"        => Ok(serde_json::json!({ "pong": true })),
+        "tools/list" => Ok(serde_json::json!({ "tools": available_tools() })),
+        "tools/call" => handle_tool_call(req.params, db).await,
+        "ping" => Ok(serde_json::json!({ "pong": true })),
         m => Err(format!("Unknown method: {}", m)),
     };
 
     match result {
-        Ok(value) => RpcResponse { jsonrpc: "2.0", id: req.id, result: Some(value), error: None },
-        Err(msg)  => RpcResponse {
-            jsonrpc: "2.0", id: req.id, result: None,
-            error: Some(RpcError { code: -32601, message: msg }),
+        Ok(value) => RpcResponse {
+            jsonrpc: "2.0",
+            id: req.id,
+            result: Some(value),
+            error: None,
+        },
+        Err(msg) => RpcResponse {
+            jsonrpc: "2.0",
+            id: req.id,
+            result: None,
+            error: Some(RpcError {
+                code: -32601,
+                message: msg,
+            }),
         },
     }
 }
@@ -272,33 +273,43 @@ async fn handle_tool_call(
             let query = args["query"].as_str().ok_or("Missing query")?;
             let limit = args["limit"].as_u64().unwrap_or(10).min(50) as usize;
             let ws = args["workspace_id"].as_str().unwrap_or("default");
-            let results = db.search_bundles_fts(query, ws)
+            let results = db
+                .search_bundles_fts(query, ws)
                 .map_err(|e| e.to_string())?
-                .into_iter().take(limit).collect::<Vec<_>>();
-            Ok(serde_json::json!({ "content": [{ "type": "text", "text": serde_json::to_string(&results).unwrap() }] }))
+                .into_iter()
+                .take(limit)
+                .collect::<Vec<_>>();
+            Ok(
+                serde_json::json!({ "content": [{ "type": "text", "text": serde_json::to_string(&results).unwrap() }] }),
+            )
         }
         "museum_get" => {
             let id = args["id"].as_str().ok_or("Missing id")?;
             let entry = db.get_bundle_by_id(id).map_err(|e| e.to_string())?;
-            Ok(serde_json::json!({ "content": [{ "type": "text", "text": serde_json::to_string(&entry).unwrap() }] }))
+            Ok(
+                serde_json::json!({ "content": [{ "type": "text", "text": serde_json::to_string(&entry).unwrap() }] }),
+            )
         }
         "museum_recent" => {
             let limit = args["limit"].as_u64().unwrap_or(20).min(100) as u32;
             let ws = args["workspace_id"].as_str().unwrap_or("default");
             let results = db.list_bundles(ws, limit).map_err(|e| e.to_string())?;
-            Ok(serde_json::json!({ "content": [{ "type": "text", "text": serde_json::to_string(&results).unwrap() }] }))
+            Ok(
+                serde_json::json!({ "content": [{ "type": "text", "text": serde_json::to_string(&results).unwrap() }] }),
+            )
         }
-        "tab_list" => {
-            Ok(serde_json::json!({ "content": [{ "type": "text",
-                "text": "Tab listing requires active Diatom window. Use the UI or cmd_tabs_list IPC command." }] }))
-        }
+        "tab_list" => Ok(serde_json::json!({ "content": [{ "type": "text",
+                "text": "Tab listing requires active Diatom window. Use the UI or cmd_tabs_list IPC command." }] })),
         "browser_research" => {
             let question = args["question"].as_str().ok_or("Missing question")?;
-            let limit    = args["museum_limit"].as_u64().unwrap_or(5).min(20) as usize;
+            let limit = args["museum_limit"].as_u64().unwrap_or(5).min(20) as usize;
             // Search Museum for relevant context
-            let museum_hits = db.search_bundles_fts(question, "default")
+            let museum_hits = db
+                .search_bundles_fts(question, "default")
                 .unwrap_or_default()
-                .into_iter().take(limit).collect::<Vec<_>>();
+                .into_iter()
+                .take(limit)
+                .collect::<Vec<_>>();
             let context_json = serde_json::to_string(&museum_hits).unwrap_or_default();
             Ok(serde_json::json!({
                 "content": [{
@@ -323,7 +334,7 @@ async fn handle_tool_call(
         }
         "page_summarise" => {
             let museum_id = args["museum_id"].as_str();
-            let format    = args["format"].as_str().unwrap_or("structured");
+            let format = args["format"].as_str().unwrap_or("structured");
             if let Some(id) = museum_id {
                 let entry = db.get_bundle_by_id(id).map_err(|e| e.to_string())?;
                 Ok(serde_json::json!({
@@ -345,10 +356,13 @@ async fn handle_tool_call(
             }
         }
         "pricing_lookup" => {
-            let query = args["product_query"].as_str().ok_or("Missing product_query")?;
+            let query = args["product_query"]
+                .as_str()
+                .ok_or("Missing product_query")?;
             let include_history = args["include_history"].as_bool().unwrap_or(true);
             let hits = db.search_bundles_fts(query, "default").unwrap_or_default();
-            let pricing_hits: Vec<_> = hits.into_iter()
+            let pricing_hits: Vec<_> = hits
+                .into_iter()
                 .filter(|h| include_history)
                 .take(10)
                 .collect();
@@ -395,7 +409,11 @@ pub async fn run_mcp_server(token: String, db: Arc<crate::storage::db::Db>) {
     let bound_port = listener.local_addr().map(|a| a.port()).unwrap_or(MCP_PORT);
     // Persist actual port so the frontend can always connect to the right address.
     let _ = db.set_setting("mcp_port", &bound_port.to_string());
-    tracing::info!("MCP host: listening on http://{}:{} (localhost only)", MCP_HOST, bound_port);
+    tracing::info!(
+        "MCP host: listening on http://{}:{} (localhost only)",
+        MCP_HOST,
+        bound_port
+    );
 
     loop {
         let (stream, peer) = match listener.accept().await {
@@ -423,7 +441,9 @@ async fn handle_http_connection(
 
     let mut buf = vec![0u8; 16384];
     let n = stream.read(&mut buf).await.unwrap_or(0);
-    if n == 0 { return; }
+    if n == 0 {
+        return;
+    }
 
     let raw = String::from_utf8_lossy(&buf[..n]);
 
@@ -431,7 +451,8 @@ async fn handle_http_connection(
     let method = request_line.split_whitespace().next().unwrap_or("");
 
     // Extract Origin header (present when a browser page makes the request).
-    let origin: Option<&str> = raw.lines()
+    let origin: Option<&str> = raw
+        .lines()
         .find(|l| l.to_lowercase().starts_with("origin:"))
         .and_then(|l| l.splitn(2, ':').nth(1))
         .map(|s| s.trim());
@@ -446,7 +467,7 @@ async fn handle_http_connection(
     //     (prevents a malicious web page from using the user's token even if
     //     the token somehow leaked via an XSS chain)
     let cors_ok = match origin {
-        None              => true,                           // native client
+        None => true,                                          // native client
         Some(o) if o.starts_with("tauri://localhost") => true, // Diatom webview
         Some(o) => {
             tracing::warn!("MCP host: rejected browser origin: {}", o);
@@ -464,33 +485,40 @@ async fn handle_http_connection(
         } else {
             ("403 Forbidden", "null")
         };
-        let _ = stream.write_all(
-            format!(
-                "HTTP/1.1 {status}\r\n\
+        let _ = stream
+            .write_all(
+                format!(
+                    "HTTP/1.1 {status}\r\n\
                  Access-Control-Allow-Origin: {acao}\r\n\
                  Access-Control-Allow-Methods: POST, OPTIONS\r\n\
                  Access-Control-Allow-Headers: Authorization, Content-Type\r\n\
                  Content-Length: 0\r\n\r\n"
-            ).as_bytes()
-        ).await;
+                )
+                .as_bytes(),
+            )
+            .await;
         return;
     }
 
     if !cors_ok {
-        let _ = stream.write_all(
-            b"HTTP/1.1 403 Forbidden\r\nContent-Length: 10\r\n\r\nForbidden\n"
-        ).await;
+        let _ = stream
+            .write_all(b"HTTP/1.1 403 Forbidden\r\nContent-Length: 10\r\n\r\nForbidden\n")
+            .await;
         return;
     }
 
-    let auth_ok = raw.lines()
+    let auth_ok = raw
+        .lines()
         .find(|l| l.to_lowercase().starts_with("authorization:"))
         .map(|l| l.splitn(2, ':').nth(1).unwrap_or("").trim())
         .map(|v| validate_token(v, &token))
         .unwrap_or(false);
 
     if !auth_ok {
-        tracing::warn!("MCP host: rejected unauthenticated request (origin={:?})", origin);
+        tracing::warn!(
+            "MCP host: rejected unauthenticated request (origin={:?})",
+            origin
+        );
         let resp = "HTTP/1.1 401 Unauthorized\r\nContent-Length: 13\r\n\r\nUnauthorized\n";
         let _ = stream.write_all(resp.as_bytes()).await;
         return;
@@ -507,20 +535,22 @@ async fn handle_http_connection(
         Err(e) => serde_json::json!({
             "jsonrpc": "2.0", "id": null,
             "error": { "code": -32700, "message": format!("Parse error: {}", e) }
-        }).to_string(),
+        })
+        .to_string(),
     };
 
     // ACAO is only sent for Tauri-origin requests (cors_ok guaranteed above).
     // For native clients (no origin) we omit the header entirely.
     let acao_header = match origin {
         Some(_) => "Access-Control-Allow-Origin: tauri://localhost\r\n",
-        None    => "",
+        None => "",
     };
 
     let http_resp = format!(
         "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{}\r\n{}",
-        response_body.len(), acao_header, response_body
+        response_body.len(),
+        acao_header,
+        response_body
     );
     let _ = stream.write_all(http_resp.as_bytes()).await;
 }
-

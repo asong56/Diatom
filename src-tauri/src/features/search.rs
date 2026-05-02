@@ -70,7 +70,10 @@ pub fn builtin_engines() -> Vec<SearchEngine> {
             id: "google",
             name: "Google",
             url_template: "https://www.google.com/search?q={query}".to_owned(),
-            suggest_template: Some("https://suggestqueries.google.com/complete/search?client=firefox&q={query}".to_owned()),
+            suggest_template: Some(
+                "https://suggestqueries.google.com/complete/search?client=firefox&q={query}"
+                    .to_owned(),
+            ),
             privacy_tier: PrivacyTier::Mainstream,
             requires_key: false,
             description: "Full tracking and personalization. Not recommended for privacy.",
@@ -91,7 +94,8 @@ pub fn set_default(db: &crate::storage::db::Db, engine_id: &str) -> Result<()> {
         validate_searxng_endpoint(endpoint)?;
     } else {
         let engines = builtin_engines();
-        engines.iter()
+        engines
+            .iter()
             .find(|e| e.id == engine_id)
             .ok_or_else(|| anyhow::anyhow!("unknown engine id: {}", engine_id))?;
     }
@@ -104,7 +108,10 @@ pub fn set_default(db: &crate::storage::db::Db, engine_id: &str) -> Result<()> {
 /// [F-10] Validates HTTPS-only to prevent SSRF attacks via user-controlled URL.
 pub fn set_searxng_endpoint(db: &crate::storage::db::Db, endpoint: &str) -> Result<()> {
     validate_searxng_endpoint(endpoint)?;
-    let template = format!("{}/search?q={{query}}&format=html", endpoint.trim_end_matches('/'));
+    let template = format!(
+        "{}/search?q={{query}}&format=html",
+        endpoint.trim_end_matches('/')
+    );
     db.set_setting("searxng_endpoint", endpoint)?;
     db.set_setting("searxng_url_template", &template)?;
     Ok(())
@@ -121,7 +128,14 @@ pub fn validate_searxng_endpoint(url: &str) -> Result<()> {
         );
     }
     let lower = url.to_lowercase();
-    for blocked in &["localhost", "127.0.0.1", "0.0.0.0", "169.254.", "::1", "[::1]"] {
+    for blocked in &[
+        "localhost",
+        "127.0.0.1",
+        "0.0.0.0",
+        "169.254.",
+        "::1",
+        "[::1]",
+    ] {
         if lower.contains(blocked) {
             anyhow::bail!(
                 "SearXNG endpoint '{}' resolves to a loopback/private address. \
@@ -150,10 +164,14 @@ fn percent_encode(s: &str) -> String {
     let mut out = String::with_capacity(s.len() * 3);
     for byte in s.as_bytes() {
         match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9'
-            | b'-' | b'_' | b'.' | b'~' => out.push(*byte as char),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(*byte as char)
+            }
             b' ' => out.push('+'),
-            b => { out.push('%'); let _ = write!(out, "{:02X}", b); }
+            b => {
+                out.push('%');
+                let _ = write!(out, "{:02X}", b);
+            }
         }
     }
     out
@@ -165,7 +183,10 @@ mod tests {
 
     #[test]
     fn build_search_url_encodes_spaces() {
-        let engine = builtin_engines().into_iter().find(|e| e.id == "brave").unwrap();
+        let engine = builtin_engines()
+            .into_iter()
+            .find(|e| e.id == "brave")
+            .unwrap();
         let url = build_search_url(&engine, "rust programming");
         assert!(url.contains("rust+programming") || url.contains("rust%20programming"));
     }

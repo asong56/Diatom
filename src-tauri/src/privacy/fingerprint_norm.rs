@@ -1,4 +1,3 @@
-
 /// Normalised fingerprint constants.
 /// All values match the statistical mode of desktop hardware in 2025.
 pub struct FingerprintNorm {
@@ -22,12 +21,12 @@ impl Default for FingerprintNorm {
     fn default() -> Self {
         Self {
             hardware_concurrency: 8,
-            device_memory:        8,
-            color_depth:          24,
-            webgl_vendor:   "Google Inc. (Intel)",
+            device_memory: 8,
+            color_depth: 24,
+            webgl_vendor: "Google Inc. (Intel)",
             webgl_renderer: "ANGLE (Intel, Intel(R) UHD Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)",
             audio_sample_rate: 44100,
-            max_touch_points:  0,
+            max_touch_points: 0,
         }
     }
 }
@@ -46,15 +45,16 @@ impl FingerprintNorm {
     ///   • Does NOT override `Date`, timezone, or language — changing those
     ///     breaks calendar applications and localisation.
     pub fn generate(&self) -> String {
-        let hw  = self.hardware_concurrency;
+        let hw = self.hardware_concurrency;
         let mem = self.device_memory;
-        let cd  = self.color_depth;
-        let wv  = self.webgl_vendor;
-        let wr  = self.webgl_renderer;
-        let ar  = self.audio_sample_rate;
-        let tp  = self.max_touch_points;
+        let cd = self.color_depth;
+        let wv = self.webgl_vendor;
+        let wr = self.webgl_renderer;
+        let ar = self.audio_sample_rate;
+        let tp = self.max_touch_points;
 
-        format!(r#"
+        format!(
+            r#"
 (function normaliseFingerprintAPIs() {{
   "use strict";
   if (window.__DIATOM_FP_NORM__) return;
@@ -138,13 +138,13 @@ impl FingerprintNorm {
 
 }})();
 "#,
-            hw  = hw,
+            hw = hw,
             mem = mem,
-            cd  = cd,
-            wv  = wv,
-            wr  = wr,
-            ar  = ar,
-            tp  = tp,
+            cd = cd,
+            wv = wv,
+            wr = wr,
+            ar = ar,
+            tp = tp,
         )
     }
 }
@@ -155,7 +155,7 @@ mod tests {
 
     #[test]
     fn script_is_non_empty() {
-        let norm   = FingerprintNorm::default();
+        let norm = FingerprintNorm::default();
         let script = norm.generate();
         assert!(script.contains("__DIATOM_FP_NORM__"));
         assert!(script.contains("hardwareConcurrency"));
@@ -168,10 +168,10 @@ mod tests {
     fn defaults_match_common_hardware() {
         let norm = FingerprintNorm::default();
         assert_eq!(norm.hardware_concurrency, 8);
-        assert_eq!(norm.device_memory,        8);
-        assert_eq!(norm.color_depth,          24);
-        assert_eq!(norm.audio_sample_rate,    44100);
-        assert_eq!(norm.max_touch_points,     0);
+        assert_eq!(norm.device_memory, 8);
+        assert_eq!(norm.color_depth, 24);
+        assert_eq!(norm.audio_sample_rate, 44100);
+        assert_eq!(norm.max_touch_points, 0);
     }
 
     #[test]
@@ -181,4 +181,3 @@ mod tests {
         assert!(!script.contains("crypto.getRandomValues"));
     }
 }
-

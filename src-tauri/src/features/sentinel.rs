@@ -1,4 +1,3 @@
-
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -48,7 +47,7 @@ pub const POLL_INTERVAL_S: u64 = 3_600;
 /// Fallback static WebKit build table (used when Sentinel cache is cold).
 
 const SAFARI_WEBKIT_BUILDS: &[(u32, u32, u32, u32)] = &[
-    (18, 5, 619, 5),  // projected
+    (18, 5, 619, 5), // projected
     (18, 4, 619, 4),
     (18, 3, 619, 3),
     (18, 2, 619, 2),
@@ -119,7 +118,8 @@ pub fn webkit_build_for(safari_major: u32, safari_minor: u32) -> String {
     tracing::warn!(
         "sentinel: webkit_build_for({}, {}) — unknown Safari major; \
          SENTINEL_STALE: update SAFARI_WEBKIT_BUILDS table",
-        safari_major, safari_minor
+        safari_major,
+        safari_minor
     );
     let wk_major = webkit_major_for_safari_major(safari_major);
     format!("{}.{}.15 /* SENTINEL_STALE */", wk_major, safari_minor)
@@ -129,8 +129,10 @@ pub fn webkit_build_for(safari_major: u32, safari_minor: u32) -> String {
 fn webkit_major_for_safari_major(safari_major: u32) -> u32 {
     match safari_major {
         19 => {
-            tracing::warn!("sentinel: Safari 19 detected — webkit_major_for_safari_major \
-                           needs updating. Returning provisional estimate.");
+            tracing::warn!(
+                "sentinel: Safari 19 detected — webkit_major_for_safari_major \
+                           needs updating. Returning provisional estimate."
+            );
             625 // provisional; must be updated when Apple ships Safari 19
         }
         18 => 619,
@@ -220,7 +222,8 @@ impl SentinelCache {
 
     /// Synthesise a Windows Chrome UA string with the full version number.
     pub fn chrome_ua_windows(&self) -> String {
-        let ver = self.chrome_win()
+        let ver = self
+            .chrome_win()
             .map(|v| v.version.as_str())
             .unwrap_or("124.0.6367.207");
         format!(
@@ -242,12 +245,10 @@ impl SentinelCache {
                      Version/{v} Safari/{wb}"
                 )
             }
-            None => {
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) \
+            None => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) \
                  AppleWebKit/619.1.26 (KHTML, like Gecko) \
                  Version/18.0 Safari/619.1.26"
-                    .to_owned()
-            }
+                .to_owned(),
         }
     }
 }
@@ -437,13 +438,13 @@ pub async fn refresh(prev_cache: &SentinelCache) -> SentinelCache {
                 chrome_versions.push(info);
             }
             Err(err) => {
-                tracing::warn!(
-                    "sentinel: Chrome {} fetch failed: {}",
-                    display_name,
-                    err
-                );
+                tracing::warn!("sentinel: Chrome {} fetch failed: {}", display_name, err);
                 ok = false;
-                if let Some(prev) = prev_cache.chrome.iter().find(|v| v.platform == display_name) {
+                if let Some(prev) = prev_cache
+                    .chrome
+                    .iter()
+                    .find(|v| v.platform == display_name)
+                {
                     chrome_versions.push(prev.clone());
                 }
             }
@@ -463,7 +464,11 @@ pub async fn refresh(prev_cache: &SentinelCache) -> SentinelCache {
 
     match fetch_safari_version(&client).await {
         Ok(safari) => {
-            tracing::info!("sentinel: Safari → {} (WebKit {})", safari.version, safari.webkit_build);
+            tracing::info!(
+                "sentinel: Safari → {} (WebKit {})",
+                safari.version,
+                safari.webkit_build
+            );
             new_cache.safari = Some(safari);
         }
         Err(err) => {
@@ -671,7 +676,10 @@ mod tests {
             channel: "stable".to_owned(),
         });
         let ua = cache.chrome_ua_windows();
-        assert!(ua.contains("Chrome/124.0.6367.207"), "UA should use full version: {ua}");
+        assert!(
+            ua.contains("Chrome/124.0.6367.207"),
+            "UA should use full version: {ua}"
+        );
         assert!(ua.contains("Windows NT 10.0"));
     }
 
@@ -728,15 +736,15 @@ const UPDATE_CHECK_INTERVAL_H: u64 = 6;
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UpdateCheckState {
     /// Latest version string from GitHub, e.g. "0.16.0". Empty = not yet checked.
-    pub latest_version:    String,
+    pub latest_version: String,
     /// True if `latest_version` is newer than the running build.
-    pub update_available:  bool,
+    pub update_available: bool,
     /// Unix timestamp of last check (0 = never checked).
-    pub last_check:        u64,
+    pub last_check: u64,
     /// True if the last check found a critical CVE alongside a newer version.
-    pub critical:          bool,
+    pub critical: bool,
     /// Unix timestamp when `critical` first became true (0 if not critical).
-    pub critical_since:    u64,
+    pub critical_since: u64,
 }
 
 impl UpdateCheckState {
@@ -750,8 +758,7 @@ impl UpdateCheckState {
     pub fn should_block_navigation(&self) -> bool {
         self.critical
             && self.critical_since > 0
-            && unix_now().saturating_sub(self.critical_since)
-                >= CRITICAL_UPDATE_BLOCK_DAYS * 86_400
+            && unix_now().saturating_sub(self.critical_since) >= CRITICAL_UPDATE_BLOCK_DAYS * 86_400
     }
 }
 
@@ -760,10 +767,7 @@ impl UpdateCheckState {
 ///
 /// This function is called from `run_sentinel_loop` on every poll cycle;
 /// it rate-limits itself internally via `UpdateCheckState::is_stale`.
-pub async fn check_diatom_update(
-    app_handle: &tauri::AppHandle,
-    sentinel_cache: &SentinelCache,
-) {
+pub async fn check_diatom_update(app_handle: &tauri::AppHandle, sentinel_cache: &SentinelCache) {
     // Load persisted update state.
     let mut state = app_handle
         .try_state::<crate::state::AppState>()
@@ -800,7 +804,7 @@ pub async fn check_diatom_update(
         .send()
         .await
     {
-        Ok(r)  => r,
+        Ok(r) => r,
         Err(e) => {
             tracing::debug!("sentinel update-check: request failed: {e}");
             return;
@@ -808,10 +812,12 @@ pub async fn check_diatom_update(
     };
 
     #[derive(serde::Deserialize)]
-    struct GhRelease { tag_name: String }
+    struct GhRelease {
+        tag_name: String,
+    }
 
     let tag = match resp.json::<GhRelease>().await {
-        Ok(r)  => r.tag_name,
+        Ok(r) => r.tag_name,
         Err(e) => {
             tracing::debug!("sentinel update-check: parse failed: {e}");
             return;
@@ -820,21 +826,21 @@ pub async fn check_diatom_update(
 
     // Strip leading 'v' prefix if present.
     let latest = tag.trim_start_matches('v').to_owned();
-    let newer  = semver_gt(&latest, running);
+    let newer = semver_gt(&latest, running);
 
     let now = unix_now();
-    state.last_check       = now;
-    state.latest_version   = latest.clone();
+    state.last_check = now;
+    state.latest_version = latest.clone();
     state.update_available = newer;
 
     if newer && sentinel_cache.cve_critical {
         if !state.critical {
             // First time we see critical=true — record the timestamp.
-            state.critical       = true;
+            state.critical = true;
             state.critical_since = now;
         }
     } else {
-        state.critical       = false;
+        state.critical = false;
         state.critical_since = 0;
     }
 
@@ -858,11 +864,7 @@ pub async fn check_diatom_update(
     }
 }
 
-fn emit_update_event(
-    app_handle: &tauri::AppHandle,
-    state:      &UpdateCheckState,
-    cve:        bool,
-) {
+fn emit_update_event(app_handle: &tauri::AppHandle, state: &UpdateCheckState, cve: bool) {
     let _ = app_handle.emit(
         "diatom:update-available",
         serde_json::json!({
@@ -896,8 +898,8 @@ mod update_tests {
 
     #[test]
     fn semver_gt_basic() {
-        assert!( semver_gt("0.16.0", "0.15.1"));
-        assert!( semver_gt("1.0.0",  "0.99.9"));
+        assert!(semver_gt("0.16.0", "0.15.1"));
+        assert!(semver_gt("1.0.0", "0.99.9"));
         assert!(!semver_gt("0.15.1", "0.16.0"));
         assert!(!semver_gt("0.15.0", "0.15.0"));
     }
@@ -924,14 +926,17 @@ mod update_tests {
     #[test]
     fn block_navigation_after_critical_threshold() {
         let mut s = UpdateCheckState::default();
-        s.critical       = true;
+        s.critical = true;
         s.critical_since = unix_now() - (CRITICAL_UPDATE_BLOCK_DAYS + 1) * 86_400;
         assert!(s.should_block_navigation());
     }
 
     #[test]
     fn no_block_if_not_critical() {
-        let s = UpdateCheckState { critical: false, ..Default::default() };
+        let s = UpdateCheckState {
+            critical: false,
+            ..Default::default()
+        };
         assert!(!s.should_block_navigation());
     }
 }
@@ -952,28 +957,28 @@ pub enum PowerState {
 /// Adaptive scheduling parameters derived from current power state.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PowerBudget {
-    pub state:                    PowerState,
+    pub state: PowerState,
     /// Battery percentage (0–100). None when running on AC or unknown.
-    pub battery_pct:              Option<u8>,
+    pub battery_pct: Option<u8>,
     /// Effective Sentinel poll interval (seconds).
-    pub sentinel_interval_secs:   u64,
+    pub sentinel_interval_secs: u64,
     /// Effective tab-budget evaluation interval (seconds).
     pub tab_budget_interval_secs: u64,
     /// Whether PIR (Private Information Retrieval) queries are enabled.
-    pub pir_enabled:              bool,
+    pub pir_enabled: bool,
     /// Whether decoy-traffic injection is enabled.
-    pub decoy_enabled:            bool,
+    pub decoy_enabled: bool,
 }
 
 impl Default for PowerBudget {
     fn default() -> Self {
         PowerBudget {
-            state:                    PowerState::Plugged,
-            battery_pct:              None,
-            sentinel_interval_secs:   POLL_INTERVAL_S,
+            state: PowerState::Plugged,
+            battery_pct: None,
+            sentinel_interval_secs: POLL_INTERVAL_S,
             tab_budget_interval_secs: 600,
-            pir_enabled:              true,
-            decoy_enabled:            false,
+            pir_enabled: true,
+            decoy_enabled: false,
         }
     }
 }
@@ -991,18 +996,18 @@ pub fn power_budget_current() -> PowerBudget {
     let (state, pct) = read_battery_state();
 
     let (sentinel_secs, tab_secs, pir, decoy) = match state {
-        PowerState::Plugged         => (POLL_INTERVAL_S,         600, true,  false),
-        PowerState::Battery         => (POLL_INTERVAL_S * 3,    1200, true,  false),
+        PowerState::Plugged => (POLL_INTERVAL_S, 600, true, false),
+        PowerState::Battery => (POLL_INTERVAL_S * 3, 1200, true, false),
         PowerState::BatteryCritical => (POLL_INTERVAL_S * 12, 3600, false, false),
     };
 
     PowerBudget {
         state,
-        battery_pct:              pct,
-        sentinel_interval_secs:   sentinel_secs,
+        battery_pct: pct,
+        sentinel_interval_secs: sentinel_secs,
         tab_budget_interval_secs: tab_secs,
-        pir_enabled:              pir,
-        decoy_enabled:            decoy,
+        pir_enabled: pir,
+        decoy_enabled: decoy,
     }
 }
 
@@ -1014,9 +1019,11 @@ fn read_battery_state() -> (PowerState, Option<u8>) {
         if let Ok(entries) = std::fs::read_dir("/sys/class/power_supply") {
             for entry in entries.flatten() {
                 let base = entry.path();
-                let status_path  = base.join("status");
+                let status_path = base.join("status");
                 let capacity_path = base.join("capacity");
-                let Ok(status) = std::fs::read_to_string(&status_path) else { continue };
+                let Ok(status) = std::fs::read_to_string(&status_path) else {
+                    continue;
+                };
                 let status = status.trim().to_lowercase();
                 if status == "discharging" || status == "not charging" {
                     let pct = std::fs::read_to_string(&capacity_path)
@@ -1024,7 +1031,7 @@ fn read_battery_state() -> (PowerState, Option<u8>) {
                         .and_then(|s| s.trim().parse::<u8>().ok());
                     let power_state = match pct {
                         Some(p) if p < 10 => PowerState::BatteryCritical,
-                        _                 => PowerState::Battery,
+                        _ => PowerState::Battery,
                     };
                     return (power_state, pct);
                 }

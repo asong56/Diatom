@@ -31,13 +31,14 @@ impl Db {
         Ok(())
     }
 
-    pub fn list_tab_groups(&self, workspace_id: &str)
-        -> Result<Vec<(String, String, String, String, bool, bool, Vec<String>, i64)>>
-    {
+    pub fn list_tab_groups(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<(String, String, String, String, bool, bool, Vec<String>, i64)>> {
         let conn = self.0.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT id, workspace_id, name, color, collapsed, project_mode, tab_ids, created_at
-             FROM tab_groups WHERE workspace_id=?1 ORDER BY created_at ASC"
+             FROM tab_groups WHERE workspace_id=?1 ORDER BY created_at ASC",
         )?;
         let rows = stmt.query_map(rusqlite::params![workspace_id], |r| {
             Ok((
@@ -51,36 +52,44 @@ impl Db {
                 r.get::<_, i64>(7)?,
             ))
         })?;
-        rows.map(|r| r.map_err(anyhow::Error::from).and_then(|t| {
-            let tab_ids: Vec<String> = serde_json::from_str(&t.6).unwrap_or_default();
-            Ok((t.0, t.1, t.2, t.3, t.4, t.5, tab_ids, t.7))
-        })).collect()
+        rows.map(|r| {
+            r.map_err(anyhow::Error::from).and_then(|t| {
+                let tab_ids: Vec<String> = serde_json::from_str(&t.6).unwrap_or_default();
+                Ok((t.0, t.1, t.2, t.3, t.4, t.5, tab_ids, t.7))
+            })
+        })
+        .collect()
     }
 
     pub fn delete_tab_group(&self, group_id: &str) -> Result<()> {
-        self.0.lock().unwrap()
-            .execute("DELETE FROM tab_groups WHERE id=?1", rusqlite::params![group_id])?;
+        self.0.lock().unwrap().execute(
+            "DELETE FROM tab_groups WHERE id=?1",
+            rusqlite::params![group_id],
+        )?;
         Ok(())
     }
 
     pub fn rename_tab_group(&self, group_id: &str, name: &str) -> Result<()> {
         self.0.lock().unwrap().execute(
             "UPDATE tab_groups SET name=?1 WHERE id=?2",
-            rusqlite::params![name, group_id])?;
+            rusqlite::params![name, group_id],
+        )?;
         Ok(())
     }
 
     pub fn set_tab_group_collapsed(&self, group_id: &str, collapsed: bool) -> Result<()> {
         self.0.lock().unwrap().execute(
             "UPDATE tab_groups SET collapsed=?1 WHERE id=?2",
-            rusqlite::params![collapsed as i64, group_id])?;
+            rusqlite::params![collapsed as i64, group_id],
+        )?;
         Ok(())
     }
 
     pub fn set_tab_group_project_mode(&self, group_id: &str, pm: bool) -> Result<()> {
         self.0.lock().unwrap().execute(
             "UPDATE tab_groups SET project_mode=?1 WHERE id=?2",
-            rusqlite::params![pm as i64, group_id])?;
+            rusqlite::params![pm as i64, group_id],
+        )?;
         Ok(())
     }
 
@@ -112,8 +121,11 @@ impl Db {
             }
             Ok(())
         })();
-        if result.is_ok() { conn.execute_batch("COMMIT")?; }
-        else              { let _ = conn.execute_batch("ROLLBACK"); }
+        if result.is_ok() {
+            conn.execute_batch("COMMIT")?;
+        } else {
+            let _ = conn.execute_batch("ROLLBACK");
+        }
         result
     }
 }

@@ -29,27 +29,37 @@ pub async fn cmd_home_base_data(state: St<'_>) -> Result<serde_json::Value, Stri
     // async executor.  They share the same workspace id but are independent
     // and safe to run sequentially.
     let (top_domains, pinned, recent_museum) = {
-        let db  = state.db.clone();
+        let db = state.db.clone();
         let ws1 = ws.clone();
         let ws2 = ws.clone();
         let ws3 = ws.clone();
 
         let top = tokio::task::spawn_blocking(move || db.top_domains(&ws1, 8))
-            .await.map_err(es)?.unwrap_or_default();
+            .await
+            .map_err(es)?
+            .unwrap_or_default();
 
-        let db  = state.db.clone();
+        let db = state.db.clone();
         let pin = tokio::task::spawn_blocking(move || db.pinned_bookmarks(&ws2, 8))
-            .await.map_err(es)?.unwrap_or_default();
+            .await
+            .map_err(es)?
+            .unwrap_or_default();
 
-        let db  = state.db.clone();
+        let db = state.db.clone();
         let mus = tokio::task::spawn_blocking(move || db.list_bundles(&ws3, 3))
-            .await.map_err(es)?.unwrap_or_default();
+            .await
+            .map_err(es)?
+            .unwrap_or_default();
 
         (top, pin, mus)
     };
 
     let rss_unread = state.rss.lock().unwrap().unread_count();
-    let slm_online = state.db.get_setting("lab_slm_server").map(|v| v == "true").unwrap_or(false);
+    let slm_online = state
+        .db
+        .get_setting("lab_slm_server")
+        .map(|v| v == "true")
+        .unwrap_or(false);
 
     Ok(serde_json::json!({
         "top_domains":   top_domains,
@@ -74,17 +84,24 @@ pub async fn cmd_peek_fetch(url: String, state: St<'_>) -> Result<serde_json::Va
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(4))
         .user_agent(state.current_ua(false))
-        .build().map_err(es)?;
+        .build()
+        .map_err(es)?;
 
-    let html = client.get(&url).send().await.map_err(es)?
-        .text().await.unwrap_or_default();
+    let html = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(es)?
+        .text()
+        .await
+        .unwrap_or_default();
 
-    let title       = extract_meta(&html, "og:title")
+    let title = extract_meta(&html, "og:title")
         .or_else(|| extract_tag(&html, "title"))
         .unwrap_or_else(|| domain.clone());
-    let description = extract_meta(&html, "og:description")
-        .or_else(|| extract_meta(&html, "description"));
-    let og_image    = extract_meta(&html, "og:image");
+    let description =
+        extract_meta(&html, "og:description").or_else(|| extract_meta(&html, "description"));
+    let og_image = extract_meta(&html, "og:image");
 
     Ok(serde_json::json!({
         "url": url, "title": title,
@@ -94,21 +111,21 @@ pub async fn cmd_peek_fetch(url: String, state: St<'_>) -> Result<serde_json::Va
 
 /// Extract a `<meta property="…" content="…">` or `<meta name="…" content="…">` value.
 fn extract_meta(html: &str, name: &str) -> Option<String> {
-    let lower   = html.to_lowercase();
-    let needle  = format!("property=\"{}\"", name.to_lowercase());
+    let lower = html.to_lowercase();
+    let needle = format!("property=\"{}\"", name.to_lowercase());
     let needle2 = format!("name=\"{}\"", name.to_lowercase());
     let pos = lower.find(&needle).or_else(|| lower.find(&needle2))?;
-    let after       = &html[pos..];
+    let after = &html[pos..];
     let content_pos = after.to_lowercase().find("content=\"")? + "content=\"".len();
-    let end         = after[content_pos..].find('"')?;
+    let end = after[content_pos..].find('"')?;
     Some(after[content_pos..content_pos + end].to_owned())
 }
 
 /// Extract the text content of `<tag>…</tag>`.
 fn extract_tag(html: &str, tag: &str) -> Option<String> {
-    let open  = format!("<{}>", tag);
+    let open = format!("<{}>", tag);
     let close = format!("</{}>", tag);
     let start = html.to_lowercase().find(&open)? + open.len();
-    let end   = html[start..].to_lowercase().find(&close)?;
+    let end = html[start..].to_lowercase().find(&close)?;
     Some(html[start..start + end].trim().to_owned())
 }

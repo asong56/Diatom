@@ -50,7 +50,9 @@ pub struct BundleRow {
     pub last_accessed_at: Option<i64>,
 }
 
-fn default_hot() -> String { "hot".to_string() }
+fn default_hot() -> String {
+    "hot".to_string()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DomBlock {

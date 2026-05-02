@@ -18,34 +18,34 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PriceSignal {
-    pub url:                  String,
+    pub url: String,
     /// URL hash — de-parameterised canonical form + ASIN/SKU hash.
     pub canonical_product_id: String,
-    pub detected_price:       Option<f64>,
-    pub currency:             Option<String>,
-    pub detected_at:          i64,
+    pub detected_price: Option<f64>,
+    pub currency: Option<String>,
+    pub detected_at: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PriceComparisonResult {
-    pub product_id:   String,
-    pub your_price:   f64,
-    pub currency:     String,
-    pub peer_prices:  Vec<PeerPrice>,
-    pub network_avg:  f64,
-    pub network_min:  f64,
+    pub product_id: String,
+    pub your_price: f64,
+    pub currency: String,
+    pub peer_prices: Vec<PeerPrice>,
+    pub network_avg: f64,
+    pub network_min: f64,
     /// Percentage deviation from network average. Positive = you pay more.
     pub deviation_pct: f32,
-    pub alert_level:  PriceAlertLevel,
-    pub suggestion:   String,
+    pub alert_level: PriceAlertLevel,
+    pub suggestion: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PeerPrice {
-    pub price:       f64,
+    pub price: f64,
     pub reported_at: i64,
     /// Number of peers contributing to this aggregated data point.
-    pub node_count:  usize,
+    pub node_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,27 +79,33 @@ pub fn canonical_product_id(url: &str) -> String {
 /// Calculate alert level from the deviation between `your_price` and
 /// `network_avg`.
 pub fn compute_alert(your_price: f64, network_avg: f64) -> PriceAlertLevel {
-    if network_avg <= 0.0 { return PriceAlertLevel::Normal; }
+    if network_avg <= 0.0 {
+        return PriceAlertLevel::Normal;
+    }
     let deviation = (your_price - network_avg) / network_avg * 100.0;
     match deviation as i32 {
-        d if d <= 3  => PriceAlertLevel::Normal,
+        d if d <= 3 => PriceAlertLevel::Normal,
         d if d <= 10 => PriceAlertLevel::Elevated,
         d if d <= 20 => PriceAlertLevel::High,
-        _            => PriceAlertLevel::Severe,
+        _ => PriceAlertLevel::Severe,
     }
 }
 
 /// Generate a human-readable recommendation based on the alert level.
 pub fn generate_suggestion(alert: &PriceAlertLevel, deviation_pct: f32) -> String {
     match alert {
-        PriceAlertLevel::Normal =>
-            format!("Prices match within {deviation_pct:.1}% — no significant deviation detected."),
-        PriceAlertLevel::Elevated =>
-            format!("⚠️ Price deviation {deviation_pct:.1}%. You may be seeing mild dynamic pricing."),
-        PriceAlertLevel::High =>
-            format!("⚠️ Price deviation {deviation_pct:.1}%. Dynamic pricing likely. Consider using a shadow-fingerprint IP."),
-        PriceAlertLevel::Severe =>
-            format!("🚨 Strong price discrimination detected ({deviation_pct:.1}% deviation). Strongly recommend rotating IP and clearing cookies."),
+        PriceAlertLevel::Normal => {
+            format!("Prices match within {deviation_pct:.1}% — no significant deviation detected.")
+        }
+        PriceAlertLevel::Elevated => format!(
+            "⚠️ Price deviation {deviation_pct:.1}%. You may be seeing mild dynamic pricing."
+        ),
+        PriceAlertLevel::High => format!(
+            "⚠️ Price deviation {deviation_pct:.1}%. Dynamic pricing likely. Consider using a shadow-fingerprint IP."
+        ),
+        PriceAlertLevel::Severe => format!(
+            "🚨 Strong price discrimination detected ({deviation_pct:.1}% deviation). Strongly recommend rotating IP and clearing cookies."
+        ),
     }
 }
 
@@ -167,13 +173,22 @@ mod tests {
     fn canonical_id_strips_params() {
         let id1 = canonical_product_id("https://amazon.com/dp/B08N5WRWNW?ref=foo&tag=bar");
         let id2 = canonical_product_id("https://amazon.com/dp/B08N5WRWNW?ref=other");
-        assert_eq!(id1, id2, "Same product URL with different params should yield same ID");
+        assert_eq!(
+            id1, id2,
+            "Same product URL with different params should yield same ID"
+        );
     }
 
     #[test]
     fn alert_level_computation() {
-        assert!(matches!(compute_alert(100.0, 100.0), PriceAlertLevel::Normal));
+        assert!(matches!(
+            compute_alert(100.0, 100.0),
+            PriceAlertLevel::Normal
+        ));
         assert!(matches!(compute_alert(120.0, 100.0), PriceAlertLevel::High));
-        assert!(matches!(compute_alert(150.0, 100.0), PriceAlertLevel::Severe));
+        assert!(matches!(
+            compute_alert(150.0, 100.0),
+            PriceAlertLevel::Severe
+        ));
     }
 }

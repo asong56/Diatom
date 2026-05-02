@@ -20,7 +20,8 @@ pub async fn cmd_bandwidth_set_global(kbps: u32, state: St<'_>) -> Result<(), St
 
 #[tauri::command]
 pub async fn cmd_bandwidth_rule_upsert(
-    rule: crate::engine::bandwidth::BandwidthRule, state: St<'_>,
+    rule: crate::engine::bandwidth::BandwidthRule,
+    state: St<'_>,
 ) -> Result<(), String> {
     state.bandwidth_limiter.upsert_rule(rule);
     state.bandwidth_limiter.save_to_db(&state.db).map_err(es)
@@ -28,7 +29,8 @@ pub async fn cmd_bandwidth_rule_upsert(
 
 #[tauri::command]
 pub async fn cmd_bandwidth_rule_remove(
-    domain_pattern: String, state: St<'_>,
+    domain_pattern: String,
+    state: St<'_>,
 ) -> Result<(), String> {
     state.bandwidth_limiter.remove_rule(&domain_pattern);
     state.bandwidth_limiter.save_to_db(&state.db).map_err(es)
@@ -36,9 +38,14 @@ pub async fn cmd_bandwidth_rule_remove(
 
 #[tauri::command]
 pub async fn cmd_bandwidth_status(state: St<'_>) -> Result<serde_json::Value, String> {
-    let global = state.db.get_setting("bandwidth_global_kbps")
-        .and_then(|v| v.parse::<u32>().ok()).unwrap_or(0);
-    let rules  = state.db.get_setting("bandwidth_rules")
+    let global = state
+        .db
+        .get_setting("bandwidth_global_kbps")
+        .and_then(|v| v.parse::<u32>().ok())
+        .unwrap_or(0);
+    let rules = state
+        .db
+        .get_setting("bandwidth_rules")
         .and_then(|j| serde_json::from_str::<serde_json::Value>(&j).ok())
         .unwrap_or(serde_json::json!([]));
     Ok(serde_json::json!({ "global_kbps": global, "rules": rules }))
@@ -54,7 +61,7 @@ pub async fn cmd_plugin_list(
 #[tauri::command]
 pub async fn cmd_plugin_install(path: String, state: St<'_>) -> Result<String, String> {
     let plugin = crate::engine::plugins::WasmPlugin::load(path.into(), None).map_err(es)?;
-    let id     = state.plugin_registry.install(plugin);
+    let id = state.plugin_registry.install(plugin);
     Ok(id.to_string())
 }
 

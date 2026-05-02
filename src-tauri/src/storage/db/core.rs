@@ -5,7 +5,10 @@
 
 use anyhow::{Context, Result};
 use rusqlite::{Connection, params};
-use std::{path::Path, sync::{Arc, Mutex}};
+use std::{
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
 pub use super::types::*;
 
@@ -25,7 +28,9 @@ fn exec_idempotent(conn: &Connection, sql: &str) -> rusqlite::Result<()> {
 }
 
 const MIGRATIONS: &[(u32, &str)] = &[
-  (1, "
+    (
+        1,
+        "
   CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS workspaces (
   id TEXT PRIMARY KEY, name TEXT NOT NULL,
@@ -72,8 +77,11 @@ const MIGRATIONS: &[(u32, &str)] = &[
   block_count INTEGER NOT NULL DEFAULT 0,
   noise_count INTEGER NOT NULL DEFAULT 0
   );
-  "),
-  (2, "
+  ",
+    ),
+    (
+        2,
+        "
   CREATE TABLE IF NOT EXISTS museum_bundles (
   id TEXT PRIMARY KEY, url TEXT NOT NULL,
   title TEXT NOT NULL DEFAULT '', content_hash TEXT NOT NULL,
@@ -118,8 +126,11 @@ const MIGRATIONS: &[(u32, &str)] = &[
   recorded_at INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_re_time ON reading_events(recorded_at DESC);
-  "),
-  (3, "
+  ",
+    ),
+    (
+        3,
+        "
   CREATE TABLE IF NOT EXISTS totp_entries (
   id TEXT PRIMARY KEY, issuer TEXT NOT NULL,
   account TEXT NOT NULL, secret_enc TEXT NOT NULL,
@@ -149,8 +160,11 @@ const MIGRATIONS: &[(u32, &str)] = &[
   activated_at INTEGER
   );
   INSERT OR IGNORE INTO zen_state(id) VALUES(1);
-  "),
-  (4, "
+  ",
+    ),
+    (
+        4,
+        "
   ALTER TABLE totp_entries ADD COLUMN algorithm TEXT NOT NULL DEFAULT 'SHA1';
   ALTER TABLE totp_entries ADD COLUMN digits INTEGER NOT NULL DEFAULT 6;
   ALTER TABLE totp_entries ADD COLUMN period INTEGER NOT NULL DEFAULT 30;
@@ -205,8 +219,11 @@ const MIGRATIONS: &[(u32, &str)] = &[
   updated_at INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_vault_note_updated ON vault_notes(updated_at DESC);
-  "),
-  (5, "
+  ",
+    ),
+    (
+        5,
+        "
   CREATE TABLE IF NOT EXISTS boosts (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -216,8 +233,11 @@ const MIGRATIONS: &[(u32, &str)] = &[
   builtin INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL DEFAULT 0
   );
-  "),
-  (6, "\
+  ",
+    ),
+    (
+        6,
+        "\
   ALTER TABLE museum_bundles ADD COLUMN index_tier TEXT NOT NULL DEFAULT 'hot';\
   ALTER TABLE museum_bundles ADD COLUMN last_accessed_at INTEGER;\
   CREATE INDEX IF NOT EXISTS idx_bundle_tier ON museum_bundles(index_tier, last_accessed_at);\
@@ -231,8 +251,11 @@ const MIGRATIONS: &[(u32, &str)] = &[
   INSERT INTO museum_fts(rowid, tfidf_tags, title)\
   VALUES (new.rowid, new.tfidf_tags, new.title);\
   END;\
-  "),
-  (7, "
+  ",
+    ),
+    (
+        7,
+        "
   ALTER TABLE privacy_stats ADD COLUMN tracking_block_count INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE privacy_stats ADD COLUMN fingerprint_noise_count INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE privacy_stats ADD COLUMN ram_saved_mb REAL NOT NULL DEFAULT 0.0;
@@ -248,8 +271,11 @@ const MIGRATIONS: &[(u32, &str)] = &[
     created_at INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_tg_workspace ON tab_groups(workspace_id);
-  "),
-  (8, "\
+  ",
+    ),
+    (
+        8,
+        "\
   ALTER TABLE vault_logins ADD COLUMN breach_status TEXT NOT NULL DEFAULT 'unknown';\
   ALTER TABLE vault_logins ADD COLUMN breach_checked_at INTEGER;\
   ALTER TABLE vault_logins ADD COLUMN breach_pwned_count INTEGER NOT NULL DEFAULT 0;\
@@ -263,7 +289,8 @@ const MIGRATIONS: &[(u32, &str)] = &[
     fetched_at  INTEGER NOT NULL,\
     PRIMARY KEY (sha1_prefix)\
   );\
-  "),
+  ",
+    ),
 ];
 
 /// A cloneable handle to a single SQLite WAL-mode connection.
@@ -278,12 +305,14 @@ pub struct Db(pub Arc<Mutex<Connection>>);
 impl Db {
     pub fn open(path: &Path) -> Result<Self> {
         let conn = Connection::open(path).context("open SQLite")?;
-        conn.execute_batch("
+        conn.execute_batch(
+            "
             PRAGMA journal_mode = WAL;
             PRAGMA synchronous  = NORMAL;
             PRAGMA foreign_keys = ON;
             PRAGMA mmap_size    = 268435456;
-        ")?;
+        ",
+        )?;
         let db = Db(Arc::new(Mutex::new(conn)));
         db.migrate()?;
         Ok(db)
@@ -308,8 +337,9 @@ impl Db {
                         if upper.contains("ALTER TABLE") && upper.contains("ADD COLUMN") {
                             let _ = exec_idempotent(&conn, &format!("{};", stmt));
                         } else {
-                            conn.execute_batch(&format!("{};", stmt))
-                                .with_context(|| format!("migration v{v}: {}", &stmt[..stmt.len().min(80)]))?;
+                            conn.execute_batch(&format!("{};", stmt)).with_context(|| {
+                                format!("migration v{v}: {}", &stmt[..stmt.len().min(80)])
+                            })?;
                         }
                     }
                 } else {
@@ -323,7 +353,9 @@ impl Db {
     }
 
     pub fn get_setting(&self, key: &str) -> Option<String> {
-        self.0.lock().unwrap()
+        self.0
+            .lock()
+            .unwrap()
             .query_row("SELECT value FROM meta WHERE key=?1", [key], |r| r.get(0))
             .ok()
     }
@@ -338,12 +370,15 @@ impl Db {
     }
 }
 
-pub fn new_id() -> String { uuid::Uuid::new_v4().to_string() }
+pub fn new_id() -> String {
+    uuid::Uuid::new_v4().to_string()
+}
 
 pub fn unix_now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default().as_secs() as i64
+        .unwrap_or_default()
+        .as_secs() as i64
 }
 
 pub fn week_start(ts: i64) -> i64 {
@@ -353,21 +388,23 @@ pub fn week_start(ts: i64) -> i64 {
 
 pub(super) fn bundle_row(r: &rusqlite::Row) -> rusqlite::Result<BundleRow> {
     Ok(BundleRow {
-        id:               r.get(0)?,
-        url:              r.get(1)?,
-        title:            r.get(2)?,
-        content_hash:     r.get(3)?,
-        bundle_path:      r.get(4)?,
-        tfidf_tags:       r.get(5)?,
-        bundle_size:      r.get(6)?,
-        frozen_at:        r.get(7)?,
-        workspace_id:     r.get(8)?,
-        index_tier:       r.get::<_, String>(9).unwrap_or_else(|_| "hot".to_string()),
+        id: r.get(0)?,
+        url: r.get(1)?,
+        title: r.get(2)?,
+        content_hash: r.get(3)?,
+        bundle_path: r.get(4)?,
+        tfidf_tags: r.get(5)?,
+        bundle_size: r.get(6)?,
+        frozen_at: r.get(7)?,
+        workspace_id: r.get(8)?,
+        index_tier: r.get::<_, String>(9).unwrap_or_else(|_| "hot".to_string()),
         last_accessed_at: r.get::<_, Option<i64>>(10).unwrap_or(None),
     })
 }
 
-pub(super) trait OptionalExt<T> { fn optional(self) -> Result<Option<T>>; }
+pub(super) trait OptionalExt<T> {
+    fn optional(self) -> Result<Option<T>>;
+}
 impl<T> OptionalExt<T> for rusqlite::Result<T> {
     fn optional(self) -> Result<Option<T>> {
         match self {
@@ -395,7 +432,10 @@ mod tests {
     #[test]
     fn like_escape_chars() {
         let q = "50%_test";
-        let esc = q.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
+        let esc = q
+            .replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_");
         assert_eq!(esc, "50\\%\\_test");
     }
 }

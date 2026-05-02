@@ -1,4 +1,3 @@
-
 use std::borrow::Cow;
 use url::Url;
 
@@ -16,8 +15,8 @@ static PROTECTED_PARAMS: &[&str] = &[
     "apikey",
     "key",
     "nonce",
-    "state",      // OAuth2 CSRF state — must be preserved
-    "code",       // OAuth2 authorisation code
+    "state", // OAuth2 CSRF state — must be preserved
+    "code",  // OAuth2 authorisation code
     "oauth_token",
     "csrf",
     "csrf_token",
@@ -81,34 +80,28 @@ static STRIP_PARAMS: &[&str] = &[
     "_kx",
     "sg_uid",
     "sg_mid",
-    "tag",      // Amazon affiliate tag (note: also used by some non-trackers; see prefix rule below)
+    "tag", // Amazon affiliate tag (note: also used by some non-trackers; see prefix rule below)
     "psc",
     "smid",
     "obOrigUrl",
     "tblci",
     "click_id",
     "clickid",
-    "cid",          // generic campaign ID (not session ID)
+    "cid", // generic campaign ID (not session ID)
     "icid",
     "ncid",
     "ocid",
-    "yclid",        // Yandex
+    "yclid", // Yandex
     "wickedid",
-    "irclickid",    // Impact Radius
+    "irclickid", // Impact Radius
     "sref",
     "otc",
-    "referrer",     // plain "referrer" param (not the Referer header)
+    "referrer", // plain "referrer" param (not the Referer header)
     "ref_src",
     "ref_url",
 ];
 
-static STRIP_PREFIXES: &[&str] = &[
-    "utm_",
-    "hsa_",
-    "fb_",
-    "ga_",
-    "iterable",
-];
+static STRIP_PREFIXES: &[&str] = &["utm_", "hsa_", "fb_", "ga_", "iterable"];
 
 /// Strip known tracking parameters from a URL string.
 /// Returns the cleaned URL. If parsing fails, the original string is returned.
@@ -149,7 +142,10 @@ fn should_strip(name: &str) -> bool {
         return true;
     }
 
-    if STRIP_PREFIXES.iter().any(|prefix| lower.starts_with(prefix)) {
+    if STRIP_PREFIXES
+        .iter()
+        .any(|prefix| lower.starts_with(prefix))
+    {
         return true;
     }
 
@@ -163,7 +159,7 @@ mod tests {
     #[test]
     fn strips_utm_params() {
         let input = "https://example.com/page?utm_source=twitter&utm_campaign=launch&q=rust";
-        let out   = strip(input);
+        let out = strip(input);
         assert!(out.contains("q=rust"), "functional param preserved");
         assert!(!out.contains("utm_source"), "utm_source stripped");
         assert!(!out.contains("utm_campaign"), "utm_campaign stripped");
@@ -172,7 +168,7 @@ mod tests {
     #[test]
     fn preserves_session_params() {
         let input = "https://example.com/login?session_id=abc123&fbclid=XYZ";
-        let out   = strip(input);
+        let out = strip(input);
         assert!(out.contains("session_id=abc123"), "session_id protected");
         assert!(!out.contains("fbclid"), "fbclid stripped");
     }
@@ -180,7 +176,7 @@ mod tests {
     #[test]
     fn preserves_oauth_state() {
         let input = "https://auth.example.com/callback?code=AUTH_CODE&state=CSRF_STATE&fbclid=X";
-        let out   = strip(input);
+        let out = strip(input);
         assert!(out.contains("code=AUTH_CODE"), "OAuth code protected");
         assert!(out.contains("state=CSRF_STATE"), "OAuth state protected");
         assert!(!out.contains("fbclid"), "fbclid stripped");
@@ -189,21 +185,21 @@ mod tests {
     #[test]
     fn no_change_on_clean_url() {
         let input = "https://example.com/page?q=hello&page=2";
-        let out   = strip(input);
+        let out = strip(input);
         assert_eq!(out.as_ref(), input);
     }
 
     #[test]
     fn handles_unparseable_url() {
         let input = "not a url at all";
-        let out   = strip(input);
+        let out = strip(input);
         assert_eq!(out.as_ref(), input);
     }
 
     #[test]
     fn strips_gclid_and_fbclid() {
         let input = "https://shop.example.com/item?id=42&gclid=Cj0K&fbclid=IwAR&color=red";
-        let out   = strip(input);
+        let out = strip(input);
         assert!(out.contains("id=42"), "functional id kept");
         assert!(out.contains("color=red"), "functional color kept");
         assert!(!out.contains("gclid"), "gclid stripped");
@@ -213,10 +209,9 @@ mod tests {
     #[test]
     fn strips_custom_prefix() {
         let input = "https://example.com/?hsa_acc=123&hsa_net=adwords&q=test";
-        let out   = strip(input);
+        let out = strip(input);
         assert!(out.contains("q=test"));
         assert!(!out.contains("hsa_acc"));
         assert!(!out.contains("hsa_net"));
     }
 }
-

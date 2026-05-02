@@ -1,4 +1,3 @@
-
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
@@ -20,7 +19,7 @@ pub fn builtin_boosts() -> Vec<BoostRule> {
         BoostRule {
             id: "builtin-clean-reader".to_owned(),
             name: "Clean Reader".to_owned(),
-            domain: "*".to_owned(),  // global — applies to all domains
+            domain: "*".to_owned(), // global — applies to all domains
             css: include_str!("../../resources/boosts/clean-reader.css").to_owned(),
             enabled: false,
             builtin: true,
@@ -68,19 +67,28 @@ pub fn upsert(db: &crate::storage::db::Db, rule: &BoostRule) -> Result<()> {
          (id, name, domain, css, enabled, builtin, created_at) \
          VALUES (?1,?2,?3,?4,?5,?6,?7)",
         rusqlite::params![
-            rule.id, rule.name, rule.domain, rule.css,
-            rule.enabled as i64, rule.builtin as i64, rule.created_at
+            rule.id,
+            rule.name,
+            rule.domain,
+            rule.css,
+            rule.enabled as i64,
+            rule.builtin as i64,
+            rule.created_at
         ],
-    ).context("boosts upsert")?;
+    )
+    .context("boosts upsert")?;
     Ok(())
 }
 
 /// Delete a user Boost (built-ins cannot be deleted).
 pub fn delete(db: &crate::storage::db::Db, id: &str) -> Result<()> {
-    db.0.lock().unwrap().execute(
-        "DELETE FROM boosts WHERE id = ?1 AND builtin = 0",
-        rusqlite::params![id],
-    ).context("boosts delete")?;
+    db.0.lock()
+        .unwrap()
+        .execute(
+            "DELETE FROM boosts WHERE id = ?1 AND builtin = 0",
+            rusqlite::params![id],
+        )
+        .context("boosts delete")?;
     Ok(())
 }
 
@@ -91,17 +99,19 @@ pub fn boosts_for_domain(db: &crate::storage::db::Db, page_domain: &str) -> Resu
 
     let mut stmt = conn.prepare(
         "SELECT id, name, domain, css, enabled, builtin, created_at \
-         FROM boosts WHERE enabled = 1"
+         FROM boosts WHERE enabled = 1",
     )?;
-    let rows = stmt.query_map([], |r| Ok(BoostRule {
-        id:         r.get(0)?,
-        name:       r.get(1)?,
-        domain:     r.get(2)?,
-        css:        r.get(3)?,
-        enabled:    r.get::<_, i64>(4)? != 0,
-        builtin:    r.get::<_, i64>(5)? != 0,
-        created_at: r.get(6)?,
-    }))?;
+    let rows = stmt.query_map([], |r| {
+        Ok(BoostRule {
+            id: r.get(0)?,
+            name: r.get(1)?,
+            domain: r.get(2)?,
+            css: r.get(3)?,
+            enabled: r.get::<_, i64>(4)? != 0,
+            builtin: r.get::<_, i64>(5)? != 0,
+            created_at: r.get(6)?,
+        })
+    })?;
 
     let all: Vec<BoostRule> = rows
         .filter_map(|r| r.ok())
@@ -118,15 +128,17 @@ pub fn all_boosts(db: &crate::storage::db::Db) -> Result<Vec<BoostRule>> {
     let mut stmt = conn.prepare(
         "SELECT id, name, domain, css, enabled, builtin, created_at FROM boosts ORDER BY created_at"
     )?;
-    let rows = stmt.query_map([], |r| Ok(BoostRule {
-        id:         r.get(0)?,
-        name:       r.get(1)?,
-        domain:     r.get(2)?,
-        css:        r.get(3)?,
-        enabled:    r.get::<_, i64>(4)? != 0,
-        builtin:    r.get::<_, i64>(5)? != 0,
-        created_at: r.get(6)?,
-    }))?;
+    let rows = stmt.query_map([], |r| {
+        Ok(BoostRule {
+            id: r.get(0)?,
+            name: r.get(1)?,
+            domain: r.get(2)?,
+            css: r.get(3)?,
+            enabled: r.get::<_, i64>(4)? != 0,
+            builtin: r.get::<_, i64>(5)? != 0,
+            created_at: r.get(6)?,
+        })
+    })?;
     rows.collect::<rusqlite::Result<_>>().context("all_boosts")
 }
 
@@ -136,13 +148,15 @@ pub fn seed_builtins(db: &crate::storage::db::Db) -> Result<()> {
     ensure_table(&conn)?;
     drop(conn); // release lock before calling upsert()
     for mut b in builtin_boosts() {
-        let existing_enabled: Option<bool> = db.0.lock().unwrap()
-            .query_row(
-                "SELECT enabled FROM boosts WHERE id = ?1",
-                rusqlite::params![b.id],
-                |r| r.get::<_, i64>(0).map(|v| v != 0),
-            )
-            .ok();
+        let existing_enabled: Option<bool> =
+            db.0.lock()
+                .unwrap()
+                .query_row(
+                    "SELECT enabled FROM boosts WHERE id = ?1",
+                    rusqlite::params![b.id],
+                    |r| r.get::<_, i64>(0).map(|v| v != 0),
+                )
+                .ok();
         if let Some(e) = existing_enabled {
             b.enabled = e;
         }
@@ -161,7 +175,7 @@ fn ensure_table(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
             enabled INTEGER NOT NULL DEFAULT 0,
             builtin INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL DEFAULT 0
-        );"
+        );",
     )
 }
 
@@ -191,4 +205,3 @@ mod tests {
         assert!(!domain_matches("reddit.com", "evil-reddit.com"));
     }
 }
-

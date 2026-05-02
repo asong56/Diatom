@@ -16,7 +16,10 @@ pub enum SecurityType {
 impl SecurityType {
     /// Returns true if this security type should trigger GhostPipe activation.
     pub fn is_untrusted(&self) -> bool {
-        matches!(self, SecurityType::Open | SecurityType::Wep | SecurityType::Unknown)
+        matches!(
+            self,
+            SecurityType::Open | SecurityType::Wep | SecurityType::Unknown
+        )
     }
 }
 
@@ -42,84 +45,141 @@ pub struct TrustedNetwork {
 /// Returns None if not connected to Wi-Fi or detection fails.
 pub fn detect_current_network() -> Option<WifiInfo> {
     #[cfg(target_os = "macos")]
-    { macos_wifi() }
+    {
+        macos_wifi()
+    }
 
     #[cfg(target_os = "windows")]
-    { windows_wifi() }
+    {
+        windows_wifi()
+    }
 
     #[cfg(target_os = "linux")]
-    { linux_wifi() }
+    {
+        linux_wifi()
+    }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-    { None }
+    {
+        None
+    }
 }
 
 #[cfg(target_os = "macos")]
 fn macos_wifi() -> Option<WifiInfo> {
     let out = std::process::Command::new("networksetup")
         .args(["-getairportnetwork", "en0"])
-        .output().ok()?;
+        .output()
+        .ok()?;
     let text = String::from_utf8_lossy(&out.stdout);
-    let ssid = text.trim().strip_prefix("Current Wi-Fi Network: ")?.trim().to_owned();
+    let ssid = text
+        .trim()
+        .strip_prefix("Current Wi-Fi Network: ")?
+        .trim()
+        .to_owned();
 
     let airport_out = std::process::Command::new(
-        "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport"
-    ).arg("-I").output().ok()?;
+        "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport",
+    )
+    .arg("-I")
+    .output()
+    .ok()?;
     let airport_text = String::from_utf8_lossy(&airport_out.stdout);
 
     let bssid = parse_kv(&airport_text, "BSSID").unwrap_or_else(|| "00:00:00:00:00:00".to_owned());
-    let auth   = parse_kv(&airport_text, "link auth").unwrap_or_default().to_lowercase();
+    let auth = parse_kv(&airport_text, "link auth")
+        .unwrap_or_default()
+        .to_lowercase();
 
-    let security = if auth.contains("wpa3")      { SecurityType::Wpa3 }
-                   else if auth.contains("wpa2") { SecurityType::Wpa2 }
-                   else if auth.contains("wpa")  { SecurityType::Wpa }
-                   else if auth.contains("wep")  { SecurityType::Wep }
-                   else if auth.is_empty() || auth.contains("open") { SecurityType::Open }
-                   else                           { SecurityType::Unknown };
+    let security = if auth.contains("wpa3") {
+        SecurityType::Wpa3
+    } else if auth.contains("wpa2") {
+        SecurityType::Wpa2
+    } else if auth.contains("wpa") {
+        SecurityType::Wpa
+    } else if auth.contains("wep") {
+        SecurityType::Wep
+    } else if auth.is_empty() || auth.contains("open") {
+        SecurityType::Open
+    } else {
+        SecurityType::Unknown
+    };
 
-    Some(WifiInfo { ssid, bssid, security, signal_dbm: None })
+    Some(WifiInfo {
+        ssid,
+        bssid,
+        security,
+        signal_dbm: None,
+    })
 }
 
 #[cfg(target_os = "windows")]
 fn windows_wifi() -> Option<WifiInfo> {
     let out = std::process::Command::new("netsh")
         .args(["wlan", "show", "interfaces"])
-        .output().ok()?;
+        .output()
+        .ok()?;
     let text = String::from_utf8_lossy(&out.stdout);
 
-    let ssid  = parse_kv(&text, "SSID")?;
+    let ssid = parse_kv(&text, "SSID")?;
     let bssid = parse_kv(&text, "BSSID").unwrap_or_else(|| "00:00:00:00:00:00".to_owned());
-    let auth  = parse_kv(&text, "Authentication").unwrap_or_default().to_lowercase();
+    let auth = parse_kv(&text, "Authentication")
+        .unwrap_or_default()
+        .to_lowercase();
 
-    let security = if auth.contains("wpa3-personal") || auth.contains("wpa3-enterprise") { SecurityType::Wpa3 }
-                   else if auth.contains("wpa2")    { SecurityType::Wpa2 }
-                   else if auth.contains("wpa")     { SecurityType::Wpa }
-                   else if auth.contains("wep")     { SecurityType::Wep }
-                   else if auth.contains("open")    { SecurityType::Open }
-                   else                             { SecurityType::Unknown };
+    let security = if auth.contains("wpa3-personal") || auth.contains("wpa3-enterprise") {
+        SecurityType::Wpa3
+    } else if auth.contains("wpa2") {
+        SecurityType::Wpa2
+    } else if auth.contains("wpa") {
+        SecurityType::Wpa
+    } else if auth.contains("wep") {
+        SecurityType::Wep
+    } else if auth.contains("open") {
+        SecurityType::Open
+    } else {
+        SecurityType::Unknown
+    };
 
-    Some(WifiInfo { ssid, bssid, security, signal_dbm: None })
+    Some(WifiInfo {
+        ssid,
+        bssid,
+        security,
+        signal_dbm: None,
+    })
 }
 
 #[cfg(target_os = "linux")]
 fn linux_wifi() -> Option<WifiInfo> {
     let out = std::process::Command::new("nmcli")
-        .args(["-t", "--escape", "no", "-f", "ACTIVE,SSID,BSSID,SECURITY", "device", "wifi"])
-        .output().ok()?;
+        .args([
+            "-t",
+            "--escape",
+            "no",
+            "-f",
+            "ACTIVE,SSID,BSSID,SECURITY",
+            "device",
+            "wifi",
+        ])
+        .output()
+        .ok()?;
     let text = String::from_utf8_lossy(&out.stdout);
 
     for line in text.lines() {
-        if !line.starts_with("yes:") { continue; }
+        if !line.starts_with("yes:") {
+            continue;
+        }
 
         let rest = &line["yes:".len()..];
 
-        let bssid_start = rest.find(|c: char| c.is_ascii_hexdigit())
-            .and_then(|_| {
-                rest.char_indices().find(|&(i, _)| {
+        let bssid_start = rest.find(|c: char| c.is_ascii_hexdigit()).and_then(|_| {
+            rest.char_indices()
+                .find(|&(i, _)| {
                     let candidate = rest.get(i..i + 17)?;
                     is_mac_address(candidate)
-                }).map(|(i, _)| i)
-            });
+                })
+                .map(|(i, _)| i)
+        });
 
         let (ssid, bssid, sec_text) = if let Some(bi) = bssid_start {
             let ssid = rest[..bi.saturating_sub(1)].to_owned(); // strip trailing ':'
@@ -128,21 +188,35 @@ fn linux_wifi() -> Option<WifiInfo> {
             (ssid, bssid, sec_text)
         } else {
             let parts: Vec<&str> = rest.splitn(9, ':').collect();
-            if parts.len() < 7 { continue; }
+            if parts.len() < 7 {
+                continue;
+            }
             let ssid = parts[0].to_owned();
             let bssid = parts[1..7].join(":");
             let sec_text = parts[7..].join(":").to_lowercase();
             (ssid, bssid, sec_text)
         };
 
-        let security = if sec_text.contains("wpa3")       { SecurityType::Wpa3 }
-                       else if sec_text.contains("wpa2")  { SecurityType::Wpa2 }
-                       else if sec_text.contains("wpa")   { SecurityType::Wpa }
-                       else if sec_text.contains("wep")   { SecurityType::Wep }
-                       else if sec_text.trim().is_empty() { SecurityType::Open }
-                       else                               { SecurityType::Unknown };
+        let security = if sec_text.contains("wpa3") {
+            SecurityType::Wpa3
+        } else if sec_text.contains("wpa2") {
+            SecurityType::Wpa2
+        } else if sec_text.contains("wpa") {
+            SecurityType::Wpa
+        } else if sec_text.contains("wep") {
+            SecurityType::Wep
+        } else if sec_text.trim().is_empty() {
+            SecurityType::Open
+        } else {
+            SecurityType::Unknown
+        };
 
-        return Some(WifiInfo { ssid, bssid, security, signal_dbm: None });
+        return Some(WifiInfo {
+            ssid,
+            bssid,
+            security,
+            signal_dbm: None,
+        });
     }
     None
 }
@@ -150,12 +224,18 @@ fn linux_wifi() -> Option<WifiInfo> {
 /// Returns true if `s` matches the pattern `XX:XX:XX:XX:XX:XX` (MAC address).
 #[cfg(target_os = "linux")]
 fn is_mac_address(s: &str) -> bool {
-    if s.len() != 17 { return false; }
+    if s.len() != 17 {
+        return false;
+    }
     let b = s.as_bytes();
     for i in 0..6 {
         let off = i * 3;
-        if !b[off].is_ascii_hexdigit() || !b[off + 1].is_ascii_hexdigit() { return false; }
-        if i < 5 && b[off + 2] != b':' { return false; }
+        if !b[off].is_ascii_hexdigit() || !b[off + 1].is_ascii_hexdigit() {
+            return false;
+        }
+        if i < 5 && b[off + 2] != b':' {
+            return false;
+        }
     }
     true
 }
@@ -169,7 +249,9 @@ fn parse_kv(text: &str, key: &str) -> Option<String> {
 
 /// Check whether a given (ssid, bssid) pair is in the trusted networks list.
 pub fn is_trusted(db: &crate::storage::db::Db, ssid: &str, bssid: &str) -> bool {
-    trusted_networks(db).iter().any(|n| n.ssid == ssid && n.bssid == bssid)
+    trusted_networks(db)
+        .iter()
+        .any(|n| n.ssid == ssid && n.bssid == bssid)
 }
 
 /// Add a network to the trusted list.
@@ -180,7 +262,10 @@ pub fn trust_network(db: &crate::storage::db::Db, ssid: &str, bssid: &str) -> Re
         bssid: bssid.to_owned(),
         added_at: crate::storage::db::unix_now(),
     };
-    if !networks.iter().any(|n| n.ssid == entry.ssid && n.bssid == entry.bssid) {
+    if !networks
+        .iter()
+        .any(|n| n.ssid == entry.ssid && n.bssid == entry.bssid)
+    {
         networks.push(entry);
     }
     persist_trusted_networks(db, &networks)
@@ -201,7 +286,10 @@ fn trusted_networks(db: &crate::storage::db::Db) -> Vec<TrustedNetwork> {
         .unwrap_or_default()
 }
 
-fn persist_trusted_networks(db: &crate::storage::db::Db, networks: &[TrustedNetwork]) -> Result<()> {
+fn persist_trusted_networks(
+    db: &crate::storage::db::Db,
+    networks: &[TrustedNetwork],
+) -> Result<()> {
     db.set_setting("wifi_trusted_networks", &serde_json::to_string(networks)?)?;
     Ok(())
 }

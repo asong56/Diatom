@@ -1,4 +1,3 @@
-
 use aes_gcm::{
     Aes256Gcm, Nonce,
     aead::{Aead, KeyInit, OsRng},
@@ -15,9 +14,7 @@ use std::{
 };
 use zeroize::Zeroize;
 
-use crate::{
-    storage::db::{BundleRow, new_id, unix_now},
-};
+use crate::storage::db::{BundleRow, new_id, unix_now};
 
 const EWBN_MAGIC: &[u8; 4] = b"EWBT";
 const EWBN_VERSION: u32 = 1;
@@ -134,17 +131,21 @@ fn strip_trackers(html: &str) -> String {
     /// handling `>` inside single- and double-quoted attribute values.
     fn find_tag_end(html: &str, start: usize) -> usize {
         #[derive(PartialEq)]
-        enum S { Tag, DQuote, SQuote }
+        enum S {
+            Tag,
+            DQuote,
+            SQuote,
+        }
         let mut state = S::Tag;
         let bytes = html.as_bytes();
         let mut i = start;
         while i < bytes.len() {
             match (state, bytes[i]) {
-                (S::Tag, b'"')    => state = S::DQuote,
-                (S::Tag, b''')  => state = S::SQuote,
-                (S::Tag, b'>')   => return i + 1,
+                (S::Tag, b'"') => state = S::DQuote,
+                (S::Tag, b'\'') => state = S::SQuote,
+                (S::Tag, b'>') => return i + 1,
                 (S::DQuote, b'"') => state = S::Tag,
-                (S::SQuote, b''') => state = S::Tag,
+                (S::SQuote, b'\'') => state = S::Tag,
                 _ => {}
             }
             i += 1;
@@ -171,8 +172,8 @@ fn strip_trackers(html: &str) -> String {
 
             let has_tracker_src = is_external && AC.is_match(tag);
             let is_tracking_pixel = lower.starts_with("<img")
-                && (lower.contains("width="1"") || lower.contains("width='1'"))
-                && (lower.contains("height="1"") || lower.contains("height='1'"));
+                && (lower.contains("width=\"1\"") || lower.contains("width='1'"))
+                && (lower.contains("height=\"1\"") || lower.contains("height='1'"));
 
             if has_tracker_src || is_tracking_pixel {
                 let close_tag = if lower.starts_with("<script") && !lower.contains("/>") {
@@ -207,7 +208,11 @@ fn strip_trackers(html: &str) -> String {
 /// Derive a per-bundle AES key, encrypt `plaintext`, then immediately zeroize
 /// the derived key. This ensures the 32-byte bundle key never outlives the
 /// encrypt call, even if the caller panics.
-fn derive_bundle_key_and_encrypt(master_key: &[u8; 32], bundle_id: &str, plaintext: &[u8]) -> Result<Vec<u8>> {
+fn derive_bundle_key_and_encrypt(
+    master_key: &[u8; 32],
+    bundle_id: &str,
+    plaintext: &[u8],
+) -> Result<Vec<u8>> {
     let mut bundle_key = derive_bundle_key(master_key, bundle_id)?;
     let result = aes_gcm_encrypt(&bundle_key, plaintext);
     bundle_key.zeroize();
@@ -291,13 +296,16 @@ fn gzip_decompress(data: &[u8]) -> Result<String> {
     // bomb, bypassing the parse_ewbn compressed-size check (zip bomb fix).
     const MAX_DECOMPRESSED_BYTES: u64 = 512 * 1024 * 1024; // 512 MB
 
-    let mut dec = GzDecoder::new(data);
+    let dec = GzDecoder::new(data);
     let mut s = String::new();
     dec.take(MAX_DECOMPRESSED_BYTES + 1)
         .read_to_string(&mut s)
         .context("gzip decompress")?;
     if s.len() as u64 > MAX_DECOMPRESSED_BYTES {
-        bail!("decompressed bundle HTML exceeds {} MB limit", MAX_DECOMPRESSED_BYTES / 1024 / 1024);
+        bail!(
+            "decompressed bundle HTML exceeds {} MB limit",
+            MAX_DECOMPRESSED_BYTES / 1024 / 1024
+        );
     }
     Ok(s)
 }
@@ -327,7 +335,11 @@ fn parse_ewbn(raw: &[u8]) -> Result<Vec<u8>> {
     // .ewbn could declare a 4 GB payload and cause an OOM before decryption.
     const MAX_BUNDLE_BYTES: usize = 256 * 1024 * 1024; // 256 MB (compressed)
     if payload_len > MAX_BUNDLE_BYTES {
-        bail!(".ewbn payload_len {} exceeds {} MB limit", payload_len, MAX_BUNDLE_BYTES / 1024 / 1024);
+        bail!(
+            ".ewbn payload_len {} exceeds {} MB limit",
+            payload_len,
+            MAX_BUNDLE_BYTES / 1024 / 1024
+        );
     }
 
     if raw.len() < 16 + payload_len {
@@ -380,9 +392,7 @@ pub fn get_or_init_master_key(db: &crate::storage::db::Db) -> Result<[u8; 32]> {
     let mut key = [0u8; 32];
     OsRng.fill_bytes(&mut key);
     db.set_setting("master_key_hex", &hex::encode(key))?;
-    tracing::warn!(
-        "Generated new master key (stored in DB — consider enabling keychain support)."
-    );
+    tracing::warn!("Generated new master key (stored in DB — consider enabling keychain support).");
     Ok(key)
 }
 
@@ -479,10 +489,14 @@ mod tests {
         let ct1 = derive_bundle_key_and_encrypt(&master, "bundle-aaa", plain).unwrap();
         let ct2 = derive_bundle_key_and_encrypt(&master, "bundle-bbb", plain).unwrap();
         // Keys differ → decrypting ct1 with bundle-bbb key must fail
-        assert!(derive_bundle_key_and_decrypt(&master, "bundle-bbb", ct1).is_err(),
-            "decrypting with wrong bundle_id must fail");
-        assert!(derive_bundle_key_and_decrypt(&master, "bundle-aaa", ct2).is_err(),
-            "decrypting with wrong bundle_id must fail");
+        assert!(
+            derive_bundle_key_and_decrypt(&master, "bundle-bbb", ct1).is_err(),
+            "decrypting with wrong bundle_id must fail"
+        );
+        assert!(
+            derive_bundle_key_and_decrypt(&master, "bundle-aaa", ct2).is_err(),
+            "decrypting with wrong bundle_id must fail"
+        );
     }
 
     #[test]
@@ -504,7 +518,14 @@ mod tests {
         let dir = tempdir().unwrap();
         let key = [0xABu8; 32];
         let html = "<html><body>test freeze</body></html>";
-        let result = freeze_page(html, "https://example.com", "Test", "ws-0", &key, dir.path());
+        let result = freeze_page(
+            html,
+            "https://example.com",
+            "Test",
+            "ws-0",
+            &key,
+            dir.path(),
+        );
         assert!(result.is_ok());
         let bundle = result.unwrap();
         let bundle_id = bundle.bundle_row.id.clone();
@@ -516,19 +537,22 @@ mod tests {
     #[test]
     fn parse_ewbn_rejects_oversized_payload() {
         let mut raw = Vec::new();
-        raw.extend_from_slice(b"EWBT");                              // magic
-        raw.extend_from_slice(&1u32.to_le_bytes());                  // version
+        raw.extend_from_slice(b"EWBT"); // magic
+        raw.extend_from_slice(&1u32.to_le_bytes()); // version
         raw.extend_from_slice(&(512u64 * 1024 * 1024).to_le_bytes()); // 512 MB — over limit
-        raw.extend_from_slice(&[0u8; 32]);                           // stub payload
-        assert!(parse_ewbn(&raw).is_err(), "must reject oversized payload_len");
+        raw.extend_from_slice(&[0u8; 32]); // stub payload
+        assert!(
+            parse_ewbn(&raw).is_err(),
+            "must reject oversized payload_len"
+        );
     }
 
     /// Compile-time hex codec sanity check: hex::encode → hex::decode is identity.
     #[test]
     fn hex_codec_roundtrip() {
         let original = b"diatom-master-key-test-32-bytes!";
-        let encoded  = hex::encode(original);
-        let decoded  = hex::decode(&encoded).expect("hex decode must succeed");
+        let encoded = hex::encode(original);
+        let decoded = hex::decode(&encoded).expect("hex decode must succeed");
         assert_eq!(decoded, original, "hex round-trip must be identity");
         assert_eq!(encoded.len(), 64);
     }

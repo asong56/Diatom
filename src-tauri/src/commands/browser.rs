@@ -40,28 +40,35 @@ pub async fn cmd_tab_activate(tab_id: String, state: St<'_>) -> Result<(), Strin
 /// Record a navigation event so dwell time and history can be updated.
 #[tauri::command]
 pub async fn cmd_tab_update(
-    tab_id:   String,
-    url:      String,
-    title:    String,
+    tab_id: String,
+    url: String,
+    title: String,
     dwell_ms: Option<u64>,
     state: St<'_>,
 ) -> Result<(), String> {
-    state.tabs.lock().unwrap().update(&tab_id, &url, &title, dwell_ms);
+    state
+        .tabs
+        .lock()
+        .unwrap()
+        .update(&tab_id, &url, &title, dwell_ms);
     Ok(())
 }
 
 #[tauri::command]
 pub async fn cmd_tab_sleep(
-    tab_id:   String,
-    deep:     bool,
+    tab_id: String,
+    deep: bool,
     snapshot: Option<String>,
     state: St<'_>,
 ) -> Result<(), String> {
     let mut tabs = state.tabs.lock().unwrap();
     if deep {
         let snap = snapshot.unwrap_or_default();
-        if !snap.is_empty() { tabs.deep_sleep(&tab_id, &snap); }
-        else                 { tabs.shallow_sleep(&tab_id); }
+        if !snap.is_empty() {
+            tabs.deep_sleep(&tab_id, &snap);
+        } else {
+            tabs.shallow_sleep(&tab_id);
+        }
     } else {
         tabs.shallow_sleep(&tab_id);
     }
@@ -90,14 +97,16 @@ pub async fn cmd_tab_limit_get(state: St<'_>) -> Result<u32, String> {
 
 #[tauri::command]
 pub async fn cmd_tab_limit_set(limit: u32, state: St<'_>) -> Result<(), String> {
-    let cfg = crate::browser::budget::TabBudgetConfig { max_tabs: limit.clamp(1, 50) };
+    let cfg = crate::browser::budget::TabBudgetConfig {
+        max_tabs: limit.clamp(1, 50),
+    };
     cfg.save(&state.db).map_err(es)
 }
 
 #[tauri::command]
 pub async fn cmd_tab_proxy_set(
     tab_id: String,
-    proxy:  Option<crate::browser::proxy::ProxyConfig>,
+    proxy: Option<crate::browser::proxy::ProxyConfig>,
     state: St<'_>,
 ) -> Result<(), String> {
     state.tab_proxy.set(&tab_id, proxy.clone()).map_err(es)?;
@@ -109,9 +118,12 @@ pub async fn cmd_tab_proxy_set(
 
 #[tauri::command]
 pub async fn cmd_tab_proxy_get(
-    tab_id: String, state: St<'_>,
+    tab_id: String,
+    state: St<'_>,
 ) -> Result<Option<crate::browser::proxy::ProxyConfig>, String> {
-    Ok(state.tab_proxy.get(&tab_id)
+    Ok(state
+        .tab_proxy
+        .get(&tab_id)
         .or_else(|| crate::browser::proxy::load_proxy(&state.db, &tab_id)))
 }
 
@@ -129,25 +141,24 @@ pub async fn cmd_tab_proxy_remove(tab_id: String, state: St<'_>) -> Result<(), S
 #[tauri::command]
 pub async fn cmd_tab_screenshot(app: tauri::AppHandle) -> Result<String, String> {
     use tauri::Manager;
-    let win = app.get_webview_window("main")
+    let win = app
+        .get_webview_window("main")
         .ok_or("main window not found")?;
 
-    let img = tokio::time::timeout(
-        std::time::Duration::from_secs(3),
-        win.capture_image(),
-    )
-    .await
-    .map_err(|_| "screenshot timed out")?
-    .map_err(es)?;
+    let img = tokio::time::timeout(std::time::Duration::from_secs(3), win.capture_image())
+        .await
+        .map_err(|_| "screenshot timed out")?
+        .map_err(es)?;
 
     let (w, h) = (img.width(), img.height());
-    let rgba   = img.rgba().to_vec();
+    let rgba = img.rgba().to_vec();
     let png = tokio::task::spawn_blocking(move || {
         use image::{ImageBuffer, Rgba};
         let buf: ImageBuffer<Rgba<u8>, Vec<u8>> =
             ImageBuffer::from_raw(w, h, rgba).ok_or("invalid image dimensions")?;
         let mut cursor = std::io::Cursor::new(Vec::new());
-        buf.write_to(&mut cursor, image::ImageFormat::Png).map_err(es)?;
+        buf.write_to(&mut cursor, image::ImageFormat::Png)
+            .map_err(es)?;
         Ok::<Vec<u8>, String>(cursor.into_inner())
     })
     .await
@@ -158,22 +169,19 @@ pub async fn cmd_tab_screenshot(app: tauri::AppHandle) -> Result<String, String>
 }
 
 #[tauri::command]
-pub async fn cmd_dom_crush(
-    domain: String, selector: String, state: St<'_>,
-) -> Result<(), String> {
+pub async fn cmd_dom_crush(domain: String, selector: String, state: St<'_>) -> Result<(), String> {
     crate::browser::dom_crusher::add_rule(&state.db, &domain, &selector).map_err(es)
 }
 
 #[tauri::command]
-pub async fn cmd_dom_blocks_for(
-    domain: String, state: St<'_>,
-) -> Result<Vec<String>, String> {
+pub async fn cmd_dom_blocks_for(domain: String, state: St<'_>) -> Result<Vec<String>, String> {
     crate::browser::dom_crusher::rules_for_domain(&state.db, &domain).map_err(es)
 }
 
 #[tauri::command]
 pub async fn cmd_boosts_for_domain(
-    domain: String, state: St<'_>,
+    domain: String,
+    state: St<'_>,
 ) -> Result<Vec<crate::browser::boosts::BoostRule>, String> {
     crate::browser::boosts::boosts_for_domain(&state.db, &domain).map_err(es)
 }
@@ -187,7 +195,8 @@ pub async fn cmd_boosts_list(
 
 #[tauri::command]
 pub async fn cmd_boost_upsert(
-    rule: crate::browser::boosts::BoostRule, state: St<'_>,
+    rule: crate::browser::boosts::BoostRule,
+    state: St<'_>,
 ) -> Result<(), String> {
     if rule.builtin {
         return Err("built-in Boosts cannot be modified via this command".into());

@@ -9,7 +9,8 @@ pub async fn cmd_privacy_config_get(
 
 #[tauri::command]
 pub async fn cmd_privacy_config_set(
-    config: crate::privacy::config::PrivacyConfig, state: St<'_>,
+    config: crate::privacy::config::PrivacyConfig,
+    state: St<'_>,
 ) -> Result<(), String> {
     *state.privacy.write().unwrap() = config;
     Ok(())
@@ -17,7 +18,9 @@ pub async fn cmd_privacy_config_set(
 
 #[tauri::command]
 pub async fn cmd_ohttp_status(state: St<'_>) -> Result<serde_json::Value, String> {
-    let relay   = state.db.get_setting("ohttp_relay")
+    let relay = state
+        .db
+        .get_setting("ohttp_relay")
         .unwrap_or_else(|| crate::privacy::ohttp::OHTTP_RELAYS[0].to_owned());
     let has_key = state.db.get_setting("ohttp_key_config").is_some();
     Ok(serde_json::json!({
@@ -36,10 +39,8 @@ pub async fn cmd_onion_suggest(
 
 #[tauri::command]
 pub async fn cmd_threat_check(url: String, state: St<'_>) -> Result<serde_json::Value, String> {
-    let domain  = crate::utils::domain_of(&url);
-    let flagged = crate::privacy::threat::check_local(
-        &state.threat_list.read().unwrap(), &domain,
-    );
+    let domain = crate::utils::domain_of(&url);
+    let flagged = crate::privacy::threat::check_local(&state.threat_list.read().unwrap(), &domain);
     Ok(serde_json::json!({ "domain": domain, "flagged": flagged }))
 }
 
@@ -57,24 +58,29 @@ pub async fn cmd_wifi_scan() -> Result<Option<crate::privacy::wifi::WifiInfo>, S
 
 #[tauri::command]
 pub async fn cmd_wifi_trust_network(
-    ssid: String, bssid: String, state: St<'_>,
+    ssid: String,
+    bssid: String,
+    state: St<'_>,
 ) -> Result<(), String> {
     crate::privacy::wifi::trust_network(&state.db, &ssid, &bssid).map_err(es)
 }
 
 #[tauri::command]
 pub async fn cmd_wifi_distrust_network(
-    ssid: String, bssid: String, state: St<'_>,
+    ssid: String,
+    bssid: String,
+    state: St<'_>,
 ) -> Result<(), String> {
     crate::privacy::wifi::distrust_network(&state.db, &ssid, &bssid).map_err(es)
 }
 
 #[tauri::command]
 pub async fn cmd_wifi_trusted_networks(state: St<'_>) -> Result<serde_json::Value, String> {
-    let info    = crate::privacy::wifi::detect_current_network();
-    let trusted = info.as_ref().map(|w| {
-        crate::privacy::wifi::is_trusted(&state.db, &w.ssid, &w.bssid)
-    }).unwrap_or(false);
+    let info = crate::privacy::wifi::detect_current_network();
+    let trusted = info
+        .as_ref()
+        .map(|w| crate::privacy::wifi::is_trusted(&state.db, &w.ssid, &w.bssid))
+        .unwrap_or(false);
     Ok(serde_json::json!({ "current": info, "current_trusted": trusted }))
 }
 

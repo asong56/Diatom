@@ -1,4 +1,3 @@
-
 use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -73,7 +72,6 @@ pub enum SlmBackend {
     CandleWasm,
     /// No backend — AI features unavailable.
     None,
-
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -492,10 +490,12 @@ async fn handle_connection(server: Arc<SlmServer>, mut stream: tokio::net::TcpSt
     const MAX_BODY_BYTES: usize = 1 * 1024 * 1024; // 1 MB
     if content_length > MAX_BODY_BYTES {
         use tokio::io::AsyncWriteExt;
-        let body = r#"{"error":{"message":"request body too large","type":"invalid_request_error"}}"#;
+        let body =
+            r#"{"error":{"message":"request body too large","type":"invalid_request_error"}}"#;
         let resp = format!(
             "HTTP/1.1 413 Payload Too Large\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-            body.len(), body
+            body.len(),
+            body
         );
         let _ = stream.write_all(resp.as_bytes()).await;
         return;
@@ -524,7 +524,8 @@ async fn handle_connection(server: Arc<SlmServer>, mut stream: tokio::net::TcpSt
         String::from_utf8_lossy(&body)
     );
 
-    let origin = header_str.lines()
+    let origin = header_str
+        .lines()
         .find(|l| l.to_lowercase().starts_with("origin:"))
         .and_then(|l| l.splitn(2, ':').nth(1))
         .map(|v| v.trim().to_lowercase())
@@ -541,7 +542,8 @@ async fn handle_connection(server: Arc<SlmServer>, mut stream: tokio::net::TcpSt
         let body = r#"{"error":{"message":"forbidden origin","type":"auth_error"}}"#;
         let resp = format!(
             "HTTP/1.1 403 Forbidden\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-            body.len(), body
+            body.len(),
+            body
         );
         let _ = stream.write_all(resp.as_bytes()).await;
         return;
@@ -549,7 +551,11 @@ async fn handle_connection(server: Arc<SlmServer>, mut stream: tokio::net::TcpSt
 
     let (status, resp_body) = handle_request(&server, &full_request).await;
 
-    let cors_origin = if origin.is_empty() { "null".to_owned() } else { origin.clone() };
+    let cors_origin = if origin.is_empty() {
+        "null".to_owned()
+    } else {
+        origin.clone()
+    };
     let response = format!(
         "HTTP/1.1 {}\r\n\
          Content-Type: application/json\r\n\
@@ -560,7 +566,10 @@ async fn handle_connection(server: Arc<SlmServer>, mut stream: tokio::net::TcpSt
          Vary: Origin\r\n\
          Connection: close\r\n\
          \r\n{}",
-        status, resp_body.len(), cors_origin, resp_body
+        status,
+        resp_body.len(),
+        cors_origin,
+        resp_body
     );
     use tokio::io::AsyncWriteExt;
     let _ = stream.write_all(response.as_bytes()).await;
@@ -690,4 +699,3 @@ async fn handle_request(server: &SlmServer, raw: &str) -> (&'static str, String)
         ),
     }
 }
-

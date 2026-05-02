@@ -1,4 +1,3 @@
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,10 +73,16 @@ pub static FEATURE_LEGAL_REGISTRY: &[FeatureLegal] = &[
 /// Check whether the user has consented to a feature that requires it.
 pub fn check_consent(feature_id: &str, db: &crate::storage::db::Db) -> Result<(), String> {
     let feature = FEATURE_LEGAL_REGISTRY.iter().find(|f| f.id == feature_id);
-    let Some(f) = feature else { return Ok(()); };
-    if !f.requires_consent { return Ok(()); }
+    let Some(f) = feature else {
+        return Ok(());
+    };
+    if !f.requires_consent {
+        return Ok(());
+    }
     let key = format!("consent:{}", feature_id);
-    if db.get_setting(&key).as_deref() == Some("true") { return Ok(()); }
+    if db.get_setting(&key).as_deref() == Some("true") {
+        return Ok(());
+    }
     Err(f.consent_text.to_owned())
 }
 
@@ -101,8 +106,11 @@ mod tests {
     fn all_consent_features_have_text() {
         for f in FEATURE_LEGAL_REGISTRY {
             if f.requires_consent {
-                assert!(!f.consent_text.is_empty(),
-                    "Feature '{}' requires consent but has no consent text", f.id);
+                assert!(
+                    !f.consent_text.is_empty(),
+                    "Feature '{}' requires consent but has no consent text",
+                    f.id
+                );
             }
         }
     }
@@ -110,14 +118,21 @@ mod tests {
     #[test]
     fn all_features_have_controls() {
         for f in FEATURE_LEGAL_REGISTRY {
-            assert!(!f.controls.is_empty(),
-                "Feature '{}' has no compliance controls listed", f.id);
+            assert!(
+                !f.controls.is_empty(),
+                "Feature '{}' has no compliance controls listed",
+                f.id
+            );
         }
     }
 
     #[test]
     fn no_decoy_traffic_in_registry() {
-        assert!(FEATURE_LEGAL_REGISTRY.iter().all(|f| f.id != "decoy_traffic"),
-            "decoy_traffic must not appear in the legal registry");
+        assert!(
+            FEATURE_LEGAL_REGISTRY
+                .iter()
+                .all(|f| f.id != "decoy_traffic"),
+            "decoy_traffic must not appear in the legal registry"
+        );
     }
 }

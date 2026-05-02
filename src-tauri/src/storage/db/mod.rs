@@ -11,13 +11,13 @@
 //! | vault       | Encrypted vault logins, cards, notes                   |
 //! | tabs        | Tab groups                                             |
 
+mod auth;
 mod core;
-mod types;
 mod history;
 mod museum;
-mod auth;
-mod vault;
 mod tabs;
+mod types;
+mod vault;
 
 // Re-export everything callers need from one flat path: `crate::storage::db::*`
 pub use core::{Db, new_id, unix_now, week_start};

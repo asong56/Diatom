@@ -57,7 +57,9 @@ impl TfIdfIndex {
             *tf.entry(token.clone()).or_insert(0.0) += 1.0;
         }
         let max_tf = tf.values().cloned().fold(0.0f32, f32::max).max(1.0);
-        for v in tf.values_mut() { *v /= max_tf; }
+        for v in tf.values_mut() {
+            *v /= max_tf;
+        }
 
         for term in tf.keys() {
             *self.doc_freq.entry(term.clone()).or_insert(0) += 1;
@@ -72,7 +74,9 @@ impl TfIdfIndex {
 
         let mut scores: HashMap<&str, f32> = HashMap::new();
         for term in &query_terms {
-            let idf = self.doc_freq.get(term)
+            let idf = self
+                .doc_freq
+                .get(term)
                 .map(|&df| (n / (df as f32 + 1.0)).ln() + 1.0)
                 .unwrap_or(0.0);
             for (doc_id, tf_map) in &self.term_freq {
@@ -82,7 +86,8 @@ impl TfIdfIndex {
             }
         }
 
-        let mut ranked: Vec<(String, f32)> = scores.into_iter()
+        let mut ranked: Vec<(String, f32)> = scores
+            .into_iter()
             .map(|(id, s)| (id.to_owned(), s))
             .collect();
         ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -126,19 +131,36 @@ pub struct PerspectiveEntry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PoliticalLean {
-    Left, CenterLeft, Center, CenterRight, Right, Unknown,
+    Left,
+    CenterLeft,
+    Center,
+    CenterRight,
+    Right,
+    Unknown,
 }
 
 /// P2P search (Nostr-based). Returns Err if P2P mode is not enabled.
 pub fn estimate_lean(domain: &str) -> PoliticalLean {
     let d = domain.to_lowercase();
-    if ["theguardian.com", "huffpost.com", "vox.com", "msnbc.com"].iter().any(|s| d.contains(s)) {
+    if ["theguardian.com", "huffpost.com", "vox.com", "msnbc.com"]
+        .iter()
+        .any(|s| d.contains(s))
+    {
         PoliticalLean::Left
-    } else if ["bbc.com", "reuters.com", "apnews.com", "nytimes.com"].iter().any(|s| d.contains(s)) {
+    } else if ["bbc.com", "reuters.com", "apnews.com", "nytimes.com"]
+        .iter()
+        .any(|s| d.contains(s))
+    {
         PoliticalLean::Center
-    } else if ["wsj.com", "economist.com", "ft.com"].iter().any(|s| d.contains(s)) {
+    } else if ["wsj.com", "economist.com", "ft.com"]
+        .iter()
+        .any(|s| d.contains(s))
+    {
         PoliticalLean::CenterRight
-    } else if ["foxnews.com", "breitbart.com", "dailywire.com"].iter().any(|s| d.contains(s)) {
+    } else if ["foxnews.com", "breitbart.com", "dailywire.com"]
+        .iter()
+        .any(|s| d.contains(s))
+    {
         PoliticalLean::Right
     } else {
         PoliticalLean::Unknown
@@ -146,10 +168,7 @@ pub fn estimate_lean(domain: &str) -> PoliticalLean {
 }
 
 /// Generate a Mermaid chart for the bias comparison view
-pub fn generate_mermaid_divergence(
-    topic: &str,
-    perspectives: &[PerspectiveEntry],
-) -> String {
+pub fn generate_mermaid_divergence(topic: &str, perspectives: &[PerspectiveEntry]) -> String {
     let mut mermaid = format!("graph TD\n    T[\"🗞 {topic}\"]\n");
     for (i, p) in perspectives.iter().take(3).enumerate() {
         let lean_icon = match p.estimated_lean {
@@ -176,7 +195,10 @@ mod tests {
 
         let results = idx.search("Rust performance", 3);
         assert!(!results.is_empty());
-        let rust_docs: Vec<_> = results.iter().filter(|(id, _)| id.starts_with("doc1") || id.starts_with("doc3")).collect();
+        let rust_docs: Vec<_> = results
+            .iter()
+            .filter(|(id, _)| id.starts_with("doc1") || id.starts_with("doc3"))
+            .collect();
         assert!(!rust_docs.is_empty());
     }
 

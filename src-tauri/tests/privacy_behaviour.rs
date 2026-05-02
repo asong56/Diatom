@@ -25,7 +25,10 @@ mod url_stripping {
         let clean = strip_tracking_params(dirty);
         assert!(!clean.contains("utm_source"), "utm_source must be stripped");
         assert!(!clean.contains("utm_medium"), "utm_medium must be stripped");
-        assert!(clean.contains("id=42"),       "non-tracking param must be preserved");
+        assert!(
+            clean.contains("id=42"),
+            "non-tracking param must be preserved"
+        );
     }
 
     #[test]
@@ -33,7 +36,7 @@ mod url_stripping {
         let dirty = "https://example.com/?q=rust&fbclid=IwAR3xyzABC";
         let clean = strip_tracking_params(dirty);
         assert!(!clean.contains("fbclid"), "fbclid must be stripped");
-        assert!(clean.contains("q=rust"),  "search query must be preserved");
+        assert!(clean.contains("q=rust"), "search query must be preserved");
     }
 
     #[test]
@@ -41,25 +44,31 @@ mod url_stripping {
         let dirty = "https://shop.example.com/item?gclid=ABC123&ref=homepage";
         let clean = strip_tracking_params(dirty);
         assert!(!clean.contains("gclid"), "gclid must be stripped");
-        assert!(clean.contains("ref="),   "ref param must be preserved");
+        assert!(clean.contains("ref="), "ref param must be preserved");
     }
 
     #[test]
     fn preserves_oauth_state() {
         let url = "https://auth.example.com/callback?code=xyz&state=csrf-token-abc";
         let clean = strip_tracking_params(url);
-        assert!(clean.contains("state=csrf-token-abc"),
-            "OAuth state param must not be stripped (session security)");
+        assert!(
+            clean.contains("state=csrf-token-abc"),
+            "OAuth state param must not be stripped (session security)"
+        );
     }
 
     #[test]
     fn preserves_session_id() {
         let url = "https://example.com/account?session_id=abc123&utm_campaign=x";
         let clean = strip_tracking_params(url);
-        assert!(clean.contains("session_id=abc123"),
-            "session_id must not be stripped");
-        assert!(!clean.contains("utm_campaign"),
-            "utm_campaign must be stripped");
+        assert!(
+            clean.contains("session_id=abc123"),
+            "session_id must not be stripped"
+        );
+        assert!(
+            !clean.contains("utm_campaign"),
+            "utm_campaign must be stripped"
+        );
     }
 
     #[test]
@@ -73,9 +82,12 @@ mod url_stripping {
     fn strips_utm_prefix_variants() {
         let url = "https://example.com/?utm_content=hero&utm_term=keyword&id=1";
         let clean = strip_tracking_params(url);
-        assert!(!clean.contains("utm_content"), "utm_content must be stripped");
-        assert!(!clean.contains("utm_term"),    "utm_term must be stripped");
-        assert!(clean.contains("id=1"),         "id must be preserved");
+        assert!(
+            !clean.contains("utm_content"),
+            "utm_content must be stripped"
+        );
+        assert!(!clean.contains("utm_term"), "utm_term must be stripped");
+        assert!(clean.contains("id=1"), "id must be preserved");
     }
 }
 
@@ -90,24 +102,32 @@ mod fingerprint_normalisation {
     #[test]
     fn generated_script_overrides_hardware_concurrency() {
         let script = FingerprintNorm::default().generate();
-        assert!(script.contains("hardwareConcurrency"),
-            "script must override hardwareConcurrency");
-        assert!(script.contains("8"),
-            "hardwareConcurrency must be normalised to 8");
+        assert!(
+            script.contains("hardwareConcurrency"),
+            "script must override hardwareConcurrency"
+        );
+        assert!(
+            script.contains("8"),
+            "hardwareConcurrency must be normalised to 8"
+        );
     }
 
     #[test]
     fn generated_script_overrides_device_memory() {
         let script = FingerprintNorm::default().generate();
-        assert!(script.contains("deviceMemory"),
-            "script must override deviceMemory");
+        assert!(
+            script.contains("deviceMemory"),
+            "script must override deviceMemory"
+        );
     }
 
     #[test]
     fn generated_script_overrides_canvas() {
         let script = FingerprintNorm::default().generate();
-        assert!(script.contains("toDataURL") || script.contains("toBlob"),
-            "script must intercept Canvas fingerprinting APIs");
+        assert!(
+            script.contains("toDataURL") || script.contains("toBlob"),
+            "script must intercept Canvas fingerprinting APIs"
+        );
     }
 
     #[test]
