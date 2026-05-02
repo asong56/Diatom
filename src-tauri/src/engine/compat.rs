@@ -19,23 +19,35 @@ pub enum CompatTier {
 /// The user sees a subtle indicator and chooses whether to hand off.
 /// No tracking parameters are stripped from the offer — user decides.
 pub const BUILTIN_COMPAT_HINTS: &[&str] = &[
-    "icbc.com.cn", "boc.cn", "ccb.com", "abchina.com",
-    "online.citibank.com", "secure.bankofamerica.com",
-    "chase.com", "wellsfargo.com",
-    "hsbc.com", "barclays.co.uk", "lloydsbank.com",
-    "webex.com", "teams.microsoft.com",
-    "sharepoint.com", "portal.azure.com",
-    "gov.uk", "irs.gov", "ssa.gov",
-    "meituan.com", "12306.cn",
+    "icbc.com.cn",
+    "boc.cn",
+    "ccb.com",
+    "abchina.com",
+    "online.citibank.com",
+    "secure.bankofamerica.com",
+    "chase.com",
+    "wellsfargo.com",
+    "hsbc.com",
+    "barclays.co.uk",
+    "lloydsbank.com",
+    "webex.com",
+    "teams.microsoft.com",
+    "sharepoint.com",
+    "portal.azure.com",
+    "gov.uk",
+    "irs.gov",
+    "ssa.gov",
+    "meituan.com",
+    "12306.cn",
 ];
 
 /// Community compat-hint list URLs (same pull mechanism as filter subscriptions).
 /// Diatom downloads these weekly; the list maintainer takes legal responsibility
 /// for the domain classifications. Diatom acts only as a downloader (cf. §4).
-pub const COMMUNITY_COMPAT_LISTS: &[(&str, &str)] = &[
-    ("Diatom Community Compat List",
-     "https://raw.githubusercontent.com/Ansel-S/diatom-compat-lists/main/hints.txt"),
-];
+pub const COMMUNITY_COMPAT_LISTS: &[(&str, &str)] = &[(
+    "Diatom Community Compat List",
+    "https://raw.githubusercontent.com/Ansel-S/diatom-compat-lists/main/hints.txt",
+)];
 
 impl Default for CompatTier {
     fn default() -> Self {
@@ -103,7 +115,8 @@ impl CompatStore {
 /// This is the ONLY path where Diatom yields the render entirely.
 /// Called from cmd_compat_handoff.
 pub fn system_browser_open(url: &str) -> Result<()> {
-    let clean = crate::engine::blocker::strip_params(&crate::engine::blocker::upgrade_https_owned(url));
+    let clean =
+        crate::engine::blocker::strip_params(&crate::engine::blocker::upgrade_https_owned(url));
     tracing::info!("compat handoff → system browser: {}", clean);
     Ok(())
 }
