@@ -1,0 +1,1537 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Diatom — asong56 Design Manual v0.3 (compiled)
+   Yohaku whitespace · HIG Liquid Glass · Tidal precision
+   Source: DESIGN.md — do not hand-edit generated sections without updating
+   the corresponding rule there first.
+   Compile order: tokens → keyframes → base → components → interactions
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: light;
+
+  /* §2.4 Semantic tokens — light mode */
+  --color-bg:         oklch(98.5% 0.003 260);
+  --color-surface:    oklch(95%   0.004 260);
+  --color-border:     oklch(88%   0.005 260);
+  --color-text-muted: oklch(60%   0.008 260);
+  --color-text:       oklch(28%   0.008 260);
+  --color-accent:     oklch(52%   0.18  220);
+  --color-accent-dim: oklch(96%   0.04  220);
+
+  /* §3.3 Type scale */
+  --text-xs:   0.75rem;   /* 12px */
+  --text-sm:   0.875rem;  /* 14px */
+  --text-base: 1rem;      /* 16px */
+  --text-lg:   1.25rem;   /* 20px */
+  --text-xl:   1.625rem;  /* 26px */
+  --text-2xl:  2.5rem;    /* 40px */
+
+  /* §7.2 Shadows */
+  --shadow-sm: 0 1px 3px oklch(0% 0 0 / 0.05);
+  --shadow-md: 0 3px 12px oklch(0% 0 0 / 0.08), 0 1px 3px oklch(0% 0 0 / 0.04);
+  --shadow-lg: 0 8px 32px oklch(0% 0 0 / 0.10), 0 2px 8px oklch(0% 0 0 / 0.05);
+
+  /* §6 Shapes — 3 steps + pill (DESIGN.md `rounded`). diatom.css, ai-panel.css,
+     and tab-groups.css already reference these var(--radius-*) names; they were
+     never actually defined here, so every rule using them silently resolved to
+     0 (square corners) instead of the intended shape. */
+  --radius-sm:   4px;
+  --radius-base: 8px;
+  --radius-lg:   12px;
+  --radius-pill: 50px;
+
+  /* §2.5 Tinted background */
+  --media-hue:    220;
+  --media-chroma: 0;
+
+  /* Layout gap */
+  --gap: clamp(16px, 2vw + 8px, 24px);
+
+  /* §7.4 Liquid glass tokens (original values preserved) */
+  --glass-bg:     rgba(255, 255, 255, 0.70);
+  --glass-border: rgba(255, 255, 255, 0.50);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    /* §2.4 Semantic tokens — dark mode */
+    --color-bg:         oklch(11%  0.003 260);
+    --color-surface:    oklch(16%  0.004 260);
+    --color-border:     oklch(24%  0.005 260);
+    --color-text-muted: oklch(60%  0.008 260);
+    --color-text:       oklch(88%  0.008 260);
+    --color-accent:     oklch(60%  0.16  220);
+    --color-accent-dim: oklch(18%  0.06  220);
+
+    /* §7.4 Liquid glass tokens — dark mode */
+    --glass-bg:     rgba(28, 28, 30, 0.70);
+    --glass-border: rgba(255, 255, 255, 0.10);
+
+    /* §7.2 Shadows — halved opacity in dark mode */
+    --shadow-sm: 0 1px 3px  oklch(0% 0 0 / 0.025);
+    --shadow-md: 0 3px 12px oklch(0% 0 0 / 0.04),  0 1px 3px oklch(0% 0 0 / 0.02);
+    --shadow-lg: 0 8px 32px oklch(0% 0 0 / 0.05),  0 2px 8px oklch(0% 0 0 / 0.025);
+  }
+}
+
+/* ── KEYFRAMES ──────────────────────────────────────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+@keyframes modal-out {
+  from { opacity: 1; transform: translateY(0)    scale(1); }
+  to   { opacity: 0; transform: translateY(20px) scale(0.96); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-4px); }
+  40%       { transform: translateX(4px); }
+  60%       { transform: translateX(-3px); }
+  80%       { transform: translateX(3px); }
+}
+
+@keyframes success-pop {
+  0%   { transform: scale(0.8); opacity: 0.6; }
+  60%  { transform: scale(1.15); }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+@keyframes cast-fade {
+  from { opacity: 1; filter: blur(0);   transform: scale(1); }
+  to   { opacity: 0; filter: blur(4px); transform: scale(0.98); }
+}
+
+@keyframes draw { to { stroke-dashoffset: 0; } }
+
+@keyframes progress-slide {
+  0%   { transform: translateX(-100%) scaleX(0.4); }
+  60%  { transform: translateX(100%)  scaleX(0.6); }
+  100% { transform: translateX(100%)  scaleX(0.4); }
+}
+
+@keyframes dot-in {
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+@keyframes easter {
+  0%, 100% { transform: rotate(0) scale(1); }
+  50%       { transform: rotate(15deg) scale(1.08); }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════ */
+/* asong56 Design Manual v0.3 — Base */
+/* ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── RESET ──────────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* ── §3 BODY ────────────────────────────────────────────────────────────────── */
+body {
+  margin: 0;
+  font-family: 'Switzer', 'Open Sans', ui-sans-serif, 'Segoe UI', system-ui, sans-serif;
+  font-size: var(--text-base);
+  font-weight: 400;
+  line-height: 1.7;
+  letter-spacing: 0.02em;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* §11.7 prevent scrollbar layout shift */
+html {
+  scrollbar-gutter: stable;
+  overscroll-behavior-y: contain; /* §9.8 */
+}
+
+/* ── §3.3 TYPE SCALE ────────────────────────────────────────────────────────── */
+h1, h2, h3 { font-family: 'Switzer', 'Open Sans', ui-sans-serif, 'Segoe UI', system-ui, sans-serif; font-weight: 600; }
+h1 { font-size: var(--text-2xl); line-height: 1.1; letter-spacing: -0.03em; }
+h2 { font-size: var(--text-xl);  line-height: 1.2; letter-spacing: -0.02em; }
+h3 { font-size: var(--text-lg);  line-height: 1.3; letter-spacing: -0.01em; }
+h4, h5, h6 { font-size: var(--text-base); font-weight: 600; line-height: 1.5; }
+
+p  { font-size: var(--text-base); line-height: 1.7; }
+
+small { font-size: var(--text-xs); }
+
+/* §3.2 Serif — blockquote only */
+blockquote {
+  font-family: 'Gilda Display', 'Lora', Georgia, serif;
+  font-style: italic;
+  line-height: 1.8;
+  letter-spacing: 0.015em;
+}
+
+/* §3 Mono */
+code, pre, kbd, samp {
+  font-family: 'Monaspace Neon', ui-monospace, 'Cascadia Code', monospace;
+  letter-spacing: 0;
+}
+
+pre { line-height: 1.6; }
+
+/* ── §4.4 VERTICAL RHYTHM ───────────────────────────────────────────────────── */
+h1 { margin-top: 0;    margin-bottom: 24px; }
+h2 { margin-top: 48px; margin-bottom: 16px; }
+h3 { margin-top: 32px; margin-bottom: 8px; }
+p  { margin-top: 0;    margin-bottom: 16px; }
+
+li { margin-bottom: 8px; }
+
+blockquote { margin: 32px 0; }
+pre        { margin: 24px 0; }
+figure     { margin: 32px 0; }
+
+/* ── §4.3 CONTENT WIDTH ─────────────────────────────────────────────────────── */
+main {
+  max-width: 1100px;
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+
+article,
+.text-block {
+  max-width: 68ch;
+}
+
+/* ── §3.7 LINKS ─────────────────────────────────────────────────────────────── */
+a {
+  color: inherit;
+  text-decoration-color: var(--color-border);
+  text-underline-offset: 3px;
+  @media (prefers-reduced-motion: no-preference) {
+    transition:
+      color 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      text-decoration-color 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  &:hover {
+    color: var(--color-accent);
+    text-decoration-color: var(--color-accent);
+  }
+
+  &:visited { color: var(--color-text-muted); }
+}
+
+/* External link indicator */
+a[href^='http']::after,
+a[href^='https']::after {
+  content: '↗';
+  font-size: 0.7em;
+  vertical-align: super;
+  margin-left: 0.1em;
+  display: inline-block;
+  @media (prefers-reduced-motion: no-preference) {
+    transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1.0);
+  }
+}
+
+a[href^='http']:hover::after,
+a[href^='https']:hover::after {
+  transform: translate(2px, -2px);
+}
+
+/* §10.3 Tel / mailto — prevent iOS color injection */
+a[href^='tel'],
+a[href^='mailto'] {
+  color: inherit;
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+}
+
+/* Drop www prefix via data attribute */
+a[data-display-href] {
+  font-size: 0;
+  &::before {
+    content: attr(data-display-href);
+    font-size: var(--text-sm);
+  }
+}
+
+/* ── §3 INLINE CODE ─────────────────────────────────────────────────────────── */
+code:not(pre code) {
+  font-size: 0.875em;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+/* ── IMAGES ─────────────────────────────────────────────────────────────────── */
+img {
+  display: block;
+  max-width: 100%;
+  /* §7.3 inset ring */
+  box-shadow: inset 0 0 0 1px oklch(0% 0 0 / 0.08);
+
+  @media (prefers-color-scheme: dark) {
+    box-shadow: inset 0 0 0 1px oklch(100% 0 0 / 0.10);
+  }
+}
+
+/* §6.4 Progressive blur reveal */
+img.loading {
+  filter: blur(12px);
+  transform: scale(1.02);
+  @media (prefers-reduced-motion: no-preference) {
+    transition:
+      filter    600ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      transform 600ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+}
+
+img.loaded {
+  filter: blur(0);
+  transform: scale(1);
+}
+
+/* ── §11.1 FOCUS ────────────────────────────────────────────────────────────── */
+:focus         { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: inherit;
+}
+
+/* ── §11.3 ARIA-DRIVEN STATES ───────────────────────────────────────────────── */
+[aria-disabled='true'] { opacity: 0.45; pointer-events: none; }
+
+[aria-expanded='false'] + * { display: none; }
+[aria-expanded='true']  + * { display: block; }
+
+[aria-current='page'] { color: var(--color-accent); font-weight: 600; }
+
+[aria-busy='true'] { pointer-events: none; }
+
+/* ── §11.4 USER-SELECT PERMISSION MAP ───────────────────────────────────────── */
+nav, button, label, th,
+.badge, time, [role='img'] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+p, article, code, pre, h1, h2, h3,
+blockquote, figcaption, dd {
+  user-select: text;
+}
+
+/* ── §11.5 TEXT SELECTION ───────────────────────────────────────────────────── */
+/* Default: accent at 15% — visible but not harsh */
+::selection {
+  background: oklch(52% 0.18 220 / 0.15);
+  color: inherit;
+}
+
+/* Code blocks: stronger (darker background) */
+pre::selection, pre *::selection,
+code::selection {
+  background: oklch(52% 0.18 220 / 0.28);
+  color: inherit;
+}
+
+/* Blockquote: warm amber (matches Gilda Display's warmth) */
+blockquote::selection, blockquote *::selection {
+  background: oklch(72% 0.12 55 / 0.20);
+  color: inherit;
+}
+
+/* ── §11.6 CURSOR SYSTEM ────────────────────────────────────────────────────── */
+/* System default arrow — do not replace (compositor renders it sub-ms) */
+
+/* Clickable: custom SVG circle (only override for pointer state) */
+a, button, [role='button'], label, .badge, summary {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='%231a1a1a' fill-opacity='0.85'/%3E%3C/svg%3E") 8 8, pointer;
+
+  @media (prefers-color-scheme: dark) { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='%23e8e8e8' fill-opacity='0.85'/%3E%3C/svg%3E") 8 8, pointer; }
+}
+
+/* §9.4 Person name */
+[data-type='person'] { cursor: context-menu; }
+
+/* Precision zones */
+[data-cursor='precise'], canvas, .chart { cursor: crosshair; }
+
+/* Draggable */
+[draggable='true'] {
+  cursor: grab;
+  &:active { cursor: grabbing; }
+}
+
+/* Disabled */
+[disabled], [aria-disabled='true'] { cursor: not-allowed; }
+
+/* Zoomable */
+figure img[data-zoomable] { cursor: zoom-in; }
+
+/* §9.3 Colorful caret */
+input, textarea, [contenteditable] {
+  caret-color: var(--color-accent);
+}
+
+/* ── §3.4 NAV WEIGHT SHIFT — prevent layout shift ───────────────────────────── */
+nav a {
+  font-weight: 400;
+
+  &::after {
+    content: attr(data-text);
+    font-weight: 600;
+    visibility: hidden;
+    height: 0;
+    overflow: hidden;
+    display: block;
+    pointer-events: none;
+  }
+
+  &[aria-current='page'] { font-weight: 600; }
+}
+
+/* ── §11.7 SCROLLBAR ────────────────────────────────────────────────────────── */
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+/* WebKit — invisible at rest, emerges on hover */
+::-webkit-scrollbar         { width: 5px; height: 5px; }
+::-webkit-scrollbar-track   { background: transparent; }
+::-webkit-scrollbar-corner  { background: transparent; }
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 50px;
+  @media (prefers-reduced-motion: no-preference) { transition: background 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+}
+
+*:hover::-webkit-scrollbar-thumb    { background: var(--color-border); }
+::-webkit-scrollbar-thumb:hover     { background: var(--color-text-muted); }
+::-webkit-scrollbar-thumb:active    { background: var(--color-text-muted); }
+
+/* Code block — always visible (signal horizontal scroll available) */
+pre::-webkit-scrollbar       { height: 4px; }
+pre::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 50px; }
+pre::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
+/* Overlay scrollbar */
+@supports (overflow: overlay) {
+  .scroll-area { overflow: overlay; }
+}
+.scroll-area {
+  scrollbar-gutter: stable both-edges;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── §2.5 TINTED BACKGROUND ─────────────────────────────────────────────────── */
+.bg-tinted {
+  background-color: oklch(
+    var(--bg-l, 98.5%)
+    var(--media-chroma)
+    var(--media-hue)
+  );
+  @media (prefers-reduced-motion: no-preference) { transition: background-color 800ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+
+  @media (prefers-color-scheme: dark) { --bg-l: 11%; }
+}
+
+/* ── §6.5 REDUCED MOTION ────────────────────────────────────────────────────── */
+/* Must appear last — overrides everything above */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration:        0.01ms !important;
+    animation-iteration-count: 1      !important;
+    transition-duration:       0.01ms !important;
+    scroll-behavior:           auto   !important;
+  }
+}
+
+/* ── §10.2 DESKTOP-ONLY ─────────────────────────────────────────────────────── */
+[data-desktop-only] {
+  @media (max-width: 767px) { display: none; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════ */
+/* asong56 Design Manual v0.3 — Components */
+/* ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── §8.2 ARTICLE LIST ──────────────────────────────────────────────────────── */
+article + article {
+  border-top: 1px solid var(--color-border);
+  padding-top: 24px;
+  margin-top: 24px;
+}
+
+article {
+  @media (prefers-reduced-motion: no-preference) {
+    transition:
+      background-color 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      padding          120ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  &:hover {
+    background-color: var(--color-surface);
+    padding-inline: 12px;
+    margin-inline: -12px;
+    border-radius: 8px;
+  }
+}
+
+/* ── GRID ───────────────────────────────────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: var(--gap);
+}
+
+/* ── §8.1 CARD ──────────────────────────────────────────────────────────────── */
+.card {
+  display: block;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  
+  --r: 12px;
+  --p: 16px;
+  --r-inner: max(0px, calc(var(--r) - var(--p)));
+
+  border-radius: var(--r);
+  padding: var(--p);
+
+  img { border-radius: var(--r-inner); }
+ /* §4.5 concentricity */
+  overflow: hidden;
+  position: relative;
+
+  &.is-interactive {
+    
+  @media (prefers-reduced-motion: no-preference) {
+    transition:
+      transform  120ms  cubic-bezier(0.6, 0.0, 0.0, 1.0),
+      opacity    120ms  cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      box-shadow 350ms  cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    will-change: transform, opacity;
+  }
+
+  &:active { transform: scale(0.96); opacity: 0.8; }
+
+    @media (prefers-reduced-motion: no-preference) {
+      transition:
+        transform    120ms  cubic-bezier(0.6, 0.0, 0.0, 1.0),
+        box-shadow   350ms  cubic-bezier(0.25, 0.46, 0.45, 0.94),
+        background   120ms  cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    &:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-md);
+    }
+  }
+}
+
+/* ── §8.3 BADGE ─────────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  padding: 2px 6px;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  background: transparent;
+  user-select: none;
+  line-height: 1.2;
+
+  &[data-variant='accent'] {
+    color: var(--color-accent);
+    border-color: currentColor;
+    background: var(--color-accent-dim);
+  }
+
+  &[data-variant='warning'] {
+    color: oklch(52% 0.18 55);
+    border-color: currentColor;
+    background: oklch(97% 0.04 55);
+    @media (prefers-color-scheme: dark) {
+      background: oklch(22% 0.06 55);
+    }
+  }
+}
+
+/* ── §8.4 BUTTON ────────────────────────────────────────────────────────────── */
+button {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border-radius: 8px;
+  padding: 8px 16px;
+  line-height: 1.2;
+  @media (prefers-reduced-motion: no-preference) {
+    transition:
+      background-color 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      color            120ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      transform        80ms cubic-bezier(0.6, 0.0, 0.0, 1.0);
+  }
+
+  &:active { transform: scale(0.97); }
+
+  /* Variants */
+  &[data-variant='primary'] {
+    background: var(--color-accent);
+    color: oklch(99% 0 0);
+    border-radius: 50px;
+
+    @media (prefers-reduced-motion: no-preference) {
+      &:hover { background: oklch(47% 0.18 220); }
+    }
+  }
+
+  &[data-variant='ghost'] {
+    background: transparent;
+    color: var(--color-text-muted);
+
+    @media (prefers-reduced-motion: no-preference) {
+      &:hover {
+        background: var(--color-surface);
+        color: var(--color-text);
+      }
+    }
+  }
+
+  /* §8.4 Disabled */
+  &:disabled,
+  &[aria-disabled='true'] {
+    opacity: 0.45;
+    pointer-events: none;
+    cursor: not-allowed;
+  }
+
+  &[aria-busy='true'] { pointer-events: none; opacity: 0.7; }
+
+  /* Expanded hit area for icon-only buttons (§8.4) */
+  &.icon-only {
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: -8px;
+    }
+  }
+
+  /* §8.4 Shake on disabled click */
+  &:disabled:active {
+    pointer-events: auto;
+    @media (prefers-reduced-motion: no-preference) { animation: shake 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+  }
+
+  /* §8.4 Icon action feedback */
+  .icon {
+    @media (prefers-reduced-motion: no-preference) { transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1.0); }
+  }
+
+  &:active .icon { transform: translateX(4px) scale(0.9); }
+
+  &[data-success] .icon {
+    @media (prefers-reduced-motion: no-preference) { animation: success-pop 350ms cubic-bezier(0.34, 1.56, 0.64, 1.0) forwards; }
+  }
+}
+
+/* §8.4 Morphing button → input */
+.search-btn {
+  width: 36px;
+  overflow: hidden;
+  border-radius: 50px;
+  @media (prefers-reduced-motion: no-preference) {
+    transition:
+      width         350ms cubic-bezier(0.0, 0.0, 0.2, 1.0),
+      border-radius 350ms cubic-bezier(0.0, 0.0, 0.2, 1.0);
+  }
+
+  &[aria-expanded='true'] {
+    width: 220px;
+    border-radius: 8px;
+  }
+}
+
+/* ── §8.5 INPUT / TEXTAREA / SELECT ─────────────────────────────────────────── */
+input, textarea, select {
+  font-family: inherit;
+  font-size: var(--text-base);
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  outline: none;
+  @media (prefers-reduced-motion: no-preference) {
+    transition:
+      border-color 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      box-shadow   120ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  &:focus-visible {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-dim);
+  }
+
+  &::placeholder {
+    color: var(--color-text-muted);
+    opacity: 0.6;
+  }
+}
+
+/* Keep form actions above soft keyboard (§8.5) */
+form footer,
+.form-actions {
+  padding-bottom: max(16px, env(keyboard-inset-height, 0px));
+  @media (prefers-reduced-motion: no-preference) { transition: padding-bottom 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+}
+
+/* ── §6.4 PROGRESS ──────────────────────────────────────────────────────────── */
+progress {
+  appearance: none;
+  height: 2px;
+  background: var(--color-surface);
+  border-radius: 1px;
+  overflow: hidden;
+  border: none;
+
+  &::-webkit-progress-bar   { background: var(--color-surface); }
+  &::-webkit-progress-value {
+    background: var(--color-accent);
+    @media (prefers-reduced-motion: no-preference) { transition: width 220ms cubic-bezier(0.0, 0.0, 0.2, 1.0); }
+  }
+  &::-moz-progress-bar {
+    background: var(--color-accent);
+    @media (prefers-reduced-motion: no-preference) { transition: width 220ms cubic-bezier(0.0, 0.0, 0.2, 1.0); }
+  }
+}
+
+/* Indeterminate */
+progress:not([value])::after {
+  content: '';
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+  @media (prefers-reduced-motion: no-preference) { animation: progress-slide 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite; }
+}
+
+/* ── §8.6 DL KEY-VALUE DATA ─────────────────────────────────────────────────── */
+dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 0;
+}
+
+dt {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+}
+
+dd {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--color-text);
+  text-align: right;
+  line-height: 1.5;
+  margin: 0;
+}
+
+dl > dt:not(:first-child),
+dl > dd:not(:nth-child(2)) {
+  border-top: 1px solid var(--color-border);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+/* ── §7.4 GLASS ─────────────────────────────────────────────────────────────── */
+.glass         { 
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  will-change: backdrop-filter;
+  transform: translateZ(0);
+  isolation: isolate;
+  border: 1px solid var(--glass-border);
+ }        /* standard thin — header, sticky */
+.glass-liquid  { 
+  background: var(--glass-bg);
+  backdrop-filter: saturate(200%) brightness(1.1) contrast(1.1);
+  -webkit-backdrop-filter: saturate(200%) brightness(1.1) contrast(1.1);
+  border: 1px solid var(--glass-border);
+ }    /* original formula — switch, FAB */
+.glass-deep    { 
+  --glass-l: 100%;
+  --glass-a: 0.72;
+
+  background-color: oklch(var(--glass-l) 0.002 260 / var(--glass-a));
+  backdrop-filter: blur(20px) saturate(180%) brightness(1.02);
+  -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.02);
+  box-shadow:
+    inset 0  1px 0 oklch(100% 0 0 / 0.25),
+    inset 0 -1px 0 oklch(0%   0 0 / 0.06),
+          0  2px 8px oklch(0% 0 0 / 0.08);
+
+  @media (prefers-color-scheme: dark) {
+    --glass-l: 15%;
+    --glass-a: 0.65;
+
+    box-shadow:
+      inset 0  1px 0 oklch(100% 0 0 / 0.12),
+      inset 0 -1px 0 oklch(0%   0 0 / 0.20),
+            0  2px 8px oklch(0% 0 0 / 0.20);
+  }
+ }  /* oklch directional lights — modal */
+
+/* ── NAV ────────────────────────────────────────────────────────────────────── */
+nav[aria-label='Main Navigation'] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 12px 24px;
+  
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  will-change: backdrop-filter;
+  transform: translateZ(0);
+  isolation: isolate;
+  border: 1px solid var(--glass-border);
+
+
+  ul {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  a {
+    font-size: var(--text-sm);
+    font-weight: 400;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 8px;
+    @media (prefers-reduced-motion: no-preference) { transition: color 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94), background 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+
+    /* §3.4 pre-occupy bold width to prevent layout shift */
+    &::after {
+      content: attr(data-text);
+      font-weight: 600;
+      visibility: hidden;
+      height: 0;
+      overflow: hidden;
+      display: block;
+      pointer-events: none;
+    }
+
+    &[aria-current='page'] {
+      color: var(--color-text);
+      font-weight: 600;
+    }
+
+    &:hover:not([aria-current='page']) {
+      background: var(--color-surface);
+      color: var(--color-text);
+    }
+  }
+}
+
+.nav-brand {
+  font-weight: 600;
+  font-size: var(--text-base);
+  color: var(--color-text);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── BREADCRUMB ─────────────────────────────────────────────────────────────── */
+.breadcrumb ol {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.breadcrumb li + li::before {
+  content: '/';
+  margin-right: 4px;
+  opacity: 0.4;
+}
+
+.breadcrumb a { color: inherit; }
+.breadcrumb strong { color: var(--color-text); }
+
+/* ── DRAWER ─────────────────────────────────────────────────────────────────── */
+dialog.drawer {
+  position: fixed;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  max-width: 100%;
+  max-height: 100%;
+
+  &[data-placement='left'], &[data-placement='right'] {
+    inset: 0 auto 0 0;
+    width: min(320px, 85vw);
+    height: 100%;
+  }
+
+  &[data-placement='right'] { inset: 0 0 0 auto; }
+
+  &[data-placement='top'], &[data-placement='bottom'] {
+    inset: 0 0 auto 0;
+    width: 100%;
+  }
+
+  &[data-placement='bottom'] { inset: auto 0 0 0; }
+
+  > section {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+
+    > header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    > main { flex: 1; overflow-y: auto; padding: 16px; }
+  }
+}
+
+/* ── ACCORDION ──────────────────────────────────────────────────────────────── */
+.accordion details {
+  border-bottom: 1px solid var(--color-border);
+
+  &[open] summary { color: var(--color-text); font-weight: 600; }
+}
+
+.accordion summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  cursor: pointer;
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+  list-style: none;
+  user-select: none;
+  @media (prefers-reduced-motion: no-preference) { transition: color 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+
+  &:hover { color: var(--color-text); }
+
+  /* Rotate chevron when open */
+  .iconify {
+    @media (prefers-reduced-motion: no-preference) { transition: transform 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+  }
+}
+
+details[open] summary .iconify { transform: rotate(180deg); }
+
+/* ── BANNER ─────────────────────────────────────────────────────────────────── */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: var(--text-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+
+  &[data-type='success'] { background: oklch(97% 0.04 145); border-color: oklch(75% 0.15 145); color: oklch(32% 0.12 145); }
+  &[data-type='warning'] { background: oklch(97% 0.04 55);  border-color: oklch(75% 0.12 55);  color: oklch(38% 0.12 55); }
+  &[data-type='error']   { background: oklch(97% 0.04 15);  border-color: oklch(75% 0.15 15);  color: oklch(38% 0.15 15); }
+
+  @media (prefers-color-scheme: dark) {
+    &[data-type='success'] { background: oklch(20% 0.05 145); border-color: oklch(40% 0.12 145); color: oklch(80% 0.12 145); }
+    &[data-type='warning'] { background: oklch(18% 0.05 55);  border-color: oklch(38% 0.10 55);  color: oklch(80% 0.10 55); }
+    &[data-type='error']   { background: oklch(18% 0.05 15);  border-color: oklch(38% 0.12 15);  color: oklch(80% 0.12 15); }
+  }
+
+  > span { flex: 1; }
+  button { padding: 4px; background: none; opacity: 0.6; &:hover { opacity: 1; } }
+}
+
+/* ── TOGGLE SWITCH ───────────────────────────────────────────────────────────── */
+.toggle-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+
+  input[type='checkbox'] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+
+    + span {
+      display: block;
+      width: 44px;
+      height: 26px;
+      border-radius: 50px;
+      background: var(--color-border);
+      position: relative;
+      @media (prefers-reduced-motion: no-preference) { transition: background 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+
+      &::after {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: white;
+        box-shadow: var(--shadow-sm);
+        @media (prefers-reduced-motion: no-preference) { transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1.0); }
+      }
+    }
+
+    &:checked + span {
+      background: var(--color-accent);
+      &::after { transform: translateX(18px); }
+    }
+
+    &:disabled + span { opacity: 0.45; cursor: not-allowed; }
+  }
+}
+
+/* ── SEGMENTED CONTROL ──────────────────────────────────────────────────────── */
+.segmented-control {
+  display: inline-flex;
+  background: var(--color-surface);
+  border-radius: 50px;
+  padding: 3px;
+  gap: 2px;
+  border: none;
+
+  label {
+    display: flex;
+    position: relative;
+
+    input[type='radio'] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    span {
+      display: block;
+      padding: 5px 14px;
+      border-radius: calc(50px - 3px);
+      font-size: var(--text-sm);
+      font-weight: 400;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      user-select: none;
+      @media (prefers-reduced-motion: no-preference) { transition: color 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+    }
+
+    input:checked + span {
+      background: var(--color-bg);
+      color: var(--color-text);
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+    }
+  }
+}
+
+/* ── SEARCH BAR ─────────────────────────────────────────────────────────────── */
+search form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 50px;
+  padding: 6px 12px 6px 16px;
+  @media (prefers-reduced-motion: no-preference) { transition: border-color 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+
+  &:focus-within {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-dim);
+  }
+
+  input[type='search'] {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 0;
+    font-size: var(--text-sm);
+    outline: none;
+    box-shadow: none;
+    border-radius: 0;
+
+    &:focus-visible { box-shadow: none; border-color: transparent; }
+  }
+
+  button[type='submit'] {
+    padding: 4px;
+    background: none;
+    color: var(--color-text-muted);
+    border-radius: 4px;
+    @media (prefers-reduced-motion: no-preference) { transition: color 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+    &:hover { color: var(--color-accent); }
+  }
+}
+
+/* ── TABLE ──────────────────────────────────────────────────────────────────── */
+.table-container {
+  overflow-x: auto;
+  margin: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+th {
+  text-align: left;
+  font-weight: 600;
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-border);
+  user-select: none;
+}
+
+td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+tr:last-child td { border-bottom: none; }
+
+tbody tr {
+  @media (prefers-reduced-motion: no-preference) { transition: background 80ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+  &:hover { background: var(--color-surface); }
+}
+
+/* ── CODE BLOCK ─────────────────────────────────────────────────────────────── */
+figure.code {
+  position: relative;
+  margin: 24px 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--color-surface);
+
+  figcaption {
+    font-size: var(--text-xs);
+    font-family: 'Monaspace Neon', ui-monospace, 'Cascadia Code', monospace;
+    color: var(--color-text-muted);
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--color-border);
+    user-select: none;
+  }
+
+  > div { position: relative; }
+
+  pre {
+    margin: 0;
+    padding: 16px;
+    overflow-x: auto;
+    font-size: var(--text-sm);
+  }
+
+  > div > button {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 5px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    opacity: 0;
+    @media (prefers-reduced-motion: no-preference) { transition: opacity 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+  }
+
+  &:hover > div > button { opacity: 1; }
+}
+
+/* ── CARD: stretched link ───────────────────────────────────────────────────── */
+.card { position: relative; }
+
+.stretched-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* ── CARD: tags footer ──────────────────────────────────────────────────────── */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+/* ── MODAL ──────────────────────────────────────────────────────────────────── */
+dialog[open] {
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-lg);
+  @media (prefers-reduced-motion: no-preference) { animation: modal-in 350ms cubic-bezier(0.0, 0.0, 0.2, 1.0) forwards; }
+}
+
+dialog:not([open]) {
+  @media (prefers-reduced-motion: no-preference) { animation: modal-out 220ms cubic-bezier(0.55, 0.0, 1.0, 0.45) forwards; }
+}
+
+/* ── §3.4 ICON TOGGLE ───────────────────────────────────────────────────────── */
+.icon-toggle {
+  position: relative;
+  width: 24px;
+  height: 24px;
+
+  > * {
+    position: absolute;
+    inset: 0;
+    @media (prefers-reduced-motion: no-preference) { transition: opacity 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+  }
+
+  &[data-state='a'] > :first-child { opacity: 1; transform: scale(1); }
+  &[data-state='a'] > :last-child  { opacity: 0; transform: scale(0.8); }
+  &[data-state='b'] > :first-child { opacity: 0; transform: scale(0.8); }
+  &[data-state='b'] > :last-child  { opacity: 1; transform: scale(1); }
+}
+
+/* ── SCROLL-DRIVEN ENTRANCE (.fade-in) ──────────────────────────────────────── */
+.fade-in {
+  opacity: 0;
+  transform: translateY(8px);
+  will-change: transform, opacity;
+  @media (prefers-reduced-motion: no-preference) {
+    animation: fade-up 350ms cubic-bezier(0.0, 0.0, 0.2, 1.0) both;
+    animation-timeline: view();
+    animation-range: entry 5% cover 30%;
+  }
+}
+
+/* §6.4 Staggered list entrance */
+li, article {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: fade-up 350ms cubic-bezier(0.0, 0.0, 0.2, 1.0) both;
+    animation-delay: calc(var(--i, 0) * 50ms);
+
+    &:nth-child(1) { --i: 0; }
+    &:nth-child(2) { --i: 1; }
+    &:nth-child(3) { --i: 2; }
+    &:nth-child(4) { --i: 3; }
+    &:nth-child(5) { --i: 4; }
+    &:nth-child(6) { --i: 5; }
+    &:nth-child(7) { --i: 6; }
+    &:nth-child(8) { --i: 7; }
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════ */
+/* asong56 Design Manual v0.3 — §9 Interaction Details */
+/* ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── §9.1 OPTICAL BLUR FIT ──────────────────────────────────────────────────── */
+/* Pure-color icons read heavier on light backgrounds — halo corrects it */
+.icon-optical {
+  filter: drop-shadow(0 0 6px oklch(60% 0.1 220 / 0.2));
+}
+
+/* ── §9.2 LIQUID GLASS SWITCHER ─────────────────────────────────────────────── */
+.switcher {
+  position: relative;
+  display: flex;
+  background: oklch(95% 0.002 260 / 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 50px;
+  padding: 3px;
+
+  button {
+    flex: 1;
+    background: transparent;
+    border-radius: calc(50px - 3px);
+    border: none;
+    z-index: 1;
+    @media (prefers-reduced-motion: no-preference) { transition: color 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+  }
+
+  /* Sliding indicator */
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    width: calc(50% - 3px);
+    background: oklch(100% 0 0 / 0.9);
+    border-radius: calc(50px - 3px);
+    box-shadow: 0 1px 4px oklch(0% 0 0 / 0.12);
+    @media (prefers-reduced-motion: no-preference) { transition: transform 350ms cubic-bezier(0.34, 1.56, 0.64, 1.0); }
+  }
+
+  &[data-active='1']::after { transform: translateX(0); }
+  &[data-active='2']::after { transform: translateX(100%); }
+
+  @media (prefers-color-scheme: dark) {
+    background: oklch(20% 0.002 260 / 0.6);
+    &::after { background: oklch(30% 0 0 / 0.9); }
+  }
+}
+
+/* ── §9.3 COLORFUL CURSOR BLINK ─────────────────────────────────────────────── */
+input, textarea, [contenteditable] {
+  caret-color: var(--color-accent);
+}
+
+/* ── §9.4 PERSON NAME CURSOR ────────────────────────────────────────────────── */
+[data-type='person'] { cursor: context-menu; }
+
+/* ── §9.5 FILEPATH TRUNCATION ───────────────────────────────────────────────── */
+/* Truncates directory, preserves filename */
+.filepath {
+  display: flex;
+  overflow: hidden;
+  font-family: 'Monaspace Neon', ui-monospace, 'Cascadia Code', monospace;
+  font-size: var(--text-xs);
+
+  span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    direction: rtl;
+    unicode-bidi: plaintext;
+    color: var(--color-text-muted);
+  }
+
+  span:last-child {
+    flex-shrink: 0;
+    color: var(--color-text);
+  }
+}
+
+/* ── §9.6 COLOR STRING PREVIEW ──────────────────────────────────────────────── */
+/* Usage: <span class="color-swatch" style="--c: #ff6b6b">#ff6b6b</span> */
+.color-swatch::before {
+  content: '';
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 2px;
+  background: var(--c);
+  margin-right: 0.3em;
+  vertical-align: middle;
+  box-shadow: inset 0 0 0 1px oklch(0% 0 0 / 0.15);
+}
+
+/* ── §9.7 FOOTER NAV ACTIVE STATE ───────────────────────────────────────────── */
+footer nav a {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  @media (prefers-reduced-motion: no-preference) { transition: color 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+
+  &[aria-current='page'] {
+    color: var(--color-accent);
+    font-weight: 600;
+
+    &::after {
+      content: '';
+      display: block;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: currentColor;
+      margin: 2px auto 0;
+      @media (prefers-reduced-motion: no-preference) { animation: dot-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1.0) forwards; }
+    }
+  }
+}
+
+/* ── §9.8 OVERSCROLL (in _base.scss) ───────────────────────────────────────── */
+/* html { overscroll-behavior-y: contain; } — already in _base.scss */
+
+/* ── §9.9 ICON PICKER / SWATCH ANIMATION ───────────────────────────────────── */
+.swatch {
+  @media (prefers-reduced-motion: no-preference) {
+    transition:
+      background-color 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      transform        120ms   cubic-bezier(0.34, 1.56, 0.64, 1.0),
+      box-shadow       120ms   cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  &[aria-checked='true'] {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px currentColor;
+  }
+
+  &:hover:not([aria-checked='true']) { transform: scale(1.08); }
+}
+
+/* ── §9.10 HIGHLIGHT BLOCK TRANSITION ───────────────────────────────────────── */
+:target,
+[data-highlight] {
+  background-color: var(--color-accent-dim);
+  border-radius: 4px;
+  @media (prefers-reduced-motion: no-preference) { transition: background-color 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+}
+
+/* ── §9.11 CONTACT LINKS ────────────────────────────────────────────────────── */
+a[href^='mailto'],
+a[data-contact] {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  @media (prefers-reduced-motion: no-preference) { transition: color 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+
+  &::after {
+    content: ' ↗';
+    font-size: 0.7em;
+    display: inline-block;
+    @media (prefers-reduced-motion: no-preference) { transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1.0); }
+  }
+
+  &:hover {
+    color: var(--color-text);
+    &::after { transform: translate(2px, -2px); }
+  }
+}
+
+/* ── §9.12 FOOTER EASTER EGG ────────────────────────────────────────────────── */
+footer [data-easter] {
+  cursor: pointer;
+  user-select: none;
+
+  &:active {
+    @media (prefers-reduced-motion: no-preference) { animation: easter 220ms cubic-bezier(0.34, 1.56, 0.64, 1.0); }
+  }
+}
+
+/* ── §6.4 SVG SIGNATURE DRAW ────────────────────────────────────────────────── */
+.signature path {
+  stroke-dasharray:  var(--path-length);
+  stroke-dashoffset: var(--path-length);
+  @media (prefers-reduced-motion: no-preference) {
+    animation: draw 600ms cubic-bezier(0.0, 0.0, 0.2, 1.0) 300ms forwards;
+  }
+}
+
+/* ── §6.4 CAST ENDING ───────────────────────────────────────────────────────── */
+.player[data-state='ended'] img {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: cast-fade 600ms cubic-bezier(0.4, 0.0, 1.0, 1.0) 200ms forwards;
+  }
+}
+
+/* ── §6.4 TWO-TOOLTIP TRANSITION ────────────────────────────────────────────── */
+[role='tooltip'] {
+  @media (prefers-reduced-motion: no-preference) {
+    &[data-state='leaving'] {
+      transition: opacity 100ms cubic-bezier(0.4, 0.0, 1.0, 1.0), transform 100ms cubic-bezier(0.4, 0.0, 1.0, 1.0);
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    &[data-state='entering'] {
+      transition: opacity 150ms cubic-bezier(0.0, 0.0, 0.2, 1.0), transform 150ms cubic-bezier(0.0, 0.0, 0.2, 1.0);
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}
+
+/* ── §11.6 CURSOR FOLLOWER (CSS only — JS handles coordinates) ──────────────── */
+.cursor-follower {
+  position: fixed;
+  width: 8px;
+  height: 8px;
+  border-radius: 50px;
+  background: var(--color-text);
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 5;
+  transform: translate(-50%, -50%);
+  will-change: transform;
+
+  @media (prefers-reduced-motion: no-preference) {
+    &[data-hover='true'] {
+      width: 24px;
+      height: 24px;
+      opacity: 0.15;
+      background: var(--color-accent);
+      transition:
+        width      220ms cubic-bezier(0.34, 1.56, 0.64, 1.0),
+        height     220ms cubic-bezier(0.34, 1.56, 0.64, 1.0),
+        opacity    220ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+        background 120ms   cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) { display: none; }
+  @media (hover: none)                    { display: none; }
+}
+
+/* ── §7.5 BLUR EDGE — scroll-driven ─────────────────────────────────────────── */
+@keyframes reduce-blur {
+  from { --blur: 8px; }
+  to   { --blur: 1px; }
+}
+
+.blur-edge {
+  filter: blur(var(--blur, 8px));
+  @media (prefers-reduced-motion: no-preference) {
+    animation: reduce-blur linear both;
+    animation-timeline: scroll();
+    animation-range: 0px 80px;
+  }
+}

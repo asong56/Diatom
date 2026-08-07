@@ -3,8 +3,7 @@
 import { invoke, listen, emit } from './ipc.js';
 import { domainOf, resolveUrl, escHtml, el, qs, timeAgo, uid } from './utils.js';
 import { applyCrusherRules } from '../features/dom-crusher.js';
-import { showInterstitial as zenInterstitial, isActive as zenIsActive } from '../features/zen.js';
-import { startHealthMonitor } from './compat.js';
+import { startHealthMonitor, routeDiatomUrl } from './compat.js';
 
 let _tabs         = [];       // Array<Tab> from Rust
 let _activeId     = null;
@@ -39,21 +38,53 @@ export async function initTabs(worker) {
 
 export async function navigate(rawUrl) {
   const url = resolveUrl(rawUrl);
+
+  // diatom:// URLs are Diatom's own internal pages (about, museum,
+  // settings, the JSON viewer, …) — resolve directly to their real path
+  // and load them without tracking-param stripping or threat checks,
+  // neither of which make sense for content Diatom itself ships.
+  const internalPath = routeDiatomUrl(url);
+  if (internalPath) {
+    flushReadingEvent();
+    loadUrl(internalPath);
+    return;
+  }
+
   const nav = await invoke('cmd_preprocess_url', { url });
 
   if (nav.blocked) {
     flashBlockIndicator(nav.clean_url);
     return;
   }
-  if (nav.zen_blocked) {
-    const decision = await zenInterstitial(domainOf(nav.clean_url), nav.zen_category);
-    if (decision !== 'unlocked') return;
+
+  // Opening a .json file or URL directly renders it pretty-printed and
+  // collapsible instead of a wall of raw text — no command needed. Checked
+  // after block-listing so a blocked .json URL still gets blocked, not
+  // silently loaded through the viewer.
+  if (looksLikeJsonUrl(nav.clean_url)) {
+    return navigate(`diatom://json-viewer?src=${encodeURIComponent(nav.clean_url)}`);
   }
 
   flushReadingEvent();
   loadUrl(nav.clean_url);
   loadCrusherRulesForDomain(domainOf(nav.clean_url));
   checkThreatAsync(domainOf(nav.clean_url));
+}
+
+/// True when the URL's path (ignoring query string and fragment) ends in
+/// `.json` — covers `file:///…/data.json`, `https://api.example.com/x.json`,
+/// and `https://…/x.json?query=1`. Deliberately does NOT try to sniff
+/// content-type for extensionless URLs; that would need a network round
+/// trip before every navigation just to check, which isn't worth it for
+/// the rare API endpoint that serves JSON with no `.json` in the path —
+/// those still render fine as plain text, same as any other browser.
+function looksLikeJsonUrl(url) {
+  try {
+    const { pathname } = new URL(url);
+    return /\.json$/i.test(pathname);
+  } catch {
+    return false;
+  }
 }
 
 let _navAbort = new AbortController();

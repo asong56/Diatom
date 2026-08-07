@@ -189,12 +189,8 @@ export function routeDiatomUrl(url) {
   switch (parsed.hostname) {
     case 'about':
       return '/ui/about.html';
-    case 'museum': {
-      const id = parsed.pathname.slice(1);
-      return `/ui/museum-viewer.html?id=${encodeURIComponent(id)}`;
-    }
-    case 'tools':
-      return `/ui/wasm-tools.html${parsed.search}`;
+    case 'json-viewer':
+      return `/ui/json-viewer.html${parsed.search}`;
     default:
       return null;
   }

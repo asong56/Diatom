@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Welcome to Diatom</title>
 <!-- P3 fix: load canonical fonts locally — no @font-face declarations in page CSS -->
+<link rel="stylesheet" href="/design/main.css">
 <link rel="stylesheet" href="../fonts.css">
 <link rel="stylesheet" href="ui-paper.css">
 <!-- P1 fix: dark-mode auto-detection -->
@@ -20,6 +21,34 @@
   })();
 </script>
 <style>
+:root {
+  /* This file's declarations below use a --c-*/--t-*/--r-md/--shadow-gold
+     naming convention that was never actually defined anywhere (not in
+     ui-paper.css, which uses --ink/--glass/--rule/--r, and not in
+     design/main.css) — every rule referencing them was silently resolving
+     to nothing. Aliased here to the real tokens rather than rewriting the
+     ~60 call sites below. */
+  --c-ink:          var(--ink);
+  --c-ink-2:        var(--ink-2);
+  --c-ink-3:        var(--ink-3);
+  --c-ink-4:        var(--ink-4);
+  --c-glass:        var(--glass);
+  --c-glass-heavy:  var(--glass);
+  --c-glass-border: var(--glass-b);
+  --c-glass-inset:  var(--glass-i);
+  --c-rule:         var(--rule);
+  --c-accent:       var(--accent);
+  --c-accent-l:     var(--accent-l);
+  --c-accent-glow:  color-mix(in oklch, var(--accent) 40%, transparent);
+  --c-accent-xd:    color-mix(in oklch, var(--accent) 10%, transparent);
+  --c-sage:         oklch(58% 0.09 145);
+  --c-warn:         oklch(55% 0.15 55);
+  --shadow-gold:    var(--shadow-md);
+  --t-fast:         150ms;
+  --t-slow:         400ms;
+  --r-md:           var(--radius-base);
+}
+
 .bloom {
   position:fixed;
   inset:0;
@@ -52,7 +81,7 @@
   backdrop-filter:var(--blur-md);
   -webkit-backdrop-filter:var(--blur-md);
   border:0.5px solid var(--c-glass-border);
-  border-radius:18px;
+  border-radius:var(--radius-lg);
   padding:40px;
   box-shadow:var(--shadow-lg),inset 0 1px 1px var(--c-glass-inset),inset 0 0 0 0.5px rgba(255,255,255,0.40);
 }
@@ -92,7 +121,7 @@
 .step-dot {
   flex:1;
   height:2.5px;
-  border-radius:2px;
+  border-radius:var(--radius-pill);
   background:var(--c-rule);
   transition:background 0.3s;
 }
@@ -405,7 +434,7 @@ button:disabled {
         </p> </div> </div> <div class="actions"> <button class="btn-secondary" onclick="prev()">← Back</button> <button class="btn-secondary" id="btn-refresh-ollama" onclick="checkOllama()">Refresh</button> <button class="btn-primary" onclick="next()">Continue →</button> </div> </div> <!-- Step 2: Privacy level --> <div class="panel" id="panel-2"> <h2>Choose your privacy posture</h2> <p>
       All modes protect your privacy. This sets how aggressively Diatom reconfigures
       the web for you. You can tune individual features anytime.
-    </p> <div class="levels" id="level-selector"> <div class="level selected" data-level="balanced" onclick="selectLevel(this)"> <div class="level-name">⚖ Balanced (recommended)</div> <div class="level-desc">Blocks trackers, injects fingerprint noise, keeps most sites working</div> </div> <div class="level" data-level="strict" onclick="selectLevel(this)"> <div class="level-name">🔒 Strict</div> <div class="level-desc">All balanced features + timezone spoofing + Zen mode default on</div> </div> <div class="level" data-level="minimal" onclick="selectLevel(this)"> <div class="level-name">🪶 Minimal</div> <div class="level-desc">HTTPS upgrade and tracker block only — maximum compatibility</div> </div> </div> <div class="actions"> <button class="btn-secondary" onclick="prev()">← Back</button> <button class="btn-primary" onclick="applyLevel(); next()">Apply & Continue →</button> </div> </div> <!-- Step 3: Filter rules --> <div class="panel" id="panel-3"> <h2>Filter rules (optional)</h2> <p>
+    </p> <div class="levels" id="level-selector"> <div class="level selected" data-level="balanced" onclick="selectLevel(this)"> <div class="level-name">⚖ Balanced (recommended)</div> <div class="level-desc">Blocks trackers, injects fingerprint noise, keeps most sites working</div> </div> <div class="level" data-level="strict" onclick="selectLevel(this)"> <div class="level-name">🔒 Strict</div> <div class="level-desc">All balanced features + timezone spoofing + stricter tracker blocking</div> </div> <div class="level" data-level="minimal" onclick="selectLevel(this)"> <div class="level-name">🪶 Minimal</div> <div class="level-desc">HTTPS upgrade and tracker block only — maximum compatibility</div> </div> </div> <div class="actions"> <button class="btn-secondary" onclick="prev()">← Back</button> <button class="btn-primary" onclick="applyLevel(); next()">Apply & Continue →</button> </div> </div> <!-- Step 3: Filter rules --> <div class="panel" id="panel-3"> <h2>Filter rules (optional)</h2> <p>
       Diatom's built-in blocklist catches analytics and trackers. Subscribe to
       community-maintained lists for broader coverage. <em>Diatom downloads, you choose.</em> </p> <div id="preset-list"> <div class="check-row"> <input type="checkbox" id="el-privacy" checked> <label for="el-privacy"> <strong>EasyList Privacy (EasyPrivacy)</strong>
           Tracking scripts, pixel beacons, data collectors — ~60 000 rules
@@ -418,7 +447,13 @@ button:disabled {
     </p> <div class="feature-grid" id="active-features"> <div class="feature-card"><strong>Tracker blocker</strong>Aho-Corasick engine</div> <div class="feature-card"><strong>Fingerprint noise</strong>Canvas · Audio · WebGL</div> <div class="feature-card"><strong>HTTPS upgrade</strong>All origins enforced</div> <div class="feature-card"><strong>2FA manager</strong>TOTP/HOTP built-in</div> </div> <div class="actions" style="justify-content:center;"> <button class="btn-primary" onclick="finish()">Start browsing →</button> </div> </div>
 </div>
 <script>
-  const { invoke } = window.__TAURI_INTERNALS__ || window.__TAURI__?.tauri || {
+  // Tauri v2's global-injection API is namespaced (window.__TAURI__.core.invoke) —
+  // window.__TAURI_INTERNALS__ is a Tauri-internal implementation detail, not a
+  // stable app-facing API, and window.__TAURI__.tauri is a stale v1-era shape.
+  // (Kept as a plain <script>, not type="module", because this page's onclick="…"
+  // handlers are called from the global scope — see /browser/ipc.js for the
+  // module version other pages should import instead.)
+  const { invoke } = window.__TAURI__?.core || {
     invoke: async (cmd, args) => { console.log('[onboarding mock]', cmd, args); return null; }
   };
 
@@ -484,7 +519,6 @@ button:disabled {
     for (const [k, v] of Object.entries(settings))
       await invoke('cmd_setting_set', { key: k, value: v }).catch(() => {});
     if (selectedLevel === 'strict') {
-      await invoke('cmd_zen_activate').catch(() => {});
       await invoke('cmd_lab_set', { id: 'timezone_spoof', enabled: true }).catch(() => {});
     }
     await invoke('cmd_onboarding_complete', { step: 'privacy_level' }).catch(() => {});

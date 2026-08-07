@@ -26,10 +26,10 @@ const CONTENT_SELECTORS = [
 const MIN_TEXT_LENGTH = 400;
 
 const SEV_CONFIG = {
-  critical: { icon: '🚨', label: 'Critical', color: '#c44848', bg: 'rgba(196,72,72,0.08)', border: 'rgba(196,72,72,0.22)' },
-  high:     { icon: '⚠️',  label: 'High',     color: '#c07830', bg: 'rgba(192,120,48,0.08)', border: 'rgba(192,120,48,0.22)' },
-  medium:   { icon: '📋',  label: 'Medium',   color: '#c4a468', bg: 'rgba(196,164,104,0.08)', border: 'rgba(196,164,104,0.22)' },
-  low:      { icon: 'ℹ️',  label: 'Low',      color: '#747490', bg: 'rgba(116,116,144,0.06)', border: 'rgba(116,116,144,0.14)' },
+  critical: { icon: '🚨', label: 'Critical', color: 'oklch(50% 0.18 15)',  bg: 'oklch(50% 0.18 15 / 0.08)',  border: 'oklch(50% 0.18 15 / 0.22)' },
+  high:     { icon: '⚠️',  label: 'High',     color: 'oklch(58% 0.16 55)', bg: 'oklch(58% 0.16 55 / 0.08)',  border: 'oklch(58% 0.16 55 / 0.22)' },
+  medium:   { icon: '📋',  label: 'Medium',   color: 'oklch(70% 0.10 55)', bg: 'oklch(70% 0.10 55 / 0.08)',  border: 'oklch(70% 0.10 55 / 0.22)' },
+  low:      { icon: 'ℹ️',  label: 'Low',      color: 'oklch(60% 0.008 260)', bg: 'oklch(60% 0.008 260 / 0.06)', border: 'oklch(60% 0.008 260 / 0.14)' },
 };
 
 function urlSignalScore() {
@@ -93,7 +93,7 @@ function riskMeterSVG(score) {
   const cy    = 40;
   const circ  = Math.PI * r; // half-circle circumference
   const dash  = (score / 100) * circ;
-  const color = score >= 70 ? '#c44848' : score >= 40 ? '#c07830' : score >= 20 ? '#c4a468' : '#4a9e6a';
+  const color = score >= 70 ? 'oklch(50% 0.18 15)' : score >= 40 ? 'oklch(58% 0.16 55)' : score >= 20 ? 'oklch(70% 0.10 55)' : 'oklch(50% 0.14 145)';
   return `
     <svg width="80" height="48" viewBox="0 0 80 48" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M 12 40 A ${r} ${r} 0 0 1 68 40" stroke="rgba(120,120,190,0.15)" stroke-width="6" fill="none" stroke-linecap="round"/>
@@ -102,7 +102,7 @@ function riskMeterSVG(score) {
         stroke-dasharray="${dash} ${circ}"
         style="transform-origin:40px 40px; transform: rotate(-180deg)"/>
       <text x="40" y="38" text-anchor="middle" font-size="13" font-weight="600" fill="${color}"
-        font-family="'DM Mono',monospace">${score}</text>
+        font-family="ui-monospace,'Cascadia Code',monospace">${score}</text>
     </svg>`;
 }
 
@@ -146,7 +146,7 @@ function formatCategory(cat) {
 function buildPanel(result) {
   const { flags, risk_score, summary, url, text_length } = result;
   const noFlags = flags.length === 0;
-  const headerColor = risk_score >= 70 ? '#c44848' : risk_score >= 40 ? '#c07830' : risk_score >= 20 ? '#c4a468' : '#4a9e6a';
+  const headerColor = risk_score >= 70 ? 'oklch(50% 0.18 15)' : risk_score >= 40 ? 'oklch(58% 0.16 55)' : risk_score >= 20 ? 'oklch(70% 0.10 55)' : 'oklch(50% 0.14 145)';
   const headerLabel = risk_score >= 70 ? 'High Risk' : risk_score >= 40 ? 'Moderate Risk' : risk_score >= 20 ? 'Low Risk' : 'Appears Safe';
 
   const flagsHTML = flags.length
@@ -168,27 +168,29 @@ function buildPanel(result) {
         max-height: 88vh;
         overflow-y: auto;
         z-index: 2147483646;
-        background: var(--diatom-panel-bg, #f4f0fa);
-        border-left: 1px solid rgba(120,100,200,0.18);
-        border-bottom: 1px solid rgba(120,100,200,0.12);
+        background: oklch(98.5% 0.003 260);
+        border-left: 1px solid oklch(88% 0.005 260);
+        border-bottom: 1px solid oklch(88% 0.005 260 / 0.7);
         border-bottom-left-radius: 10px;
-        box-shadow: -4px 4px 24px rgba(60,40,120,0.13);
-        font-family: 'DM Sans', system-ui, sans-serif;
+        box-shadow: -4px 4px 24px oklch(0% 0 0 / 0.10);
+        font-family: 'Switzer', 'Open Sans', ui-sans-serif, system-ui, sans-serif;
         font-size: 13px;
-        color: #23233C;
+        color: oklch(28% 0.008 260);
         scrollbar-width: thin;
       }
-      [data-theme="dark"] #${PANEL_ID} {
-        background: #1a192a;
-        color: #f2eff8;
-        border-color: rgba(160,140,240,0.16);
+      @media (prefers-color-scheme: dark) {
+        #${PANEL_ID} {
+          background: oklch(16% 0.004 260);
+          color: oklch(88% 0.008 260);
+          border-color: oklch(24% 0.005 260);
+        }
       }
       .tos-header {
         display: flex;
         align-items: center;
         gap: 10px;
         padding: 14px 16px 12px;
-        border-bottom: 1px solid rgba(120,100,200,0.12);
+        border-bottom: 1px solid oklch(88% 0.005 260 / 0.7);
         position: sticky;
         top: 0;
         background: inherit;
@@ -196,7 +198,7 @@ function buildPanel(result) {
       }
       .tos-header-text { flex: 1; min-width: 0; }
       .tos-eyebrow {
-        font-family: 'DM Mono', monospace;
+        font-family: ui-monospace, 'Cascadia Code', monospace;
         font-size: 9px;
         letter-spacing: 0.1em;
         text-transform: uppercase;
@@ -236,7 +238,7 @@ function buildPanel(result) {
       }
       .tos-flag-sum::-webkit-details-marker { display: none; }
       .tos-sev-badge {
-        font-family: 'DM Mono', monospace;
+        font-family: ui-monospace, 'Cascadia Code', monospace;
         font-size: 9.5px;
         letter-spacing: 0.05em;
         border: 1px solid;
@@ -251,7 +253,7 @@ function buildPanel(result) {
       .tos-flag-body { padding: 0 11px 11px; display: flex; flex-direction: column; gap: 7px; }
       .tos-explanation { font-size: 12px; line-height: 1.55; opacity: 0.85; }
       .tos-evidence {
-        font-family: 'DM Mono', monospace;
+        font-family: ui-monospace, 'Cascadia Code', monospace;
         font-size: 10.5px;
         line-height: 1.5;
         opacity: 0.6;
@@ -261,7 +263,7 @@ function buildPanel(result) {
         word-break: break-word;
       }
       .tos-category {
-        font-family: 'DM Mono', monospace;
+        font-family: ui-monospace, 'Cascadia Code', monospace;
         font-size: 9.5px;
         opacity: 0.5;
         letter-spacing: 0.05em;
@@ -274,14 +276,14 @@ function buildPanel(result) {
       }
       .tos-footer {
         padding: 10px 16px 14px;
-        border-top: 1px solid rgba(120,100,200,0.1);
+        border-top: 1px solid oklch(88% 0.005 260 / 0.6);
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 8px;
       }
       .tos-meta {
-        font-family: 'DM Mono', monospace;
+        font-family: ui-monospace, 'Cascadia Code', monospace;
         font-size: 9.5px;
         opacity: 0.4;
       }
@@ -328,7 +330,7 @@ function buildFullSummary(result) {
     all: initial; display: flex; position: fixed; inset: 0;
     z-index: 2147483647; background: rgba(20,18,40,0.72);
     backdrop-filter: blur(6px); align-items: center; justify-content: center;
-    font-family: 'DM Sans', system-ui, sans-serif;
+    font-family: 'Switzer', 'Open Sans', ui-sans-serif, system-ui, sans-serif;
   `;
 
   const rows = flags.map(f => {
@@ -343,22 +345,22 @@ function buildFullSummary(result) {
   }).join('');
 
   overlay.innerHTML = `
-    <div style="background:#f4f0fa;border-radius:12px;max-width:680px;width:90%;
+    <div style="background:oklch(98.5% 0.003 260);border-radius:12px;max-width:680px;width:90%;
       max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);padding:28px;">
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
         ${riskMeterSVG(risk_score)}
         <div>
-          <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;opacity:0.5;margin-bottom:4px">Diatom · ToS Red-Flag Audit</div>
-          <div style="font-size:18px;font-weight:600;color:#23233C">${summary}</div>
+          <div style="font-family:ui-monospace,'Cascadia Code',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;opacity:0.5;margin-bottom:4px">Diatom · ToS Red-Flag Audit</div>
+          <div style="font-size:18px;font-weight:600;color:oklch(28% 0.008 260)">${summary}</div>
           <div style="font-size:11px;opacity:0.5;margin-top:3px">${escHtml(url)}</div>
         </div>
         <button onclick="this.closest('#__diatom_tos_full').remove()" aria-label="Close"
           style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;opacity:0.4">✕</button>
       </div>
       ${flags.length ? `
-        <table style="width:100%;border-collapse:collapse;font-family:'DM Sans',system-ui">
+        <table style="width:100%;border-collapse:collapse;font-family:'Switzer','Open Sans',ui-sans-serif,system-ui">
           <thead>
-            <tr style="border-bottom:1px solid rgba(120,100,200,0.15)">
+            <tr style="border-bottom:1px solid oklch(88% 0.005 260 / 0.8)">
               <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:0.08em;opacity:0.5;font-weight:500">SEVERITY</th>
               <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:0.08em;opacity:0.5;font-weight:500">CLAUSE</th>
               <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:0.08em;opacity:0.5;font-weight:500">WHAT IT MEANS</th>
@@ -414,14 +416,7 @@ function showPanel(result) {
 
 let _auditInProgress = false;
 
-function _ensureTosStyles() {
-  if (typeof loadStylesheet === 'function') {
-    loadStylesheet('/tos-auditor.css');
-  }
-}
-
-function runAudit(forceShow = false) {
-  _ensureTosStyles();
+async function runAudit(forceShow = false) {
   if (_auditInProgress) return;
   _auditInProgress = true;
 
@@ -440,8 +435,8 @@ function runAudit(forceShow = false) {
       loadingEl.id = '__diatom_tos_loading';
       loadingEl.style.cssText = `
         all:initial; display:flex; position:fixed; top:12px; right:12px;
-        z-index:2147483646; background:rgba(30,25,50,0.88); color:#c4a468;
-        font-family:'DM Mono',monospace; font-size:11px; padding:7px 14px;
+        z-index:2147483646; background:oklch(20% 0.02 260 / 0.88); color:oklch(90% 0.03 220);
+        font-family:ui-monospace,'Cascadia Code',monospace; font-size:11px; padding:7px 14px;
         border-radius:6px; gap:8px; align-items:center;
         box-shadow: 0 4px 16px rgba(0,0,0,0.2);
       `;

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JSON — Diatom</title>
+<link rel="stylesheet" href="/design/main.css">
+<link rel="stylesheet" href="../fonts.css">
+<script>
+  (function () {
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+  })();
+</script>
+<style>
+  body {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    background: var(--color-bg);
+    color: var(--color-text);
+    min-height: 100vh;
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border-bottom: 1px solid var(--glass-border);
+  }
+  header .src {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+  header button {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    border-radius: var(--radius-sm);
+    padding: 5px 11px;
+    cursor: pointer;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    header button { transition: background 120ms ease, border-color 120ms ease; }
+  }
+  header button:hover { background: var(--color-accent-dim); border-color: var(--color-accent); }
+
+  main { padding: 20px clamp(20px, 4vw, 48px) 60px; max-width: 900px; margin: 0 auto; }
+
+  .state-msg {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; padding: 80px 20px; color: var(--color-text-muted); text-align: center;
+  }
+  .state-msg .glyph { font-size: 32px; opacity: 0.5; }
+
+  .json-tree { line-height: 1.7; }
+  .node { position: relative; }
+  .node-line { display: flex; align-items: baseline; gap: 4px; white-space: pre-wrap; word-break: break-word; }
+  .toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 14px; height: 14px; flex-shrink: 0;
+    color: var(--color-text-muted); cursor: pointer; user-select: none;
+    font-size: 9px;
+  }
+  .toggle::before { content: '▸'; }
+  .node.open > .node-line .toggle::before { content: '▾'; }
+  .leaf .toggle { visibility: hidden; }
+
+  .children {
+    margin-left: 17px;
+    padding-left: 7px;
+    border-left: 1px solid var(--color-border);
+  }
+  .node:not(.open) > .children { display: none; }
+
+  .key { color: var(--color-accent); }
+  .punct { color: var(--color-text-muted); }
+  .val-string  { color: oklch(50% 0.14 145); }
+  .val-number  { color: oklch(52% 0.18 220); }
+  .val-boolean { color: oklch(58% 0.16 55); }
+  .val-null    { color: var(--color-text-muted); font-style: italic; }
+  .count       { color: var(--color-text-muted); font-size: var(--text-xs); margin-left: 4px; }
+
+  .node-line:hover { background: var(--color-accent-dim); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="src" id="src-label"></span>
+  <button id="btn-expand">Expand all</button>
+  <button id="btn-collapse">Collapse all</button>
+  <button id="btn-copy">Copy</button>
+</header>
+
+<main>
+  <div id="content"></div>
+</main>
+
+<script type="module">
+  import { invoke } from '../browser/ipc.js';
+
+  const params = new URLSearchParams(location.search);
+  const src = params.get('src') || '';
+  document.getElementById('src-label').textContent = src;
+
+  const content = document.getElementById('content');
+
+  function stateMsg(glyph, text) {
+    content.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'state-msg';
+    const g = document.createElement('div');
+    g.className = 'glyph';
+    g.textContent = glyph;
+    const t = document.createElement('div');
+    t.textContent = text;
+    wrap.append(g, t);
+    content.appendChild(wrap);
+  }
+
+  async function loadJson() {
+    if (!src) {
+      stateMsg('⚠', 'No source URL given.');
+      return;
+    }
+    stateMsg('⋯', 'Loading…');
+
+    let raw;
+    try {
+      const resp = await fetch(src);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      raw = await resp.text();
+    } catch (err) {
+      // file:// and some cross-origin cases can't be fetched directly from
+      // this page — fall back to Diatom's own fetch, which isn't subject
+      // to the same webview sandboxing.
+      try {
+        raw = await invoke('cmd_fetch_raw_text', { url: src });
+      } catch (err2) {
+        stateMsg('⚠', 'Could not load: ' + (err2?.message || err.message));
+        return;
+      }
+    }
+
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (err) {
+      stateMsg('⚠', 'Not valid JSON: ' + err.message);
+      return;
+    }
+
+    content.innerHTML = '';
+    const tree = document.createElement('div');
+    tree.className = 'json-tree';
+    tree.appendChild(renderNode(data, null, true));
+    content.appendChild(tree);
+
+    window.__diatom_json_raw = JSON.stringify(data, null, 2);
+  }
+
+  function renderNode(value, key, isRoot) {
+    const isObject = value !== null && typeof value === 'object' && !Array.isArray(value);
+    const isArray  = Array.isArray(value);
+    const isLeaf   = !isObject && !isArray;
+
+    const node = document.createElement('div');
+    node.className = 'node' + (isLeaf ? ' leaf' : ' open');
+
+    const line = document.createElement('div');
+    line.className = 'node-line';
+
+    const toggle = document.createElement('span');
+    toggle.className = 'toggle';
+    if (!isLeaf) toggle.addEventListener('click', () => node.classList.toggle('open'));
+    line.appendChild(toggle);
+
+    if (key !== null) {
+      const k = document.createElement('span');
+      k.className = 'key';
+      k.textContent = '"' + key + '"';
+      line.appendChild(k);
+      const colon = document.createElement('span');
+      colon.className = 'punct';
+      colon.textContent = ': ';
+      line.appendChild(colon);
+    }
+
+    if (isObject || isArray) {
+      const openBrace = document.createElement('span');
+      openBrace.className = 'punct';
+      openBrace.textContent = isArray ? '[' : '{';
+      line.appendChild(openBrace);
+
+      const entries = isArray ? value.map((v, i) => [i, v]) : Object.entries(value);
+      const countEl = document.createElement('span');
+      countEl.className = 'count';
+      countEl.textContent = entries.length + (isArray ? (entries.length === 1 ? ' item' : ' items') : (entries.length === 1 ? ' key' : ' keys'));
+      line.appendChild(countEl);
+
+      node.appendChild(line);
+
+      const children = document.createElement('div');
+      children.className = 'children';
+      for (const [k, v] of entries) {
+        children.appendChild(renderNode(v, isArray ? null : String(k), false));
+      }
+      node.appendChild(children);
+
+      const closeLine = document.createElement('div');
+      closeLine.className = 'punct';
+      closeLine.style.marginLeft = '14px';
+      closeLine.textContent = isArray ? ']' : '}';
+      node.appendChild(closeLine);
+    } else {
+      const v = document.createElement('span');
+      if (typeof value === 'string')       { v.className = 'val-string';  v.textContent = JSON.stringify(value); }
+      else if (typeof value === 'number')  { v.className = 'val-number';  v.textContent = String(value); }
+      else if (typeof value === 'boolean') { v.className = 'val-boolean'; v.textContent = String(value); }
+      else                                  { v.className = 'val-null';    v.textContent = 'null'; }
+      line.appendChild(v);
+      node.appendChild(line);
+    }
+
+    return node;
+  }
+
+  document.getElementById('btn-expand').addEventListener('click', () => {
+    content.querySelectorAll('.node').forEach(n => n.classList.add('open'));
+  });
+  document.getElementById('btn-collapse').addEventListener('click', () => {
+    content.querySelectorAll('.node').forEach(n => { if (n !== content.firstElementChild) n.classList.remove('open'); });
+  });
+  document.getElementById('btn-copy').addEventListener('click', async () => {
+    if (window.__diatom_json_raw) {
+      await navigator.clipboard.writeText(window.__diatom_json_raw);
+    }
+  });
+
+  loadJson();
+</script>
+
+</body>
+</html>

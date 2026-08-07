@@ -118,11 +118,10 @@ export async function yieldCurrentDomain() {
 export function getYieldLevel() { return _yieldLevel; }
 export function getCurrentDomain() { return _currentDomain; }
 
-export function registerDefaultHotkeys({ onFreeze, onZen, onVision, onNewTab, onCloseTab }) {
+export function registerDefaultHotkeys({ onFreeze, onVision, onNewTab, onCloseTab }) {
   register('new_tab',   { key: 't', ctrl: true },  onNewTab,   { yieldInPartial: false });
   register('close_tab', { key: 'w', ctrl: true },  onCloseTab, { yieldInPartial: true  });
   register('freeze',    { key: 's', ctrl: true },  onFreeze,   { yieldInPartial: true  });
-  register('zen',       { key: 'Z', ctrl: true, shift: true }, onZen, { yieldInPartial: false });
 
   register('vision_alt', { key: 'Alt', alt: false }, () => {
     _visionActive = true;

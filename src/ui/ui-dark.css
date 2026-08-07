@@ -1,21 +1,56 @@
-:root {
-  --bg:        #0d0e11;
-  --bg2:       #151720;
-  --bg3:       #1d1f2a;
-  --border:    #2a2d3a;
-  --accent:    #00d4ff;
-  --accent2:   #7c5cfc;
-  --danger:    #ff4b6e;
-  --warn:      #f59e0b;
-  --ok:        #22c55e;
-  --text:      #e2e8f0;
-  --text2:     #94a3b8;
-  --text3:     #475569;
-  --radius:    8px;
-  --radius-lg: 14px;
-  --shadow:    0 4px 24px rgba(0, 0, 0, .45);
-  --font:      "Inter", system-ui, sans-serif;
-  --mono:      "JetBrains Mono", "Fira Code", monospace;
+/* ui-dark.css — token bridge for vault.html
+ *
+ * Historically a standalone cyan/purple theme, disconnected from every
+ * other surface in the app. Now aliases the SAME variable names to the
+ * shared asong56 design tokens (design/main.css) so vault.html's existing
+ * var(--bg)/var(--accent)/etc. markup needs no changes, but resolves to
+ * the same colors as the rest of Diatom.
+ *
+ * Light/dark: vault.html sets [data-theme] explicitly (supports manual
+ * override, not just OS preference), so values are keyed off that
+ * attribute rather than @media (prefers-color-scheme).
+ */
+
+:root,
+[data-theme="light"] {
+  --bg:        oklch(98.5% 0.003 260);
+  --bg2:       oklch(95%   0.004 260);
+  --bg3:       oklch(91%   0.005 260);
+  --border:    oklch(88%   0.005 260);
+  --accent:    oklch(52%   0.18  220);
+  --accent2:   oklch(52%   0.18  220);
+  --accent-dim: oklch(96%  0.04  220);
+  --danger:    oklch(52%   0.18  15);
+  --warn:      oklch(55%   0.15  55);
+  --ok:        oklch(50%   0.14  145);
+  --text:      oklch(28%   0.008 260);
+  --text2:     oklch(60%   0.008 260);
+  --text3:     oklch(60%   0.008 260);
+  --radius:    var(--radius-base);
+  /* --radius-sm / --radius-lg / --radius-pill needn't be redeclared here —
+     they cascade straight through from design/main.css's :root (loaded
+     first in vault.html), and redeclaring a var in terms of itself would
+     create a cycle. */
+  --shadow:    0 3px 12px oklch(0% 0 0 / 0.08), 0 1px 3px oklch(0% 0 0 / 0.04);
+  --font:      var(--font-sans);
+  --mono:      var(--font-mono);
+}
+
+[data-theme="dark"] {
+  --bg:        oklch(11%  0.003 260);
+  --bg2:       oklch(16%  0.004 260);
+  --bg3:       oklch(20%  0.005 260);
+  --border:    oklch(24%  0.005 260);
+  --accent:    oklch(60%  0.16  220);
+  --accent2:   oklch(60%  0.16  220);
+  --accent-dim: oklch(18%  0.06  220);
+  --danger:    oklch(62%  0.16  15);
+  --warn:      oklch(65%  0.14  55);
+  --ok:        oklch(58%  0.13  145);
+  --text:      oklch(88%  0.008 260);
+  --text2:     oklch(60%  0.008 260);
+  --text3:     oklch(60%  0.008 260);
+  --shadow:    0 3px 12px oklch(0% 0 0 / 0.04), 0 1px 3px oklch(0% 0 0 / 0.02);
 }
 
 *,
@@ -31,6 +66,9 @@ body {
   background:  var(--bg);
   color:       var(--text);
   min-height:  100vh;
+}
+@media (prefers-reduced-motion: no-preference) {
+  body { transition: background 220ms ease, color 220ms ease; }
 }
 
 ::-webkit-scrollbar       { width: 5px; }

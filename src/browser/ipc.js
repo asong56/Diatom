@@ -1,6 +1,12 @@
 'use strict';
 
-const invoke = window.__TAURI__?.invoke
+// Tauri v2's global-injection API is namespaced (window.__TAURI__.core.invoke),
+// matching the `@tauri-apps/api/core` module shape — not the flat
+// window.__TAURI__.invoke from v1. `listen`/`emit` below already used the
+// correct namespaced form (window.__TAURI__.event.*); this line hadn't been
+// updated to match, so it silently fell through to the "unavailable" stub
+// even when window.__TAURI__ was genuinely present.
+const invoke = window.__TAURI__?.core?.invoke
     ?? (() => Promise.reject(new Error('Tauri IPC not available')));
 
 export { invoke, listen };
@@ -50,11 +56,6 @@ export const domCrush       = (domain, selector) => invoke('cmd_dom_crush',     
 export const domBlocksFor   = (domain)           => invoke('cmd_dom_blocks_for',   { domain });
 export const domBlockRemove = (id)               => invoke('cmd_dom_block_remove', { id });
 
-// ── Zen mode ──────────────────────────────────────────────────────────────────
-export const zenStatus      = ()              => invoke('cmd_zen_status');
-export const zenActivate    = ()              => invoke('cmd_zen_activate');
-export const zenDeactivate  = (unlockPhrase)  => invoke('cmd_zen_deactivate',   { unlockPhrase });
-export const zenSetAphorism = (aphorism)      => invoke('cmd_zen_set_aphorism', { aphorism });
 
 // ── Privacy / threat detection ────────────────────────────────────────────────
 export const privacyConfigGet = ()       => invoke('cmd_privacy_config_get');
@@ -62,12 +63,6 @@ export const privacyConfigSet = (config) => invoke('cmd_privacy_config_set', { c
 export const threatCheck      = (domain) => invoke('cmd_threat_check',        { domain });
 export const threatRefresh    = ()       => invoke('cmd_threat_list_refresh');
 
-// ── RSS ───────────────────────────────────────────────────────────────────────
-export const rssFeeds      = ()       => invoke('cmd_rss_feeds_list');
-export const rssFeedAdd    = (url)    => invoke('cmd_rss_feed_add',    { url });
-export const rssFeedRemove = (id)     => invoke('cmd_rss_feed_remove', { id });
-export const rssItems      = (feedId) => invoke('cmd_rss_items',       { feedId });
-export const rssMarkRead   = (itemId) => invoke('cmd_rss_mark_read',   { itemId });
 
 // ── TOTP / 2FA ────────────────────────────────────────────────────────────────
 export const totpList   = ()                                 => invoke('cmd_totp_list');
@@ -106,9 +101,6 @@ export const vaultUpdate   = (entry)  => invoke('cmd_vault_update',   { entry })
 export const vaultDelete   = (id)     => invoke('cmd_vault_delete',   { id });
 export const vaultAutofill = (domain) => invoke('cmd_vault_autofill', { domain });
 
-// ── Nostr sync ────────────────────────────────────────────────────────────────
-export const nostrPublish = (payload) => invoke('cmd_nostr_publish', { payload });
-export const nostrFetch   = (payload) => invoke('cmd_nostr_fetch',   { payload });
 
 // ── Boosts ────────────────────────────────────────────────────────────────────
 export const boostsForDomain = (domain) => invoke('cmd_boosts_for_domain', { domain });

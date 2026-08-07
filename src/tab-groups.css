@@ -1,6 +1,8 @@
-.tab-btn {
-  max-width: 240px;
-}
+/* tab-groups.css — Tab title truncation and the >=1800px vertical tab-bar layout.
+ * Built on the shared design system — see design/main.css.
+ */
+
+.tab-btn { max-width: 240px; }
 .tab-title {
   max-width: 14ch;
   white-space: nowrap;
@@ -12,10 +14,10 @@
   overflow: visible;
   max-width: none;
 }
+
 @media (min-width: 1800px) {
-  body.diatom-root {
-    flex-direction: row !important;
-  }
+  body.diatom-root { flex-direction: row !important; }
+
   #tab-bar {
     flex-direction: column !important;
     width: 200px !important;
@@ -24,19 +26,19 @@
     height: 100vh !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
-    border-right: 1px solid var(--c-border) !important;
+    border-right: 1px solid var(--color-border) !important;
     border-bottom: none !important;
-    padding: 0.4rem 0.3rem !important;
-    gap: 0.15rem !important;
+    padding: 6px 5px !important;
+    gap: 2px !important;
     scrollbar-width: thin !important;
-    scrollbar-color: var(--c-border) transparent !important;
-    background: var(--c-surface) !important;
+    scrollbar-color: var(--color-border) transparent !important;
+    background: var(--color-surface) !important;
     z-index: 100;
   }
   #omnibox-wrap {
     order: -1;
     width: 100% !important;
-    margin-bottom: 0.4rem !important;
+    margin-bottom: 6px !important;
   }
   #webview-area {
     flex: 1 !important;
@@ -50,9 +52,9 @@
     min-height: 2.2rem !important;
     flex-direction: row !important;
     align-items: center !important;
-    gap: 0.45rem !important;
-    padding: 0.35rem 0.5rem !important;
-    border-radius: 0.35rem !important;
+    gap: 8px !important;
+    padding: 6px 8px !important;
+    border-radius: var(--radius-sm) !important;
     border-bottom: none !important;
     justify-content: flex-start !important;
   }
@@ -61,33 +63,32 @@
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
-    font-size: 0.75rem !important;
+    font-size: var(--text-xs) !important;
   }
   .tab-btn .tab-close {
     margin-left: auto !important;
     opacity: 0 !important;
-    transition: opacity 0.12s !important;
   }
-  .tab-btn:hover .tab-close {
-    opacity: 1 !important;
+  @media (prefers-reduced-motion: no-preference) {
+    .tab-btn .tab-close { transition: opacity var(--dur-fast, 120ms) var(--ease-out, ease) !important; }
   }
+  .tab-btn:hover .tab-close { opacity: 1 !important; }
+
   .tab-group-header {
     width: 100% !important;
-    border-radius: 0.3rem !important;
+    border-radius: var(--radius-sm) !important;
     border: none !important;
-    border-bottom: 1px solid color-mix(in srgb, var(--group-color, #60a5fa) 25%, var(--c-border)) !important;
-    margin: 0.3rem 0 0.1rem !important;
-    padding: 0.2rem 0.4rem !important;
+    border-bottom: 1px solid color-mix(in srgb, var(--group-color, var(--color-accent)) 25%, var(--color-border)) !important;
+    margin: 6px 0 2px !important;
+    padding: 4px 8px !important;
   }
-  #new-tab-btn {
-    width: 100% !important;
-    margin-top: auto !important;
-  }
+  #new-tab-btn { width: 100% !important; margin-top: auto !important; }
+
   #toolbar {
     flex-direction: column !important;
     width: 200px !important;
     height: auto !important;
-    border-right: 1px solid var(--c-border) !important;
+    border-right: 1px solid var(--color-border) !important;
     border-bottom: none !important;
   }
 }

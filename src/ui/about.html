@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1"> <title>About Diatom</title> <!-- P3 fix: load fonts locally — Inter, Playfair Display, DM Sans, DM Mono --> <link rel="stylesheet" href="../fonts.css"> <!-- P1 fix: dark-mode auto-detection (about.html is always dark, but keep consistent) -->
+<head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1"> <title>About Diatom</title> <link rel="stylesheet" href="/design/main.css"> <link rel="stylesheet" href="../fonts.css">
   <script>
     // Theme is read from the Tauri backend (cmd_setting_get) rather than
     // localStorage, because localStorage is cleared by some privacy tools and
@@ -232,7 +232,7 @@ hr {
 </style>
 </head>
 <body>
-<div class="page"> <!-- Generative glyph (rendered by engine) --> <div class="glyph-wrap"> <canvas id="about-glyph" width="80" height="80"></canvas> </div> <h1>Diatom</h1> <div class="version" id="version-line">v7.2 · Local-first · Digital sovereignty</div> <section> <h2>Why this browser exists</h2> <p>
+<div class="page"> <!-- Generative glyph (rendered by engine) --> <div class="glyph-wrap"> <canvas id="about-glyph" width="80" height="80"></canvas> </div> <h1>Diatom</h1> <div class="version" id="version-line">v1.0.0 · Local-first · Digital sovereignty</div> <section> <h2>Why this browser exists</h2> <p>
       Most browsers are a <strong>window</strong> that lets you see the internet.
       Diatom is a <strong>filter</strong> that keeps the internet from seeing you.
     </p> <p>
@@ -247,11 +247,7 @@ hr {
         Diatom has no server. No account system. No telemetry.
         No anonymous data collection for "improving user experience".
         Your data stays on your device. If it leaves, that is your deliberate choice.
-      </div> </div> <div class="axiom"> <div class="axiom-num">2</div> <div class="axiom-body"> <strong>The Zen Mode intent declaration is on by default and cannot be removed from defaults.</strong>
-        Breaking focus has a cost. The cost is writing down why you are breaking it.
-        This is a ritual, not a punishment. Users who have internalised the ritual
-        may disable the gate in Settings — this is an opt-out, not a bypass.
-      </div> </div> <div class="axiom"> <div class="axiom-num">3</div> <div class="axiom-body"> <strong>No centralised sync server, ever.</strong>
+      </div> </div>  <div class="axiom"> <div class="axiom-num">3</div> <div class="axiom-body"> <strong>No centralised sync server, ever.</strong>
         Even if that means cross-device sync requires physical proximity (Mesh P2P).
         The price of cloud convenience is that your data becomes the cloud's data.
       </div> </div> <div class="axiom"> <div class="axiom-num">4</div> <div class="axiom-body"> <strong>Ad-tracking systems do not deserve to be treated politely.</strong>
@@ -267,7 +263,7 @@ hr {
     </p> <p>
       These are not bugs. They are boundaries. <strong>A tool with boundaries is more trustworthy than a tool that is everywhere.</strong> </p> <p>
       We will tell you where the boundaries are. We will not pretend they do not exist.
-    </p> </section> <div class="meta"> <span>Version: <strong id="about-version">7.2.0</strong></span> <span>Build: <span id="build-hash">—</span></span> <span>Arch: <span id="about-arch">—</span></span> <span>Platform: <span id="about-os">—</span></span> </div>
+    </p> </section> <div class="meta"> <span>Version: <strong id="about-version">1.0.0</strong></span> <span>Build: <span id="build-hash">—</span></span> <span>Arch: <span id="about-arch">—</span></span> <span>Platform: <span id="about-os">—</span></span> </div>
 </div>
 <script type="module">
   import { renderDiatomSvg } from '/features/diatom-engine.js';
@@ -280,7 +276,7 @@ hr {
   // Populate build info
   try {
     const info = await invoke('cmd_system_info');
-    document.getElementById('about-version').textContent = info.version ?? '7.2.0';
+    document.getElementById('about-version').textContent = info.version ?? '1.0.0';
     document.getElementById('about-arch').textContent    = info.arch   ?? '—';
     document.getElementById('about-os').textContent      = info.os     ?? '—';
     document.getElementById('version-line').textContent  = `v${info.version} · Local-first · Digital sovereignty`;

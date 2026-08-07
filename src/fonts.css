@@ -1,25 +1,37 @@
 /* fonts.css — Diatom typeface tokens
  *
- * All stacks resolve to fonts already present on the host system.
- * No external font files are fetched.
+ * Source of truth: asong56 Design Manual v0.3, §3 Typography.
+ * All stacks resolve to fonts already present on the host system or a close
+ * hosted substitute. No external font files are fetched at runtime.
  *
- * Design note (v0.16.0): font choice is about *presentation*, not organisation.
- * Article and RSS views no longer enforce a serif stack — they inherit --f-body
- * so the reading surface matches the OS default.  Users who prefer a serif face
- * can override via Page Boosts (diatom://labs → Page Boosts).
+ * Hosting status:
+ *   Switzer         — not bundled; falls through to Open Sans / system UI font.
+ *   Gilda Display   — design spec calls for it, but it isn't bundled yet.
+ *                     Falls through to Lora, which is a close-enough serif
+ *                     substitute until Gilda Display ships.
+ *   Monaspace Neon  — not bundled; falls through to the OS monospace font.
  */
 
 :root {
-  /* Interface text — the default face for all shell chrome. */
-  --f-sans: system-ui, -apple-system, sans-serif;
+  /* Interface text — the default face for all shell chrome and body copy. */
+  --font-sans: 'Switzer', 'Open Sans', ui-sans-serif, 'Segoe UI', system-ui, sans-serif;
 
-  /* Retained for Page Boosts and explicit opt-in contexts.
-     Not applied automatically to any reading surface. */
-  --f-serif: ui-serif, Georgia, serif;
+  /* Reserved for blockquotes and signature moments — §3 Typography.
+     Not applied to any reading surface automatically. */
+  --font-serif: 'Gilda Display', 'Lora', Georgia, serif;
 
-  /* Code, addresses, and monospaced data. */
-  --f-mono: ui-monospace, "Cascadia Code", "Fira Code", Menlo, Consolas, monospace;
+  /* Code, paths, addresses, terminal-style data. */
+  --font-mono: 'Monaspace Neon', ui-monospace, 'Cascadia Code', monospace;
 
-  /* Prose bodies (article view, RSS reader) — inherits OS default, no forced stack. */
-  --f-body: inherit;
+  /* CJK fallback, appended after --font-sans where CJK text is expected. */
+  --font-cjk: 'OPPO Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+
+  /* ── Back-compat aliases ──────────────────────────────────────────────
+     Older chrome files reference --f-sans/--f-mono/--f-serif. Keep them
+     pointed at the canonical tokens above so both names stay in sync —
+     remove once every consumer has migrated to --font-*. */
+  --f-sans:  var(--font-sans);
+  --f-serif: var(--font-serif);
+  --f-mono:  var(--font-mono);
+  --f-body:  inherit;
 }

@@ -4,10 +4,8 @@ import { invoke, listen } from './browser/ipc.js';
 import { initTabs, createTab, closeTab, navigate, freezeCurrentPage, setReadingMode } from './browser/tabs.js';
 import { initHotkeys, registerDefaultHotkeys, updateContext as updateHotkeyContext } from './browser/hotkey.js';
 import { updateLustre } from './browser/lustre.js';
-import { initZen, activate as zenActivate, isActive as zenIsActive } from './features/zen.js';
 import { initVisionOverlay } from './features/vision-overlay.js';
 import { initCrusherCapture } from './features/dom-crusher.js';
-import { openNetworkPanel } from './features/network-panel.js';
 import { injectVideoController } from './features/video-controller.js';
 import { qs } from './browser/utils.js';
 import { tosAuditor } from './features/tos-auditor.js';
@@ -46,7 +44,6 @@ async function registerSW() {
             adblock:       true,
             ua_uniformity: true,
             csp_injection: true,
-            zen_active:    zenIsActive(),
         }});
         bc.close();
     } catch (err) {
@@ -54,33 +51,53 @@ async function registerSW() {
     }
 }
 
-// ── Address-bar slash commands ────────────────────────────────────────────────
+// ── Address-bar commands ──────────────────────────────────────────────────────
+//
+//  /command   → system command (about, freeze)
+//  ?query     → ask local AI about the current page or anything
+//  (normal)   → search or navigate
 
 function routeCommand(input) {
     const s = input.trim();
-    if (s === '/devnet')                            { openNetworkPanel();             return true; }
-    if (s === '/zen')                               { zenActivate();                   return true; }
-    if (s.startsWith('/json'))    { openWasmTool('json',   s.slice(5).trim()); return true; }
-    if (s.startsWith('/crypto'))  { openWasmTool('crypto', s.slice(7).trim()); return true; }
-    if (s.startsWith('/img'))     { openWasmTool('img',    '');                return true; }
-    if (/^\/(scholar|debug|scribe|oracle)\s/.test(s)) {
-        const [mode, ...rest] = s.slice(1).split(' ');
-        openAiPanel(mode, rest.join(' '));
+
+    // ? prefix → local AI conversation with page context
+    if (s.startsWith('?')) {
+        const query = s.slice(1).trim();
+        if (query) openAiPanel(query);
         return true;
     }
+
+    // / prefix → system commands
+    if (s.startsWith('/')) {
+        const [cmd] = s.slice(1).split(' ');
+
+        switch (cmd) {
+            case 'about':
+                navigate('diatom://about');
+                return true;
+            case 'freeze':
+                freezeCurrentPage();
+                return true;
+        }
+
+        // fallback: show a brief "unknown command" tooltip on the omnibox
+        return true;
+    }
+
     return false;
 }
 
-function openWasmTool(tool, input) {
-    navigate(`diatom://tools?${new URLSearchParams({ tool, input })}`);
-}
-
-function openAiPanel(mode, query) {
+function openAiPanel(query) {
     const panel = qs('#ai-panel');
     if (panel) {
-        panel.dataset.mode  = mode;
         panel.dataset.query = query;
+        panel.dataset.mode  = 'chat';
         panel.hidden = false;
+        // Pass page context automatically so the AI can answer about what's on screen
+        if (window.__diatom_shadow_index) {
+            const ctx = window.__diatom_shadow_index.currentPageSummary?.() ?? '';
+            panel.dataset.pageCtx = ctx;
+        }
     }
 }
 
@@ -197,7 +214,6 @@ async function boot() {
         onNewTab:   () => createTab(),
         onCloseTab: () => { const id = qs('[data-tab-id].active')?.dataset.tabId; if (id) closeTab(id); },
         onFreeze:   () => freezeCurrentPage(),
-        onZen:      () => zenIsActive() ? import('./features/zen.js').then(m => m.deactivate()) : zenActivate(),
     });
 
     const omnibox = qs('#omnibox');
@@ -210,10 +226,12 @@ async function boot() {
                 omnibox.value = '';
             }
         });
+
+        // Hint text in the placeholder so users know about / and ? prefixes
+        omnibox.placeholder = 'Search, navigate, /command, ?ask AI';
     }
 
     await initTabs(worker);
-    await initZen();
     initVisionOverlay();
     initCrusherCapture();
     initAgentBridge();

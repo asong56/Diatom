@@ -13,8 +13,6 @@ let CONFIG = {
   degrade_images:  false,
   image_quality:   0.4,
   image_scale:     0.5,
-  zen_active:      false,
-  zen_categories:  ['social', 'entertainment'],
 };
 
 let MUSEUM_INDEX = [];
@@ -124,7 +122,6 @@ bc.addEventListener('message', e => {
       idbSet(IDB_KEY_CONFIG, { config: CONFIG, ua: DIATOM_UA }).catch(() => {});
       break;
     case 'ZEN':
-      CONFIG.zen_active = !!msg.active;
       // ZEN is a sub-key of CONFIG — persist the full CONFIG snapshot.
       idbSet(IDB_KEY_CONFIG, { config: CONFIG, ua: DIATOM_UA }).catch(() => {});
       break;
@@ -246,15 +243,6 @@ function isBlocked(url) {
 
 function isThreat(url) { return THREAT_SET.has(hostOf(url)); }
 
-function zenCategory(url) {
-  if (!CONFIG.zen_active) return null;
-  const h = hostOf(url);
-  for (const cat of CONFIG.zen_categories) {
-    const set = ZEN_CATEGORIES[cat];
-    if (set && (set.has(h) || [...set].some(d => h.endsWith(`.${d}`)))) return cat;
-  }
-  return null;
-}
 
 function stubFor(url) {
   const h = hostOf(url);
@@ -586,11 +574,6 @@ self.addEventListener('fetch', e => {
   }
 
   if (mode === 'navigate') {
-    const cat = zenCategory(url);
-    if (cat) {
-      e.respondWith(zenInterstitialResponse(url, cat));
-      return;
-    }
   }
 
   if (mode === 'navigate') {
@@ -642,13 +625,6 @@ async function handleNavigate(req, url) {
   return offlinePage(url);
 }
 
-function zenInterstitialResponse(url, category) {
-  const html =`<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>Zen</title>
-<script>window.__DIATOM_ZEN_BLOCK__ = { url: ${JSON.stringify(url)}, category: ${JSON.stringify(category)} };</script>
-</head><body><script type="module" src="/main.js"></script></body></html>`;
-  return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
-}
 
 function threatInterstitial(url) {
   const domain = hostOf(url);

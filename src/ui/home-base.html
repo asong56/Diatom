@@ -7,7 +7,6 @@
       1. Top 8 domains by visit_count from history table
       2. Pinned shortcuts from bookmarks WHERE tags LIKE '%pinned%'
       3. Last 3 Museum bundles (recently frozen pages)
-      4. RSS unread count
       5. SLM status
     Lab ID: home_base
     Intercepted: about:diatom → serve this file from resources
@@ -17,6 +16,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Diatom</title>
+<link rel="stylesheet" href="/design/main.css">
+<link rel="stylesheet" href="/fonts.css">
 <style>
 *,*::before,*::after {
   box-sizing:border-box;
@@ -25,21 +26,26 @@
 }
 
 :root {
-  --bg:#080c12;
-  --surface:#0f1621;
-  --border:rgba(96,165,250,.12);
-  --text:#e2e8f0;
-  --muted:#64748b;
-  --accent:#60a5fa;
-  --accent-2:#818cf8;
-  --radius:10px;
+  /* Previously a fully independent hex palette + system-font stack, entirely
+     disconnected from design/main.css despite linking it — this page's
+     colors and font happened to look plausible but weren't actually the
+     shared tokens. Aliased here the same way ui-dark.css/ui-paper.css bridge
+     their pages, so the existing var(--bg)/var(--surface)/etc. markup below
+     needs no further changes. */
+  --bg:      var(--color-bg);
+  --surface: var(--color-surface);
+  --border:  var(--color-border);
+  --text:    var(--color-text);
+  --muted:   var(--color-text-muted);
+  --accent:  var(--color-accent);
+  --radius:  var(--radius-base);
 }
 
 html,body {
   height:100%;
   background:var(--bg);
   color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  font-family:var(--font-sans);
   font-size:14px;
   -webkit-font-smoothing:antialiased;
 }
@@ -65,14 +71,14 @@ body {
   align-items:center;
   background:var(--surface);
   border:1px solid var(--border);
-  border-radius:24px;
+  border-radius:var(--radius-pill);
   padding:10px 20px;
   gap:10px;
   transition:border-color .15s;
 }
 
 .search-bar:focus-within {
-  border-color:rgba(96,165,250,.4);
+  border-color:color-mix(in oklch, var(--accent) 40%, transparent);
 }
 
 .search-bar input {
@@ -132,14 +138,14 @@ body {
 }
 
 .site-card:hover {
-  border-color:rgba(96,165,250,.3);
+  border-color:color-mix(in oklch, var(--accent) 30%, transparent);
   transform:translateY(-1px);
 }
 
 .site-card .favicon {
   width:28px;
   height:28px;
-  border-radius:6px;
+  border-radius:var(--radius-base);
   background:var(--bg);
   object-fit:contain;
 }
@@ -147,8 +153,8 @@ body {
 .site-card .favicon-fallback {
   width:28px;
   height:28px;
-  border-radius:6px;
-  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  border-radius:var(--radius-base);
+  background:var(--accent);
   display:flex;
   align-items:center;
   justify-content:center;
@@ -194,7 +200,7 @@ body {
 }
 
 .museum-item:hover {
-  border-color:rgba(96,165,250,.3);
+  border-color:color-mix(in oklch, var(--accent) 30%, transparent);
 }
 
 .museum-icon {
@@ -254,7 +260,7 @@ body {
 </style>
 </head>
 <body>
-<div class="container"> <!-- Search bar --> <div class="search-bar"> <span class="search-icon">⌕</span> <input id="search" type="text" placeholder="Search or enter a URL…" autocomplete="off" autofocus> </div> <!-- Pinned shortcuts --> <section id="pinned-section"> <div class="section-title">Pinned</div> <div class="grid" id="pinned-grid"><div class="empty-msg">No pinned shortcuts yet</div></div> </section> <!-- Top visited --> <section id="top-section"> <div class="section-title">Frequently Visited</div> <div class="grid" id="top-grid"><div class="empty-msg">No history yet</div></div> </section> <!-- Recent Museum saves --> <section id="museum-section"> <div class="section-title">Recent Museum Saves</div> <div class="museum-list" id="museum-list"><div class="empty-msg">No frozen pages yet</div></div> </section> <!-- Status bar --> <div class="status-bar" id="status-bar"> <span class="status-badge"><span class="status-dot offline" id="slm-dot"></span><span id="slm-label">SLM offline</span></span> <span class="status-badge" id="rss-badge">RSS —</span> <span style="margin-left:auto">Diatom v0.12.1 · Privacy-first browser</span> </div>
+<div class="container"> <!-- Search bar --> <div class="search-bar"> <span class="search-icon">⌕</span> <input id="search" type="text" placeholder="Search or enter a URL…" autocomplete="off" autofocus> </div> <!-- Pinned shortcuts --> <section id="pinned-section"> <div class="section-title">Pinned</div> <div class="grid" id="pinned-grid"><div class="empty-msg">No pinned shortcuts yet</div></div> </section> <!-- Top visited --> <section id="top-section"> <div class="section-title">Frequently Visited</div> <div class="grid" id="top-grid"><div class="empty-msg">No history yet</div></div> </section> <!-- Recent Museum saves --> <section id="museum-section"> <div class="section-title">Recent Museum Saves</div> <div class="museum-list" id="museum-list"><div class="empty-msg">No frozen pages yet</div></div> </section> <!-- Status bar --> <div class="status-bar" id="status-bar"> <span class="status-badge"><span class="status-dot offline" id="slm-dot"></span><span id="slm-label">SLM offline</span></span> <span style="margin-left:auto">Diatom v1.0.0 · Privacy-first browser</span> </div>
 </div>
 <script type="module">
 import { invoke } from '../browser/ipc.js';
@@ -268,7 +274,7 @@ async function loadData() {
         renderPinned(data.pinned ?? []);
         renderTop(data.top_domains ?? []);
         renderMuseum(data.recent_museum ?? []);
-        renderStatus(data.slm_status, data.rss_unread ?? 0);
+        renderStatus(data.slm_status);
     } catch (err) {
         console.warn('[home-base] data load failed:', err);
     }
@@ -308,20 +314,14 @@ function renderMuseum(items) {
         el.addEventListener('click', () => invoke('cmd_museum_thaw', { id: el.dataset.bundle })));
 }
 
-function renderStatus(slmStatus, rssUnread) {
+function renderStatus(slmStatus) {
     const dot   = document.getElementById('slm-dot');
     const label = document.getElementById('slm-label');
-    const rss   = document.getElementById('rss-badge');
 
     if (slmStatus?.server_listening) {
         dot.className = 'status-dot';
         label.textContent = `SLM · ${slmStatus.active_model ?? 'ready'}`;
-    }
-
-    if (rssUnread > 0) {
-        rss.innerHTML = `<span class="status-dot warn"></span> ${rssUnread} unread`;
     } else {
-        rss.textContent = 'RSS — no unread';
     }
 }
 

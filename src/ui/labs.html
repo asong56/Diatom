@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
-<head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1"> <title>Diatom Labs</title> <!-- P0 fix: remove Google Fonts external link → load fonts locally via fonts.css --> <link rel="stylesheet" href="../fonts.css">
-<link rel="stylesheet" href="ui-paper.css"> <!-- P1 fix: dark-mode auto-detection -->
+<head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1"> <title>Diatom Labs</title> <link rel="stylesheet" href="/design/main.css"> <link rel="stylesheet" href="../fonts.css">
+<link rel="stylesheet" href="ui-paper.css">
   <script type="module">
     // [FIX BUG-14] Theme via IPC (consistent with rest of Diatom; localStorage wiped by some privacy tools)
     (async function () {
@@ -33,7 +33,7 @@
   gap:14px;
   position:sticky;
   top:0;
-  background:rgba(220,233,247,0.82);
+  background:var(--glass);
   backdrop-filter:blur(12px);
   z-index:100;
   flex-direction:column;
@@ -158,7 +158,7 @@
 }
 
 .lab-card {
-  background:#fff;
+  background:var(--paper-2);
   border:0.5px solid var(--rule);
   border-radius:var(--r);
   padding:18px 20px;
@@ -515,200 +515,16 @@
       Settings persist across restarts.
     </p> </div> <main class="grid" id="grid"> <p style="color: var(--ink-4); font-size:13px; padding: 40px 0;">Loading labs…</p> </main> <footer class="footer"> <span class="footer-left" id="countLabel">— labs</span> <a class="footer-link" href="https://github.com/diatom-browser/diatom" target="_blank">View source on GitHub</a> </footer>
 <script type="module">
+  // Tauri v2's JS API is window.__TAURI__.core.invoke, not window.__TAURI__.invoke
+  // (that's the v1 shape) — this file previously called the v1 shape directly,
+  // which silently threw on every call and always fell back to SEED_LABS, even
+  // in production. Use the shared wrapper, which also rejects cleanly (instead
+  // of throwing "not a function") when window.__TAURI__ is absent entirely.
+  import { invoke } from '/browser/ipc.js';
+
   // ── Data ─────────────────────────────────────────────────────────────────────
-  // In production: loaded from Tauri via __TAURI__.invoke('cmd_labs_list')
+  // In production: loaded from Tauri via invoke('cmd_labs_list')
   // Dev fallback: inline seed data
-
-  // [BUG-7 FIX] Lab state is authoritative in the Rust SQLite DB, not in SEED_LABS.
-  // fetchLabs() always calls cmd_labs_list when Tauri is available — seed data is
-  // only a fallback for dev/preview mode. On first launch, Rust initialises all lab
-  // states from its own defaults, so SEED_LABS and Rust are always in sync.
-  // The critical fix: never use SEED_LABS enabled values when __TAURI__ is present.
-  async function fetchLabs() {
-    if (window.__TAURI__) {
-      try {
-        return await window.__TAURI__.invoke('cmd_labs_list');
-      } catch(e) {
-        console.warn('[labs] cmd_labs_list failed — rendering seed data:', e);
-      }
-    }
-    // Dev/preview fallback only. In production this path is never reached.
-    return SEED_LABS;
-  }
-
-  async function setLab(id, enabled) {
-    if (window.__TAURI__) {
-      try {
-        return await window.__TAURI__.invoke('cmd_lab_set', { id, enabled });
-      } catch(e) {
-        console.error('[labs] cmd_lab_set failed — toggle state may not persist:', e);
-        return false;
-      }
-    }
-    return false; // no persist in dev mode
-  }
-
-  // [BUG-7 FIX] Sync: on visibility restore (e.g. user navigated away and back),
-  // re-fetch labs state from Rust to catch any changes made by the restart handler.
-  document.addEventListener('visibilitychange', async () => {
-    if (document.visibilityState === 'visible' && window.__TAURI__) {
-      try {
-        const fresh = await window.__TAURI__.invoke('cmd_labs_list');
-        if (fresh && allLabs.length > 0) {
-          fresh.forEach(fl => {
-            const local = allLabs.find(l => l.id === fl.id);
-            if (local) local.enabled = fl.enabled;
-          });
-          renderGrid();
-        }
-      } catch {}
-    }
-  });
-
-  // ── Render ────────────────────────────────────────────────────────────────
-  let allLabs = [];
-  let activeFilter = 'all';
-  let restartNeeded = false;
-
-  const grid        = document.getElementById('grid');
-  const filterRow   = document.getElementById('filterRow');
-  const countLabel  = document.getElementById('countLabel');
-  const restartBnr  = document.getElementById('restartBanner');
-
-  function stabilityTag(s) {
-    const map = { alpha: ['Alpha', 'tag-alpha'], beta: ['Beta', 'tag-beta'], stable: ['Stable', 'tag-stable'] };
-    const [label, cls] = map[s] || ['Unknown', 'tag-alpha'];
-    return `<span class="tag ${cls}">${label}</span>`;
-  }
-
-  function riskClass(r) {
-    return { low: 'risk-low', medium: 'risk-medium', high: 'risk-high' }[r] || 'risk-low';
-  }
-
-  function renderCard(lab) {
-    const riskCls  = riskClass(lab.risk);
-    const riskLbl  = lab.risk.charAt(0).toUpperCase() + lab.risk.slice(1) + ' Risk';
-    const checked  = lab.enabled ? 'checked' : '';
-    return `
-      <div class="lab-card" data-id="${lab.id}" data-cat="${lab.category}">
-        <div class="lab-card-head">
-          <div class="lab-card-titles">
-            <div class="lab-name">${lab.name}</div>
-            <div class="lab-tags">
-              <span class="tag tag-category">${lab.category}</span>
-              ${stabilityTag(lab.stability)}
-              <span class="tag tag-version">${lab.added_in}</span>
-            </div>
-          </div>
-          <label class="toggle-wrap">
-            <label class="toggle">
-              <input type="checkbox" ${checked} data-id="${lab.id}" data-restart="${lab.restart_required}">
-              <span class="toggle-track"></span>
-            </label>
-          </label>
-        </div>
-        <p class="lab-desc">${lab.description}</p>
-        <div class="risk-strip ${riskCls}">
-          <div class="risk-dot"></div>
-          <div class="risk-text">
-            <span class="risk-label">${riskLbl}</span>
-            ${lab.risk_note}
-          </div>
-        </div>
-      </div>`;
-  }
-
-  function buildCategoryDividers(labs) {
-    const cats = [...new Set(labs.map(l => l.category))];
-    const byCategory = {};
-    cats.forEach(c => byCategory[c] = labs.filter(l => l.category === c));
-    return { cats, byCategory };
-  }
-
-  function renderGrid() {
-    const filtered = activeFilter === 'all'
-      ? allLabs
-      : allLabs.filter(l => l.category === activeFilter);
-
-    if (filtered.length === 0) {
-      grid.innerHTML = `
-        <div class="empty-state">
-          <span class="empty-state-glyph">∅</span>
-          <p class="empty-state-text">No labs in this category.</p>
-        </div>`;
-      countLabel.textContent = '0 labs';
-      return;
-    }
-
-    const { cats, byCategory } = buildCategoryDividers(filtered);
-    let html = '';
-
-    if (activeFilter === 'all') {
-      cats.forEach(cat => {
-        const items = byCategory[cat];
-        html += `
-          <div class="section-header">
-            <span class="section-label">${cat}</span>
-            <div class="section-line"></div>
-            <span class="section-count">${items.length}</span>
-          </div>`;
-        items.forEach(lab => html += renderCard(lab));
-      });
-    } else {
-      filtered.forEach(lab => html += renderCard(lab));
-    }
-
-    grid.innerHTML = html;
-    countLabel.textContent = `${filtered.length} lab${filtered.length !== 1 ? 's' : ''}`;
-
-    // Wire up toggles
-    grid.querySelectorAll('input[type=checkbox]').forEach(input => {
-      input.addEventListener('change', async (e) => {
-        const id = e.target.dataset.id;
-        const enabled = e.target.checked;
-        const needsRestart = await setLab(id, enabled);
-
-        // Update local state
-        const lab = allLabs.find(l => l.id === id);
-        if (lab) lab.enabled = enabled;
-
-        if (needsRestart || e.target.dataset.restart === 'true') {
-          restartNeeded = true;
-          restartBnr.classList.add('visible');
-        }
-      });
-    });
-  }
-
-  function buildFilters() {
-    const cats = [...new Set(allLabs.map(l => l.category))];
-    const existing = filterRow.querySelectorAll('.filter-btn');
-    existing.forEach((b, i) => { if (i > 0) b.remove(); });
-
-    cats.forEach(cat => {
-      const btn = document.createElement('button');
-      btn.className = 'filter-btn';
-      btn.dataset.cat = cat;
-      btn.textContent = cat;
-      filterRow.appendChild(btn);
-    });
-
-    filterRow.querySelectorAll('.filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        filterRow.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        activeFilter = btn.dataset.cat;
-        renderGrid();
-      });
-    });
-  }
-
-  // ── Init ─────────────────────────────────────────────────────────────────
-  (async () => {
-    allLabs = await fetchLabs();
-    buildFilters();
-    renderGrid();
-  })();
 
   // ── Seed data (dev fallback) ──────────────────────────────────────────────
   const SEED_LABS = [
@@ -910,15 +726,200 @@
   enabled: true, restart_required: false, added_in: 'v0.11.0' },
 ];
 
+  // [BUG-7 FIX] Lab state is authoritative in the Rust SQLite DB, not in SEED_LABS.
+  // fetchLabs() always calls cmd_labs_list when Tauri is available — seed data is
+  // only a fallback for dev/preview mode. On first launch, Rust initialises all lab
+  // states from its own defaults, so SEED_LABS and Rust are always in sync.
+  // The critical fix: never use SEED_LABS enabled values when __TAURI__ is present.
+  async function fetchLabs() {
+    try {
+      return await invoke('cmd_labs_list');
+    } catch(e) {
+      console.warn('[labs] cmd_labs_list failed — rendering seed data:', e);
+    }
+    // Dev/preview fallback only. In production this path is never reached.
+    return SEED_LABS;
+  }
+
+  async function setLab(id, enabled) {
+    try {
+      return await invoke('cmd_lab_set', { id, enabled });
+    } catch(e) {
+      console.error('[labs] cmd_lab_set failed — toggle state may not persist:', e);
+      return false;
+    }
+  }
+
+  // [BUG-7 FIX] Sync: on visibility restore (e.g. user navigated away and back),
+  // re-fetch labs state from Rust to catch any changes made by the restart handler.
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible') {
+      try {
+        const fresh = await invoke('cmd_labs_list');
+        if (fresh && allLabs.length > 0) {
+          fresh.forEach(fl => {
+            const local = allLabs.find(l => l.id === fl.id);
+            if (local) local.enabled = fl.enabled;
+          });
+          renderGrid();
+        }
+      } catch {}
+    }
+  });
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  let allLabs = [];
+  let activeFilter = 'all';
+  let restartNeeded = false;
+
+  const grid        = document.getElementById('grid');
+  const filterRow   = document.getElementById('filterRow');
+  const countLabel  = document.getElementById('countLabel');
+  const restartBnr  = document.getElementById('restartBanner');
+
+  function stabilityTag(s) {
+    const map = { alpha: ['Alpha', 'tag-alpha'], beta: ['Beta', 'tag-beta'], stable: ['Stable', 'tag-stable'] };
+    const [label, cls] = map[s] || ['Unknown', 'tag-alpha'];
+    return `<span class="tag ${cls}">${label}</span>`;
+  }
+
+  function riskClass(r) {
+    return { low: 'risk-low', medium: 'risk-medium', high: 'risk-high' }[r] || 'risk-low';
+  }
+
+  function renderCard(lab) {
+    const riskCls  = riskClass(lab.risk);
+    const riskLbl  = lab.risk.charAt(0).toUpperCase() + lab.risk.slice(1) + ' Risk';
+    const checked  = lab.enabled ? 'checked' : '';
+    return `
+      <div class="lab-card" data-id="${lab.id}" data-cat="${lab.category}">
+        <div class="lab-card-head">
+          <div class="lab-card-titles">
+            <div class="lab-name">${lab.name}</div>
+            <div class="lab-tags">
+              <span class="tag tag-category">${lab.category}</span>
+              ${stabilityTag(lab.stability)}
+              <span class="tag tag-version">${lab.added_in}</span>
+            </div>
+          </div>
+          <label class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" ${checked} data-id="${lab.id}" data-restart="${lab.restart_required}">
+              <span class="toggle-track"></span>
+            </label>
+          </label>
+        </div>
+        <p class="lab-desc">${lab.description}</p>
+        <div class="risk-strip ${riskCls}">
+          <div class="risk-dot"></div>
+          <div class="risk-text">
+            <span class="risk-label">${riskLbl}</span>
+            ${lab.risk_note}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function buildCategoryDividers(labs) {
+    const cats = [...new Set(labs.map(l => l.category))];
+    const byCategory = {};
+    cats.forEach(c => byCategory[c] = labs.filter(l => l.category === c));
+    return { cats, byCategory };
+  }
+
+  function renderGrid() {
+    const filtered = activeFilter === 'all'
+      ? allLabs
+      : allLabs.filter(l => l.category === activeFilter);
+
+    if (filtered.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state">
+          <span class="empty-state-glyph">∅</span>
+          <p class="empty-state-text">No labs in this category.</p>
+        </div>`;
+      countLabel.textContent = '0 labs';
+      return;
+    }
+
+    const { cats, byCategory } = buildCategoryDividers(filtered);
+    let html = '';
+
+    if (activeFilter === 'all') {
+      cats.forEach(cat => {
+        const items = byCategory[cat];
+        html += `
+          <div class="section-header">
+            <span class="section-label">${cat}</span>
+            <div class="section-line"></div>
+            <span class="section-count">${items.length}</span>
+          </div>`;
+        items.forEach(lab => html += renderCard(lab));
+      });
+    } else {
+      filtered.forEach(lab => html += renderCard(lab));
+    }
+
+    grid.innerHTML = html;
+    countLabel.textContent = `${filtered.length} lab${filtered.length !== 1 ? 's' : ''}`;
+
+    // Wire up toggles
+    grid.querySelectorAll('input[type=checkbox]').forEach(input => {
+      input.addEventListener('change', async (e) => {
+        const id = e.target.dataset.id;
+        const enabled = e.target.checked;
+        const needsRestart = await setLab(id, enabled);
+
+        // Update local state
+        const lab = allLabs.find(l => l.id === id);
+        if (lab) lab.enabled = enabled;
+
+        if (needsRestart || e.target.dataset.restart === 'true') {
+          restartNeeded = true;
+          restartBnr.classList.add('visible');
+        }
+      });
+    });
+  }
+
+  function buildFilters() {
+    const cats = [...new Set(allLabs.map(l => l.category))];
+    const existing = filterRow.querySelectorAll('.filter-btn');
+    existing.forEach((b, i) => { if (i > 0) b.remove(); });
+
+    cats.forEach(cat => {
+      const btn = document.createElement('button');
+      btn.className = 'filter-btn';
+      btn.dataset.cat = cat;
+      btn.textContent = cat;
+      filterRow.appendChild(btn);
+    });
+
+    filterRow.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        filterRow.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeFilter = btn.dataset.cat;
+        renderGrid();
+      });
+    });
+  }
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+  (async () => {
+    allLabs = await fetchLabs();
+    buildFilters();
+    renderGrid();
+  })();
+
+
   // ── Tab limit input ────────────────────────────────────────────────────────
   const tabLimitInput = document.getElementById('tabLimitInput');
   if (tabLimitInput) {
     // Load current value from Rust
-    if (window.__TAURI__) {
-      window.__TAURI__.invoke('cmd_tab_limit_get').then(n => {
-        tabLimitInput.value = n;
-      }).catch(() => {});
-    }
+    invoke('cmd_tab_limit_get').then(n => {
+      tabLimitInput.value = n;
+    }).catch(() => {});
     // Persist changes after a short debounce
     let _tabLimitTimer = null;
     tabLimitInput.addEventListener('input', () => {
@@ -926,9 +927,7 @@
       _tabLimitTimer = setTimeout(() => {
         const n = parseInt(tabLimitInput.value, 10);
         if (isNaN(n) || n < 1 || n > 50) return;
-        if (window.__TAURI__) {
-          window.__TAURI__.invoke('cmd_tab_limit_set', { limit: n }).catch(() => {});
-        }
+        invoke('cmd_tab_limit_set', { limit: n }).catch(() => {});
       }, 400);
     });
   }

@@ -1,41 +1,54 @@
-:root {
-  --ink:          #23233C;
-  --ink-2:        #42425E;
-  --ink-3:        #747490;
-  --ink-4:        #AEAEC6;
-  --paper:        #EBF2FA;
-  --paper-2:      #DCE9F7;
-  --paper-3:      #CDD9F2;
-  --accent:       #C4A468;
-  --accent-l:     #D4B880;
-  --amber:        #C07830;
-  --danger:       #C44848;
-  --glass:        rgba(196, 186, 240, 0.52);
-  --glass-b:      rgba(255, 255, 255, 0.70);
-  --glass-i:      rgba(255, 255, 255, 0.52);
-  --rule:         rgba(120, 120, 190, 0.12);
-  --shadow:       0 1px 3px rgba(74, 62, 30, 0.08), 0 4px 12px rgba(100, 80, 40, 0.04);
-  --r:            6px;
-  --f-serif:      'New York', 'Iowan Old Style', Cambria, Georgia, 'Times New Roman', serif;
-  --f-sans:       -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --f-mono:       'SF Mono', 'Cascadia Code', 'Fira Code', 'DejaVu Sans Mono', monospace;
+/* ui-paper.css — token bridge for labs.html and onboarding.html
+ *
+ * Historically the same gold/purple theme as the old diatom.css, under a
+ * different variable naming convention (--ink/--paper vs --c-ink/--c-paper),
+ * disconnected from it and from ui-dark.css. Now aliases these variable
+ * names to the shared asong56 design tokens so labs.html/onboarding.html's
+ * existing var(--ink)/var(--paper)/etc. markup needs no changes.
+ *
+ * Light/dark: both pages set [data-theme] explicitly (manual override,
+ * not just OS preference), so values key off that attribute.
+ */
+
+:root,
+[data-theme="light"] {
+  --ink:     oklch(28% 0.008 260);
+  --ink-2:   oklch(28% 0.008 260);
+  --ink-3:   oklch(60% 0.008 260);
+  --ink-4:   oklch(60% 0.008 260);
+  --paper:   oklch(98.5% 0.003 260);
+  --paper-2: oklch(95%   0.004 260);
+  --paper-3: oklch(88%   0.005 260);
+  --accent:   oklch(52% 0.18 220);
+  --accent-l: oklch(52% 0.18 220);
+  --amber:    oklch(55% 0.15 55);
+  --danger:   oklch(52% 0.18 15);
+  --glass:    var(--glass-bg, rgba(255, 255, 255, 0.70));
+  --glass-b:  var(--glass-border, rgba(255, 255, 255, 0.50));
+  --glass-i:  var(--glass-border, rgba(255, 255, 255, 0.50));
+  --rule:     oklch(88% 0.005 260);
+  --shadow:   0 1px 3px oklch(0% 0 0 / 0.05);
+  --r:        4px;
+  --f-serif:  var(--font-serif);
+  --f-sans:   var(--font-sans);
+  --f-mono:   var(--font-mono);
 }
 
 [data-theme="dark"] {
-  --ink:        #F2EFF8;
-  --ink-2:      #CAC6D8;
-  --ink-3:      #8A8698;
-  --ink-4:      #4C4860;
-  --paper:      #171620;
-  --paper-2:    #1F1E2C;
-  --paper-3:    #272638;
-  --accent:     #C49248;
-  --accent-l:   #D4A85E;
-  --glass:      rgba(64, 56, 102, 0.60);
-  --glass-b:    rgba(130, 120, 200, 0.24);
-  --glass-i:    rgba(160, 150, 225, 0.14);
-  --rule:       rgba(160, 150, 225, 0.08);
-  --shadow:     0 1px 4px rgba(0, 0, 0, 0.28), 0 4px 16px rgba(0, 0, 0, 0.14);
+  --ink:     oklch(88% 0.008 260);
+  --ink-2:   oklch(88% 0.008 260);
+  --ink-3:   oklch(60% 0.008 260);
+  --ink-4:   oklch(60% 0.008 260);
+  --paper:   oklch(11% 0.003 260);
+  --paper-2: oklch(16% 0.004 260);
+  --paper-3: oklch(24% 0.005 260);
+  --accent:   oklch(60% 0.16 220);
+  --accent-l: oklch(60% 0.16 220);
+  --glass:    rgba(28, 28, 30, 0.70);
+  --glass-b:  rgba(255, 255, 255, 0.10);
+  --glass-i:  rgba(255, 255, 255, 0.10);
+  --rule:     oklch(24% 0.005 260);
+  --shadow:   0 1px 4px oklch(0% 0 0 / 0.025);
 }
 
 *,
@@ -46,11 +59,12 @@
   padding:    0;
 }
 
-html { font-size: 14px; }
-
 body {
   font-family: var(--f-sans);
   background:  var(--paper);
   color:       var(--ink);
   min-height:  100vh;
+}
+@media (prefers-reduced-motion: no-preference) {
+  body { transition: background 220ms ease, color 220ms ease; }
 }
