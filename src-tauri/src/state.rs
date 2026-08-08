@@ -10,10 +10,7 @@ use anyhow::Result;
 use std::{
     collections::HashSet,
     path::PathBuf,
-    sync::{
-        Arc, Mutex, RwLock,
-        atomic::AtomicBool,
-    },
+    sync::{Arc, Mutex, RwLock, atomic::AtomicBool},
 };
 use tokio::sync::Mutex as AsyncMutex;
 use tokio_util::sync::CancellationToken;
@@ -67,12 +64,13 @@ pub struct AppState {
     pub shutdown_token: CancellationToken,
     pub window_ready_token: CancellationToken,
 
-    /// One-shot token used to authenticate the DevPanel bridge connection.
-    /// Generated at startup via `diatom_bridge::protocol::generate_auth_token()`.
-    /// Passed to `diatom-devpanel` via `--auth-token` and verified during the
-    /// `HandshakeMessage` exchange. Stored here so `BridgeClient::connect` can
-    /// access it after the DevPanel process is spawned.
-    pub devpanel_auth_token: String,
+    /// Bearer token for the local MCP server (`crate::ai::mcp`). Generated
+    /// once at startup; returned to the frontend via `cmd_mcp_session_token`.
+    /// (Previously also handed to the DevPanel process for its bridge
+    /// handshake — that consumer was removed along with `dev_panel.rs` and
+    /// `diatom_bridge`'s protocol/client/server modules. This token now
+    /// serves MCP auth only.)
+    pub mcp_session_token: String,
 
     pub platform: &'static str,
 }
@@ -178,7 +176,7 @@ impl AppState {
             power_budget: Mutex::new(initial_power),
             shutdown_token: CancellationToken::new(),
             window_ready_token: CancellationToken::new(),
-            devpanel_auth_token: diatom_bridge::protocol::generate_auth_token(),
+            mcp_session_token: generate_mcp_session_token(),
             platform,
         })
     }
@@ -252,4 +250,15 @@ impl AppState {
     pub fn fp_norm_script(&self) -> String {
         self.fp_norm.generate()
     }
+}
+
+/// 64-character hex CSPRNG token for local MCP bearer auth.
+/// (Previously lived in `diatom_bridge::protocol::generate_auth_token` —
+/// inlined here since that module was removed along with the DevPanel
+/// bridge, and this is now its only caller.)
+fn generate_mcp_session_token() -> String {
+    use rand::RngCore;
+    let mut bytes = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut bytes);
+    hex::encode(bytes)
 }

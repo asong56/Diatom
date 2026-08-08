@@ -325,10 +325,13 @@ async fn handle_tool_call(
             // Returns a diagnostic stub. Full implementation requires an active
             // AppState reference (console log, network monitor) which the MCP
             // server currently does not hold; that is a larger structural refactor.
+            // (The DevPanel bridge this used to point users at was removed —
+            // see DEAD_CODE.md. Don't reintroduce a reference to it here unless
+            // the bridge actually comes back.)
             Ok(serde_json::json!({
                 "content": [{
                     "type": "text",
-                    "text": "page_debug: connect DevPanel (Cmd/Ctrl+Shift+I) for live console                              and network diagnostics. MCP tool returns cached last-session data                              when DevPanel is closed."
+                    "text": "page_debug: live console/network diagnostics are not currently wired up. This MCP tool returns cached last-session data only."
                 }]
             }))
         }

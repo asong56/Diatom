@@ -47,10 +47,7 @@ pub async fn suggest_via_slm(ctx: &DownloadContext) -> Result<RenameResult> {
 
     let client = reqwest::Client::new();
     let resp: serde_json::Value = client
-        .post(format!(
-            "http://127.0.0.1:{}/v1/chat/completions",
-            SLM_PORT
-        ))
+        .post(format!("http://127.0.0.1:{}/v1/chat/completions", SLM_PORT))
         .json(&serde_json::json!({
             "model": "diatom-fast",
             "messages": [{"role": "user", "content": prompt}],

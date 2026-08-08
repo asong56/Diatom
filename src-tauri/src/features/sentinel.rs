@@ -31,7 +31,6 @@ use std::{
 // small HTTP requests per hour.  Power-budget mode (labs: power_budget)
 // extends this to 3 hours when the device is on battery.
 //
-// Users may inspect all Sentinel traffic in the DevPanel Network panel.
 // Sentinel can be disabled entirely by toggling "UA Normalisation" in Settings.
 
 /// Sentinel polls Chrome version history for these platforms.

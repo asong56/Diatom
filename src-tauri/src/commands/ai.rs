@@ -120,8 +120,8 @@ pub async fn cmd_mcp_status(state: St<'_>) -> Result<serde_json::Value, String> 
     }))
 }
 
-/// Return the DevPanel auth token, which also serves as the local MCP bearer.
+/// Return the local MCP bearer token.
 #[tauri::command]
 pub async fn cmd_mcp_session_token(state: St<'_>) -> Result<String, String> {
-    Ok(state.devpanel_auth_token.clone())
+    Ok(state.mcp_session_token.clone())
 }

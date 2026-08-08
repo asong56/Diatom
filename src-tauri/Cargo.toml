@@ -23,7 +23,6 @@ tauri-plugin-store             = "2"
 tauri-plugin-notification      = "2"
 
 diatom_agent = { path = "../shell/crates/diatom_agent" }
-diatom_bridge = { path = "../shell/crates/diatom_bridge" }
 
 # mimalloc reduces heap fragmentation in long-running sessions.
 # `secure` feature adds per-segment randomisation and inline canaries.

@@ -1,9 +1,9 @@
 //! Diatom backend process.
 //!
 //! Manages all browser state: tabs, storage, privacy engine, ad blocker,
-//! local AI, and sync.  Does not render UI — the visible browser chrome is
-//! rendered by the `diatom-shell` GPUI process, communicating via the
-//! [`diatom_bridge`] Unix-domain-socket protocol.
+//! local AI, and sync. Does not render UI itself — the browser chrome is
+//! plain HTML/CSS/JS (`src/`) rendered by the Tauri WebView and driven via
+//! IPC commands registered below.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
