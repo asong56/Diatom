@@ -149,14 +149,14 @@ impl DiatomSlmClient {
             let mut buf = String::new();
             while let Some(bytes) = resp.chunk().await.context("read chunk")? {
                 buf.push_str(&String::from_utf8_lossy(&bytes));
-                
+
                 while let Some(nl) = buf.find("\n\n") {
                     let trimmed = buf[..nl].trim();
-                    
+
                     if trimmed == "data: [DONE]" {
                         return;
                     }
-                    
+
                     if let Some(json_str) = trimmed.strip_prefix("data: ") {
                         if let Ok(parsed) = serde_json::from_str::<ChatChunk>(json_str) {
                             for choice in parsed.choices {
@@ -169,7 +169,7 @@ impl DiatomSlmClient {
                             }
                         }
                     }
-                    
+
                     buf.drain(..nl + 2);
                 }
             }

@@ -2,21 +2,13 @@
 name        = "diatom_bridge"
 version     = "0.3.0"
 edition     = "2024"
-description = "IPC bridge between Diatom browser shell and the GPUI DevPanel; Resonance ↔ Zed UDS context link"
+description = "Local-SLM chat client used by diatom_agent (OpenAI-compatible streaming API at 127.0.0.1:11435)"
 license     = "BlueOak-1.0.0"
 
 [dependencies]
-anyhow     = "1"
-serde      = { version = "1", features = ["derive"] }
-serde_json = "1"
-tokio      = { version = "1", features = ["net", "io-util", "sync", "macros", "fs", "time"] }
-futures    = "0.3"
-log        = "0.4"
-uuid       = { version = "1", features = ["v4"] }
-rand       = "0.8"   # CSPRNG for auth token generation (HandshakeMessage)
-hex        = "0.4"   # hex encoding for auth tokens
+anyhow       = "1"
+serde        = { version = "1", features = ["derive"] }
+serde_json   = "1"
+futures      = "0.3"
 async-stream = "0.3.6"
-reqwest = { version = "0.13.3", features = ["json", "stream"] }
-
-[dev-dependencies]
-tokio = { version = "1", features = ["full"] }
+reqwest      = { version = "0.13.3", features = ["json", "stream"] }
