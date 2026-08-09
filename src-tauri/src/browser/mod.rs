@@ -1,6 +1,5 @@
 // diatom/src-tauri/src/browser
-// Browser UI: tabs, budget, proxy, DOM tools, and accessibility.
-pub mod a11y;
+// Browser UI: tabs, budget, proxy, and DOM tools.
 pub mod boosts;
 pub mod budget;
 pub mod dom_crusher;

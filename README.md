@@ -2,9 +2,6 @@
 
 **A minimalist, privacy-first, local-AI browser.**
 
-[![Binary](https://img.shields.io/badge/binary-%E2%89%A410MB-green.svg)](#)
-[![Status](https://img.shields.io/badge/status-v1.0.0-green.svg)](AXIOMS.md)
-
 Most browsers are a window that lets you see the internet. Diatom is a filter that keeps the internet from seeing you.
 
 It is not trying to replace Chrome. It is for people who have noticed that every scroll, every click, and every pause is being quietly recorded by dozens of third-party systems — and who have decided their attention is worth more than that.

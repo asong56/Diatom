@@ -1,8 +1,7 @@
 // diatom/src-tauri/src/engine
-// Network request pipeline: blocking, bandwidth, caching, monitoring, tunnelling.
+// Network request pipeline: blocking, bandwidth, monitoring, tunnelling.
 pub mod bandwidth;
 pub mod blocker;
-pub mod cache;
 pub mod compat;
 pub mod ghostpipe;
 pub mod monitor;

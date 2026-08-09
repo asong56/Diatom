@@ -18,7 +18,6 @@ pub mod commands;
 pub mod engine;
 pub mod features;
 pub mod privacy;
-pub mod research;
 pub mod state;
 pub mod storage;
 pub mod sync;
@@ -86,6 +85,7 @@ fn run() -> anyhow::Result<()> {
             commands::cmd_museum_touch_access,
             commands::cmd_museum_thaw,
             commands::cmd_museum_deep_dig,
+            commands::cmd_museum_export_markdown,
             commands::cmd_storage_report,
             commands::cmd_storage_evict_lru,
             commands::cmd_storage_budget_set,

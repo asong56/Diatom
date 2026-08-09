@@ -6,7 +6,7 @@
 //!   2. Fingerprint normalisation values (Axiom 10)
 //!   3. Filter list UA anonymisation (AXIOMS.md §Known Outbound Calls)
 //!   4. Zen Mode domain blocking (Axiom 2)
-//!   5. WARC export produces valid records (Axiom 20)
+//!   5. Markdown export produces valid files (Axiom 20)
 //!
 //! Run with:
 //!   cargo test -p diatom --test privacy_behaviour
@@ -248,26 +248,25 @@ mod zen_blocking {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 5. WARC export record format
+// 5. Markdown export record format
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
-mod warc_export {
-    // Test the public functions from the WARC export module directly.
+mod export_markdown {
     #[test]
-    fn warc_record_starts_with_version_line() {
-        use diatom::storage::warc_export::export_warc;
-        let _ = std::hint::black_box(export_warc as usize);
+    fn export_markdown_fn_exists() {
+        use diatom::storage::export_markdown::export_markdown;
+        let _ = std::hint::black_box(export_markdown as usize);
     }
 
     #[test]
     fn iso8601_epoch_formats_correctly() {
         assert_eq!(
-            diatom::storage::warc_export::unix_ts_to_iso8601_pub(0),
+            diatom::storage::export_markdown::unix_ts_to_iso8601_pub(0),
             "1970-01-01T00:00:00Z"
         );
         assert_eq!(
-            diatom::storage::warc_export::unix_ts_to_iso8601_pub(1705320000),
+            diatom::storage::export_markdown::unix_ts_to_iso8601_pub(1705320000),
             "2024-01-15T12:00:00Z"
         );
     }

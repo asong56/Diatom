@@ -1,5 +1,4 @@
-// P2P synchronisation: Nostr relay, Noise_XX transport, knowledge marketplace.
-pub mod marketplace;
+// P2P synchronisation: Nostr relay, Noise_XX transport.
 pub mod noise;
 pub mod nostr;
 

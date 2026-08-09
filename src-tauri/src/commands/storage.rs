@@ -208,3 +208,20 @@ pub async fn cmd_storage_degrade_cold(state: St<'_>) -> Result<u32, String> {
     let budget = crate::storage::guard::StorageBudget::load_from_db(&state.db);
     crate::storage::guard::degrade_cold_indexes(&state.db, &budget).map_err(es)
 }
+
+/// Export every Museum bundle to a Markdown file in `dest_dir` (Axiom 20 —
+/// User Data Must Be Portable). Returns `{ written, skipped }`.
+#[tauri::command]
+pub async fn cmd_museum_export_markdown(
+    dest_dir: String,
+    state: St<'_>,
+) -> Result<serde_json::Value, String> {
+    let bundles_dir = state.bundles_dir();
+    let dest = std::path::PathBuf::from(dest_dir);
+    let (written, skipped) = state
+        .with_master_key(|key| {
+            crate::storage::export_markdown::export_markdown(&state.db, &bundles_dir, key, &dest)
+        })
+        .map_err(es)?;
+    Ok(serde_json::json!({ "written": written, "skipped": skipped }))
+}
