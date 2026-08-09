@@ -181,10 +181,11 @@ Any extension conforming to the editor's WASM extension API runs inside
 Diatom's sandbox. No editor vendor account, cloud token, or hosted registry
 authentication is required or requested.
 
-### Axiom 19 — Upstream Upgrades Use an Explicit Whitelist
-Each upgrade of the editor core requires a human reviewer to explicitly approve
-any new crates before they enter the build graph. The build fails loudly on
-unapproved crates. The enforcement mechanism lives in INTEGRATION.md.
+### Axiom 19 — *(Retired)*
+Formerly: upstream Zed editor-core upgrades use an explicit crate whitelist.
+Retired along with `diatom_devtools`/`diatom_ui` (the GPUI-based DevPanel) —
+there is no Zed source in this repository anymore, so there is nothing to
+whitelist. See DEAD_CODE.md.
 
 ---
 
@@ -199,7 +200,7 @@ genuinely useful.
 
 | Data type        | Export format                                   |
 |------------------|-------------------------------------------------|
-| Museum archives  | WARC (RFC 3939) or standard HTML archive        |
+| Museum archives  | Markdown (one `.md` file per bundle, with frontmatter) |
 | Bookmarks        | Netscape Bookmark Format HTML                   |
 | History          | CSV                                             |
 | TOTP entries     | Aegis JSON (already implemented)                |
@@ -255,6 +256,5 @@ Breach email requests transmit the full email address; user must explicitly opt 
 | Shell binary ≤ 10 MB | The browser shell stays lightweight |
 | Combined RSS ≤ 50 MB | Physical constraint on a lightweight promise |
 | Local AI only (no cloud fallback) | Cloud AI = your thoughts on someone else's server |
-| Editor telemetry / collab = build error | `strip-zed.sh` enforces this at source level |
 | URL stripping = regex rules only | AI-generated rules risk breaking login sessions |
 | User data exportable in open formats | The only legitimate lock-in is quality |

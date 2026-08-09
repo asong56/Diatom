@@ -60,25 +60,7 @@ fi
 
 echo ""
 
-# ── 3. Zed telemetry / collab = compile error ─────────────────────────────────
-echo "[3] Zed telemetry / collab crates absent from build graph..."
-if command -v cargo > /dev/null 2>&1; then
-    cd "${REPO_ROOT}/shell"
-    TREE=$(cargo tree --prefix none -p diatom_devtools 2>/dev/null || echo "")
-    cd "$REPO_ROOT"
-    BANNED_HITS=$(echo "$TREE" | grep -E "^(telemetry|collab|livekit|anthropic)" || true)
-    if [[ -n "$BANNED_HITS" ]]; then
-        fail "banned Zed crates found in build graph:\n$BANNED_HITS"
-    else
-        pass "no banned Zed crates in diatom_devtools build graph"
-    fi
-else
-    note "cargo not available — skipping build-graph check (run in CI with Rust toolchain)"
-fi
-
-echo ""
-
-# ── 4. No outbound calls to unknown endpoints ─────────────────────────────────
+# ── Notes for design-principle promises ───────────────────────────────────────
 echo "[4] Checking for undocumented outbound HTTP calls in Tauri source..."
 # Known-good endpoint patterns from AXIOMS.md §Known Outbound Network Calls
 KNOWN_ENDPOINTS=(
@@ -166,24 +148,6 @@ if [[ -f "$STRIPPER" ]]; then
 else
     fail "url_stripper.rs not found"
 fi
-
-echo ""
-
-# ── 8. DevPanel bridge: handshake present ────────────────────────────────────
-echo "[8] DevPanel bridge authentication handshake present..."
-PROTOCOL="${REPO_ROOT}/shell/crates/diatom_bridge/src/protocol.rs"
-SERVER="${REPO_ROOT}/shell/crates/diatom_bridge/src/server.rs"
-CLIENT="${REPO_ROOT}/shell/crates/diatom_bridge/src/client.rs"
-
-for f in "$PROTOCOL" "$SERVER" "$CLIENT"; do
-    if [[ ! -f "$f" ]]; then
-        fail "missing: $f"
-    elif grep -q "HandshakeMessage\|handshake" "$f" 2>/dev/null; then
-        pass "$(basename "$f"): handshake code present"
-    else
-        fail "$(basename "$f"): handshake code not found"
-    fi
-done
 
 echo ""
 

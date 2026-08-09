@@ -1,54 +1,26 @@
-# zed-core/Cargo.toml
+# shell/Cargo.toml
 #
-# Stripped Zed workspace — Diatom DevPanel build.
+# Workspace for Diatom's local-crate libraries consumed by src-tauri:
+# diatom_bridge (local-SLM chat client) and diatom_agent (browser automation
+# agent — planner/executor/tools). Neither produces a binary; both are
+# libraries linked into the main Tauri app.
 #
-# Principle: whitelist-only. Only crates needed by the DevPanel and bridge
-# are included. The strip-zed.sh sync script validates that this list matches
-# the crate directories on disk after each upstream sync.
-#
-# Removed crates do not appear in `members`; Cargo will not compile them.
-# Telemetry / collaboration / cloud AI / auto-update / remote server — all absent.
+# Previously also hosted diatom_devtools/diatom_ui (the GPUI-based DevPanel
+# sidecar and its renderer facade), which depended on a stripped Zed source
+# tree (`gpui` etc.) that was never vendored into this repository. Removed —
+# see DEAD_CODE.md.
 
 [workspace]
 resolver = "2"
 
 members = [
-
-    # ── Diatom bridge crates (created by this project) ───────────────────────
     "crates/diatom_bridge",
     "crates/diatom_agent",
-
-    # diatom_devtools and diatom_ui are excluded from the workspace because they
-    # depend on `gpui` and other Zed-internal crates that are stripped from this
-    # repository. They must be built as part of a full Zed source tree.
-    # See strip-zed.sh for the upstream sync process.
-    # "crates/diatom_devtools",
-    # "crates/diatom_ui",
 ]
-
-# Crates removed from the upstream Zed workspace (recorded here for strip-zed.sh
-# validation):
-# telemetry, telemetry_events, zlog, zlog_settings, ztracing, ztracing_macro,
-# action_log, crashes, miniprofiler_ui,
-# collab, collab_ui, channel, call, livekit_api, livekit_client, proto, rpc, notifications,
-# anthropic, bedrock, cloud_api_client, cloud_api_types, cloud_llm_client,
-# codestral, deepseek, google_ai, mistral, open_ai, open_router, vercel, x_ai,
-# acp_thread, acp_tools, copilot, copilot_chat, copilot_ui,
-# agent, agent_ui, agent_servers, agent_settings, ai_onboarding, language_onboarding,
-# onboarding, edit_prediction*, eval_cli, eval_utils, zeta_prompt, prompt_store,
-# rules_library, context_server, auto_update*, feedback,
-# remote, remote_connection, remote_server, dev_container, askpass,
-# db, migrator, sqlez, sqlez_macros, client, credentials_provider,
-# zed_credentials_provider, session, feature_flags,
-# story, storybook, component_preview, audio, denoise, media,
-# web_search, web_search_providers
 
 [workspace.dependencies]
 # Unified versions to avoid duplicate compilation
 diatom_bridge     = { path = "crates/diatom_bridge" }
-# diatom_devtools and diatom_ui excluded — require stripped Zed crates (gpui etc.)
-# diatom_devtools   = { path = "crates/diatom_devtools" }
-# diatom_ui         = { path = "crates/diatom_ui" }
 
 anyhow            = "1"
 serde             = { version = "1", features = ["derive"] }
@@ -60,13 +32,6 @@ log               = "0.4"
 parking_lot       = "0.12"
 
 [profile.release]
-# Size-first optimisation for the two GPUI sidecar binaries produced by this
-# workspace:
-
-#   diatom-devpanel — developer tools panel. Target: ≤ 40 MB.
-#
-# The Tauri shell binary has its own separate ≤ 10 MB budget enforced in
-# src-tauri/. This workspace (zed-core/) builds only the sidecar processes.
 opt-level     = "z"
 lto           = true
 codegen-units = 1

@@ -58,8 +58,6 @@ Diatom runs entirely on your device. No accounts. No cloud sync. No analytics. N
 | **Panic button** | Cmd/Ctrl+Shift+. hides all windows and replaces the active tab with a configurable decoy page. Optional full workspace wipe. |
 | **War Report** | Running tally of tracker blocks, fingerprint noise injections, estimated RAM saved, and estimated time saved. Computed locally from the block log. |
 | **Per-tab proxy** | Route individual tabs through a different proxy. Labs / Alpha. |
-| **DevPanel** | Developer tools with Console, Network, and Sources panels. Rendered by a GPUI sidecar process (`diatom-devpanel`). One-click "Open in Zed" integration. Local Resonance AI shares page context via the IPC bridge. |
-| **Accessibility** | Full ARIA injection and keyboard navigation for every chrome element. |
 | **Adaptive tab budget** | Resource-aware tab sleeping. Sleep timer shortens as tab count approaches the configured limit. |
 
 ---
@@ -173,17 +171,17 @@ Once Ollama is running, Diatom auto-detects it at `127.0.0.1:11434`. No configur
 Diatom/
 ├── src-tauri/              Tauri backend
 │   └── src/
-│       ├── engine/         Blocker, bandwidth limiter, ETag cache, net monitor,
+│       ├── engine/         Blocker, bandwidth limiter, net monitor,
 │       │                   GhostPipe DoH, compat router, Wasm plugin sandbox
 │       ├── privacy/        PrivacyConfig, fingerprint normalisation, OHTTP,
 │       │                   onion mirror suggestions, threat list, Wi-Fi trust
 │       ├── storage/        SQLite DB, Vault, Museum freeze/thaw (E-WBN),
-│       │                   storage guard, Museum versioning, WARC export
+│       │                   storage guard
 │       ├── ai/             SLM server, AI download renamer, Shadow Index, MCP host
 │       ├── browser/        Tab lifecycle, tab budget, per-tab proxy, DOM Crusher,
-│       │                   DOM Boosts, DevPanel bridge, accessibility
+│       │                   DOM Boosts
 │       ├── auth/           TOTP/2FA, platform passkeys, domain trust levels
-│       ├── sync/           Nostr relay sync, Noise_XX P2P transport, Museum Marketplace (Labs)
+│       ├── sync/           Nostr relay sync, Noise_XX P2P transport
 │       └── features/       Zen, RSS, Panic button, Breach monitor, Search engines,
 │                           ToS auditor, Sentinel, War Report, Labs, Compliance registry
 │
@@ -204,10 +202,8 @@ Diatom/
 │
 ├── shell/                  GPUI sidecar workspace
 │   └── crates/
-│       ├── diatom_bridge/  IPC protocol between Tauri backend and GPUI processes
-│       ├── diatom_devtools/ GPUI DevPanel (Console, Network, Sources)
-│       ├── diatom_agent/   Browser automation agent (planner, executor, tools)
-│       └── diatom_ui/      GPUI renderer facade — isolates DevPanel from GPUI churn
+│       ├── diatom_bridge/  Local-SLM streaming chat client used by diatom_agent
+│       └── diatom_agent/   Browser automation agent (planner, executor, tools)
 │
 ├── scripts/
 │   ├── strip-zed.sh        Strips Zed telemetry/collab crates before each build
