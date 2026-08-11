@@ -61,16 +61,12 @@ pub struct SlmModel {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SlmBackend {
-    /// Ollama detected at 127.0.0.1:11434.
     Ollama,
-    /// llama.cpp server detected at 127.0.0.1:8080.
     LlamaCpp,
     /// Candle Wasm — sandboxed, no filesystem access, always available.
     /// Supports structured JSON output, tool-calling simulation, multi-turn
     /// context (up to 4096 tokens), and streaming tokens.
-    /// Models: SmolLM2-135M (instant) and Phi-3.5-Mini-Wasm (quality).
     CandleWasm,
-    /// No backend — AI features unavailable.
     None,
 }
 

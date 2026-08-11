@@ -64,9 +64,7 @@ pub fn rules_for_domain(db: &crate::storage::db::Db, domain: &str) -> Result<Vec
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReshuffleRule {
     pub rule_id: String,
-    /// Domain glob — supports "*" (all) and "*.example.com" (subdomains).
     pub domain_pattern: String,
-    /// Valid CSS selector (validated by `validate_selector` on insert).
     pub selector: String,
     pub replacement: ReplacementContent,
     pub enabled: bool,
@@ -81,7 +79,6 @@ pub enum ReplacementContent {
     TotpWidget { issuer_filter: Option<String> },
     /// Replace matched elements with arbitrary HTML.
     CustomHtml { html: String },
-    /// Hide matched elements (visibility:hidden) without removing them from the DOM.
     Blank,
 }
 

@@ -6,7 +6,6 @@ pub const DEFAULT_TAB_LIMIT: u32 = 13;
 /// Persistent user preference for the maximum number of open tabs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TabBudgetConfig {
-    /// Hard limit set by the user. Range: 1–50. Default: 13.
     pub max_tabs: u32,
 }
 
@@ -39,12 +38,9 @@ impl TabBudgetConfig {
 /// A computed snapshot of the current tab budget.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TabBudget {
-    /// The active tab limit.
     pub t_max: u32,
-    /// True when `current_count + 1 >= t_max` (approaching the limit).
     pub pressure_high: bool,
     /// Seconds before an inactive tab is promoted to shallow sleep.
-    /// Shortened when the tab count is high.
     pub sleep_timer_s: u64,
 }
 

@@ -40,7 +40,6 @@ use std::{fs, path::Path};
 use crate::storage::db::{BundleRow, Db};
 use crate::storage::freeze::thaw_bundle;
 
-/// List all Museum bundles across every workspace (export is workspace-agnostic).
 fn list_all_bundles(db: &Db) -> Result<Vec<BundleRow>> {
     let conn = db.0.lock().unwrap();
     let mut stmt = conn.prepare(
@@ -67,14 +66,8 @@ fn list_all_bundles(db: &Db) -> Result<Vec<BundleRow>> {
         .context("list_all_bundles for Markdown export")
 }
 
-/// Export all Museum bundles in `db` to individual Markdown files inside
-/// `dest_dir` (one file per bundle, named `<bundle-id>.md`).
-///
-/// Bundles whose encrypted content cannot be decrypted (e.g. because the
-/// master key has been rotated) are skipped with a warning rather than
-/// aborting the export; the caller receives the skip count.
-///
-/// Returns `(files_written, files_skipped)`.
+// Bundles that fail to decrypt (e.g. master key rotated) are skipped with a
+// warning rather than aborting the whole export; caller gets the skip count.
 pub fn export_markdown(
     db: &Db,
     bundles_dir: &Path,
@@ -112,7 +105,6 @@ pub fn export_markdown(
     Ok((ok, skipped))
 }
 
-/// Keep only characters safe in a filename on every major OS.
 fn sanitize_filename(id: &str) -> String {
     id.chars()
         .map(|c| {
@@ -220,7 +212,6 @@ fn html_to_markdown(html: &str) -> String {
     collapse_blank_lines(&out)
 }
 
-/// Remove `<tag ...>...</tag>` blocks (case-insensitive), content included.
 fn strip_tag_blocks(html: &str, tag: &str) -> String {
     let open_needle = format!("<{tag}");
     let close_needle = format!("</{tag}>");
@@ -279,7 +270,6 @@ fn decode_entities(s: &str) -> String {
         .replace("&nbsp;", " ")
 }
 
-/// Collapse 3+ consecutive newlines down to a single blank line, trim ends.
 fn collapse_blank_lines(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut newline_run = 0u32;

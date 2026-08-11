@@ -24,19 +24,14 @@ pub enum SearchSource {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum QualityTier {
-    /// Wraps a Museum snapshot (title + URL + snippet).
     HumanCurated,
-    /// Optional AI-generated summary of the archived page content.
     AiHighRated,
-    /// Passively browsed (not explicitly archived — lower confidence).
     Standard,
 }
 
 /// TF-IDF in-memory index built from Museum entries at query time.
 pub struct TfIdfIndex {
-    /// doc_id → (term → tf)
     term_freq: HashMap<String, HashMap<String, f32>>,
-    /// term → df (document frequency)
     doc_freq: HashMap<String, usize>,
     total_docs: usize,
 }

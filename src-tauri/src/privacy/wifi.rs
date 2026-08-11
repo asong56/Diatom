@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SecurityType {
-    /// No encryption — treat as untrusted.
     Open,
     Wep,
     Wpa,
@@ -26,10 +25,8 @@ impl SecurityType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WifiInfo {
     pub ssid: String,
-    /// BSSID (MAC address of the AP) — used together with SSID for trust keying.
     pub bssid: String,
     pub security: SecurityType,
-    /// Signal strength in dBm (None if unavailable).
     pub signal_dbm: Option<i32>,
 }
 

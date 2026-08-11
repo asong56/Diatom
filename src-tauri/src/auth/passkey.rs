@@ -5,13 +5,9 @@ use anyhow::Result;
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BiometricUnavailableReason {
-    /// No authentication hardware present on this device.
     NoHardware,
-    /// Hardware present but no credentials enrolled (e.g. Touch ID not set up).
     NotEnrolled,
-    /// Linux: no supported auth mechanism installed (fprintd / zenity / kdialog).
     LinuxNoDaemon,
-    /// Platform check itself failed unexpectedly.
     CheckFailed,
 }
 

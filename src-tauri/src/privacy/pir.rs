@@ -25,9 +25,7 @@ const BLOCKLIST_CATALOGUE: &[&str] = &[
 
 /// A PIR-private fetch result.
 pub struct PirResult {
-    /// Content of the real (target) URL.
     pub content: String,
-    /// Number of cover requests sent alongside the real one.
     pub cover_count: usize,
 }
 

@@ -1,19 +1,12 @@
 /// Normalised fingerprint constants.
 /// All values match the statistical mode of desktop hardware in 2025.
 pub struct FingerprintNorm {
-    /// `navigator.hardwareConcurrency` — 8 is the p50 for modern desktop.
     pub hardware_concurrency: u32,
-    /// `navigator.deviceMemory` — 8 GB.
     pub device_memory: u32,
-    /// `screen.colorDepth` / `screen.pixelDepth`.
     pub color_depth: u32,
-    /// WebGL VENDOR string.
     pub webgl_vendor: &'static str,
-    /// WebGL RENDERER string.
     pub webgl_renderer: &'static str,
-    /// `AudioContext.sampleRate`.
     pub audio_sample_rate: u32,
-    /// `navigator.maxTouchPoints` — 0 for a desktop mouse.
     pub max_touch_points: u32,
 }
 

@@ -7,13 +7,9 @@ pub static PANIC_ACTIVE: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PanicConfig {
-    /// Hotkey string in Tauri format, e.g. "CmdOrCtrl+Shift+Period".
     pub hotkey: String,
-    /// URL to navigate to during panic (blank tab substitute).
     pub decoy_url: String,
-    /// Fake page title shown while in panic state.
     pub decoy_title: String,
-    /// If true, fire_workspace() is called on panic (destructive — wipes tabs).
     pub wipe_mode: bool,
 }
 

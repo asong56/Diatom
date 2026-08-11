@@ -5,11 +5,9 @@ use serde::{Deserialize, Serialize};
 pub struct BoostRule {
     pub id: String,
     pub name: String,
-    /// Domain pattern (e.g. "reddit.com" matches reddit.com and www.reddit.com).
     pub domain: String,
     pub css: String,
     pub enabled: bool,
-    /// True for Diatom-shipped built-in Boosts (read-only in the UI).
     pub builtin: bool,
     pub created_at: i64,
 }

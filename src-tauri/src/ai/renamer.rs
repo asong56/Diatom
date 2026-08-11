@@ -7,14 +7,12 @@ pub struct DownloadContext {
     pub original_filename: String,
     pub page_title: String,
     pub url: String,
-    /// First 2 KB of file content as base64 (text files) or empty for binary.
     pub content_preview_b64: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RenameResult {
     pub suggested_name: String,
-    /// True if the suggestion came from the SLM; false if it's a deterministic slug.
     pub ai_generated: bool,
 }
 

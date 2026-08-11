@@ -3,13 +3,9 @@ use serde::Serialize;
 /// A known hidden-service alternative for a surface-web domain.
 #[derive(Debug, Clone, Serialize)]
 pub struct OnionSuggestion {
-    /// The surface-web hostname the user is currently visiting.
     pub surface_host: String,
-    /// The .onion or .i2p address of the hidden-service mirror.
     pub hidden_host: String,
-    /// Which overlay network this mirror lives on.
     pub network: HiddenNetwork,
-    /// Human-readable label for UI display.
     pub label: String,
 }
 

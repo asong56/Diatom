@@ -9,15 +9,11 @@ pub const COLD_KEYWORD_COUNT: usize = 20;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageBudget {
-    /// Max for encrypted E-WBN bundles (megabytes).  Default 2 048 MB.
     pub museum_budget_mb: u64,
-    /// Max for knowledge packs (megabytes).  Default 4 096 MB.
     pub kpack_budget_mb: u64,
-    /// Max for the FTS5 search index database (megabytes).  Default 50 MB.
     pub index_budget_mb: u64,
     /// Warn when bundle storage reaches this percentage.  Default 80.
     pub warn_at_pct: u8,
-    /// If true, reject new freezes when the bundle budget is exhausted.
     pub hard_cap_enabled: bool,
 }
 
@@ -63,10 +59,8 @@ impl StorageBudget {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IndexTier {
-    /// Full FTS5 full-text index: every word searchable.
     Hot,
     /// Compact fingerprint only: title + URL + top-N keywords.
-    /// The encrypted bundle still exists; Deep Dig can scan it on demand.
     Cold,
 }
 

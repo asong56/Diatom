@@ -16,19 +16,12 @@ const CALL_TIMEOUT_MS: u64 = 100;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginManifest {
-    /// Unique ID (UUID v4), assigned on install.
     pub id: Uuid,
-    /// Human-readable name from the plugin's embedded metadata.
     pub name: String,
-    /// Plugin version string.
     pub version: String,
-    /// SHA-256 hash of the .wasm file for integrity verification.
     pub wasm_hash: String,
-    /// Source URL or IPFS CID (display only — not used for fetching).
     pub source: String,
-    /// Whether the plugin is enabled.
     pub enabled: bool,
-    /// Installed timestamp (Unix seconds).
     pub installed_at: i64,
 }
 
@@ -45,7 +38,6 @@ pub struct PluginPanelResult {
     pub plugin_id: Uuid,
     /// Raw HTML string returned by the plugin.  Sanitised by the caller
     /// (chrome layer) before injection using the same DOMParser pipeline as
-    /// the existing diatom-api.js injection.
     pub html: String,
 }
 

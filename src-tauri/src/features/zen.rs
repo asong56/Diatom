@@ -33,16 +33,12 @@ impl Default for ZenState {
 /// operational state and gate preference).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ZenConfig {
-    /// Current activation state.
     pub state: ZenState,
 
-    /// The aphorism shown on the blocked-domain overlay.
     pub aphorism: String,
 
-    /// Domain categories currently blocked (e.g. `["social", "entertainment"]`).
     pub blocked_categories: Vec<String>,
 
-    /// Unix timestamp when Zen Mode was last activated. `None` when off.
     pub activated_at: Option<i64>,
 
     /// When `true` (the default), opening a blocked domain requires the user
@@ -198,11 +194,8 @@ pub fn domain_category(domain: &str) -> Option<&'static str> {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EmotionFilterStrength {
-    /// Slightly desaturate high-emotion words.
     Subtle,
-    /// Blur and desaturate high-emotion words.
     Moderate,
-    /// Maximum reduction; routes through local SLM when available.
     Heavy,
 }
 

@@ -6,14 +6,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OhttpKeyConfig {
     pub key_id: u8,
-    /// Raw HPKE public key bytes (P-256 uncompressed point, 65 bytes).
-    pub public_key_bytes: Vec<u8>,
-    /// IANA KEM ID (0x0010 = DHKEM(P-256, HKDF-SHA256))
-    pub kem_id: u16,
-    /// IANA KDF ID (0x0001 = HKDF-SHA256)
-    pub kdf_id: u16,
-    /// IANA AEAD ID (0x0001 = AES-128-GCM)
-    pub aead_id: u16,
+    pub public_key_bytes: Vec<u8>, // P-256 uncompressed point, 65 bytes
+    pub kem_id: u16,  // 0x0010 = DHKEM(P-256, HKDF-SHA256)
+    pub kdf_id: u16,  // 0x0001 = HKDF-SHA256
+    pub aead_id: u16, // 0x0001 = AES-128-GCM
 }
 
 impl OhttpKeyConfig {
@@ -48,9 +44,7 @@ impl OhttpKeyConfig {
 
 /// A pending OHTTP request with its decapsulation context.
 pub struct OhttpRequest {
-    /// Encapsulated request bytes ready to POST to the relay.
     pub encapsulated: Vec<u8>,
-    /// HPKE context used to decapsulate the response.  Consumed on first use.
     response_context: Vec<u8>,
     key_config_id: u8,
 }

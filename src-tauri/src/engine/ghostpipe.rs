@@ -12,11 +12,8 @@ pub const DOH_ENDPOINTS: &[(&str, &str)] = &[
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GhostPipeConfig {
     pub enabled: bool,
-    /// Which DoH endpoints to use (multiple endpoints enable shredder distribution)
     pub endpoints: Vec<String>,
-    /// Routes outbound requests through DoH to prevent traffic analysis.
     pub packet_fragmentation: bool,
-    /// Protects only Diatom's own requests (browser-native mode; web content is unaffected)
     pub diatom_own_only: bool,
 }
 

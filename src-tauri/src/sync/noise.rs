@@ -129,7 +129,6 @@ impl NoiseHandshake {
 /// Encrypted transport session after a successful Noise handshake.
 pub struct NoiseSession {
     transport: TransportState,
-    /// Peer's static public key — used for TOFU fingerprint checking in the UI.
     pub remote_public: [u8; 32],
 }
 

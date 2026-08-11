@@ -9,9 +9,7 @@ const CACHE_TTL_SECS: i64 = 7 * 24 * 3_600;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PasswordBreachResult {
-    /// True if the password appeared in at least one known breach.
     pub pwned: bool,
-    /// Number of times this password appeared in breach datasets.
     pub pwned_count: u64,
 }
 

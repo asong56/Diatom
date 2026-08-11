@@ -5,11 +5,8 @@ use std::collections::{HashMap, VecDeque};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SleepState {
-    /// Full JavaScript execution — max memory footprint.
     Awake,
-    /// JS timers paused, DOM intact — medium footprint.
     ShallowSleep,
-    /// DOM serialised + LZ4 compressed in `zram` — minimal footprint.
     DeepSleep,
 }
 
@@ -23,9 +20,7 @@ pub struct Tab {
     /// LZ4-compressed DOM snapshot (populated during DeepSleep).
     #[serde(skip)]
     pub zram: Option<Vec<u8>>,
-    /// Estimated memory weight (bytes). Updated on navigation and sleep.
     pub mem_weight: u64,
-    /// Unix timestamp of last user activity on this tab.
     pub last_active: i64,
 }
 

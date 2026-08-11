@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tokio::time::{Duration, timeout};
 
-/// A minimal Nostr event (NIP-01).
+// NIP-01 event.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NostrEvent {
     pub id: String,     // SHA-256 of serialised event (hex)
@@ -33,18 +33,15 @@ pub struct NostrEvent {
     pub sig: String,     // BIP-340 Schnorr signature (hex, 64 bytes)
 }
 
-/// NIP-42 AUTH kind.
 pub const KIND_AUTH: u32 = 22242;
 
-/// Lamport clock stored per bookmark for OR-Set merge.
+// Per-bookmark Lamport clock for OR-Set merge.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct OrSetClock {
     pub lamport: u64,
     pub tombstone: bool,
 }
-/// Diatom bookmark sync kind.
 pub const KIND_BOOKMARKS: u32 = 30000;
-/// Diatom Museum metadata sync kind.
 pub const KIND_MUSEUM_META: u32 = 30001;
 
 #[derive(Serialize, Deserialize)]
@@ -112,11 +109,9 @@ fn decrypt_payload(b64: &str, master_key: &[u8; 32]) -> Result<Vec<u8>> {
         .map_err(|_| anyhow::anyhow!("nostr decrypt failed — wrong key or tampered event"))
 }
 
-/// Derive the AES-256-GCM key used for Nostr payload encryption via HKDF-SHA256.
-///
-/// Derives a context-specific subkey via HKDF so that the freeze layer
-/// (freeze-v8), the nostr layer (nostr-sync-v1), and any future consumers
-/// each hold cryptographically independent keys from the same root.
+// HKDF-SHA256 with a per-consumer context string ("nostr-sync-v1") so this
+// layer, the freeze layer (freeze-v8), and future consumers each hold
+// cryptographically independent keys derived from the same root.
 fn derive_payload_key(master_key: &[u8; 32]) -> Result<[u8; 32]> {
     use hkdf::Hkdf;
     use sha2::Sha256;
@@ -208,10 +203,7 @@ fn derive_ephemeral_keypair(
     )
 }
 
-/// Sign a Nostr event id using BIP-340 Schnorr over secp256k1.
-///
-/// `event_id_hex` must be the SHA-256 of the canonical NIP-01 serialisation.
-/// Returns a 64-byte Schnorr signature encoded as lowercase hex.
+// event_id_hex must be the SHA-256 of the canonical NIP-01 serialisation.
 fn sign_event_id(
     event_id_hex: &str,
     secret_scalar: &zeroize::Zeroizing<[u8; 32]>,
@@ -232,13 +224,11 @@ fn sign_event_id(
     Ok(hex::encode(sig.as_ref()))
 }
 
-/// Legacy pubkey-only derivation for cases where signing is not needed.
 fn derive_ephemeral_pubkey(master_key: &[u8; 32], session_nonce: u64) -> Result<String> {
     Ok(derive_ephemeral_keypair(master_key, session_nonce)?.1)
 }
 
-/// Publish a single Nostr event to a relay URL.
-/// Connection is opened, event sent, ACK waited, then connection closed.
+// Opens the relay connection, sends, waits for ACK, then closes it.
 pub async fn publish_event(relay_url: &str, event: &NostrEvent) -> Result<()> {
     use futures_util::{SinkExt, StreamExt};
     use tokio_tungstenite::{connect_async, tungstenite::Message};
@@ -266,7 +256,6 @@ pub async fn publish_event(relay_url: &str, event: &NostrEvent) -> Result<()> {
     Ok(())
 }
 
-/// Subscribe to events and return matching ones.
 pub async fn fetch_events(
     relay_url: &str,
     pubkey: &str,
@@ -327,7 +316,6 @@ pub async fn fetch_events(
     Ok(events)
 }
 
-/// Publish all bookmarks for a workspace to all enabled relays.
 pub async fn sync_bookmarks_publish(
     db: &crate::storage::db::Db,
     master_key: &[u8; 32],
@@ -422,8 +410,7 @@ fn collect_bookmarks_for_sync(
         .context("collect bookmarks for sync")
 }
 
-/// Perform NIP-42 authentication handshake if the relay sends an AUTH challenge.
-/// Returns Ok(()) whether or not auth succeeds — we continue the connection regardless.
+// Returns Ok(()) regardless of outcome — the connection continues either way.
 async fn maybe_auth_nip42(
     ws: &mut tokio_tungstenite::WebSocketStream<
         tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
@@ -473,7 +460,6 @@ async fn maybe_auth_nip42(
     Ok(())
 }
 
-/// Merge incoming bookmarks with local using OR-Set semantics.
 pub fn orset_merge_bookmarks(
     local: &[BookmarkItem],
     incoming: &[BookmarkItem],
@@ -545,7 +531,6 @@ mod tests {
         assert_ne!(pk1, pk3, "different nonces must produce different keys");
     }
 
-    /// Verify rejection-sampling counter works and epoch is embedded.
     #[test]
     fn ephemeral_keypair_returns_valid_scalar() {
         for nonce in [0u64, 1, u64::MAX, 42, 0xDEAD_BEEF_CAFE] {
@@ -556,9 +541,6 @@ mod tests {
         }
     }
 
-    /// Different epoch values must produce different keypairs for the same nonce,
-    /// proving historical session keys cannot be reconstructed from master_key alone
-    /// once the epoch has advanced.
     #[test]
     fn epoch_changes_derived_key() {
         use secp256k1::{Keypair, Secp256k1, SecretKey, XOnlyPublicKey};
@@ -589,7 +571,6 @@ mod tests {
         );
     }
 
-    /// NIP-01 event id must be SHA-256 of canonical JSON, not BLAKE3.
     #[test]
     fn event_id_is_sha256_not_blake3() {
         use sha2::{Digest, Sha256};
@@ -635,9 +616,6 @@ mod tests {
         );
     }
 
-    /// Verify that the Schnorr signature produced by `sign_event_id` is
-    /// cryptographically valid — i.e., it will be accepted by a conformant
-    /// Nostr relay that calls secp256k1 verify.
     #[test]
     fn schnorr_signature_verifies() {
         use secp256k1::{Message, Secp256k1, XOnlyPublicKey};

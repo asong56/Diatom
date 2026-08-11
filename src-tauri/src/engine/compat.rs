@@ -79,7 +79,6 @@ impl PageHealthReport {
 pub struct CompatStore {
     /// Domains the user has marked as "always open in system browser".
     legacy_domains: HashSet<String>,
-    /// Domains that triggered auto-detection this session.
     auto_detected: HashSet<String>,
 }
 

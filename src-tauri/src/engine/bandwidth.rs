@@ -7,9 +7,7 @@ use std::time::{Duration, Instant};
 /// Per-domain or global bandwidth rule.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BandwidthRule {
-    /// Glob pattern: "*.example.com", "example.com", or "*" for global.
     pub domain_pattern: String,
-    /// Rate limit in kilobits per second. 0 = unlimited.
     pub limit_kbps: u32,
     pub enabled: bool,
 }
@@ -23,11 +21,8 @@ impl BandwidthRule {
 
 #[derive(Debug)]
 struct TokenBucket {
-    /// Maximum bytes (bucket capacity).
     capacity: u64,
-    /// Current available bytes.
     tokens: f64,
-    /// Refill rate in bytes per second.
     refill_rate: f64,
     last_refill: Instant,
 }

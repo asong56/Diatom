@@ -146,21 +146,16 @@ pub struct VaultLoginRaw {
     pub urls_json: String,
     pub notes_enc: String,
     pub tags_json: String,
-    /// Inline TOTP — otpauth:// URI, encrypted.  None if no 2FA on this record.
     pub totp_uri: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
 
-    /// "unknown" | "clean" | "pwned"
     pub breach_status: String,
     pub breach_checked_at: Option<i64>,
     pub breach_pwned_count: i64,
 
-    /// Encrypted credential ID bytes (base64url of raw CBOR).
     pub passkey_cred_id_enc: Option<String>,
-    /// Stable opaque user handle tied to this credential.
     pub passkey_user_handle: Option<String>,
-    /// Relying-party ID (e.g. "github.com").
     pub passkey_rp_id: Option<String>,
     pub passkey_added_at: Option<i64>,
 }

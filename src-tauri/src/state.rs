@@ -23,7 +23,6 @@ pub struct AppState {
     pub data_dir: PathBuf,
 
     pub privacy: RwLock<PrivacyConfig>,
-    /// Fingerprint normalisation script (generated once at startup).
     pub fp_norm: FingerprintNorm,
     pub ghostpipe: RwLock<GhostPipeConfig>,
     pub threat_list: RwLock<HashSet<String>>,
@@ -47,7 +46,6 @@ pub struct AppState {
     pub net_monitor: Arc<NetMonitor>,
     pub bandwidth_limiter: BandwidthLimiter,
 
-    /// Live dynamic blocker — hot-reloaded when filter lists are fetched.
     pub live_blocker: Arc<RwLock<Option<aho_corasick::AhoCorasick>>>,
 
     pub slm_cache: AsyncMutex<Option<Arc<crate::ai::slm::SlmServer>>>,
@@ -69,7 +67,6 @@ pub struct AppState {
     /// (Previously also handed to the DevPanel process for its bridge
     /// handshake — that consumer was removed along with `dev_panel.rs` and
     /// `diatom_bridge`'s protocol/client/server modules. This token now
-    /// serves MCP auth only.)
     pub mcp_session_token: String,
 
     pub platform: &'static str,

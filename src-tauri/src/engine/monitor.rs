@@ -15,19 +15,14 @@ pub enum NetDirection {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NetPurpose {
-    /// Sentinel: queries for the latest Chrome/Safari version (required for UA spoofing).
     SentinelVersionCheck,
     /// Threat list updates (URLhaus/PhishTank).
     ThreatListUpdate,
-    /// Filter rule lists (EasyList etc.)
     FilterListUpdate,
-    /// Nostr relay sync (user-enabled)
     NostrRelay,
     /// Quad9 DoH domain security check (optional, user-enabled).
     Quad9DohCheck,
-    /// User-initiated web page request (pass-through; not Diatom-originated)
     PageContent,
-    /// Other (logged but flagged)
     Other(String),
 }
 
@@ -113,11 +108,8 @@ impl NetMonitor {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetMonitorSummary {
     pub total_events: usize,
-    /// Number of requests initiated by the Diatom process itself (excluding user web content)
     pub diatom_own_requests: usize,
-    /// Diatom request aHost
     pub unique_diatom_hosts: usize,
-    /// Number of user web content requests (pass-through count only)
     pub page_content_requests: usize,
 }
 

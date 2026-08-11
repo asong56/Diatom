@@ -623,11 +623,9 @@ pub const RETIREMENT_THRESHOLD_DAYS: u64 = 60;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LabFeedback {
-    /// Whether the user has ever marked this lab "useful".
     pub marked_useful: bool,
     /// Unix timestamp when the user first marked "never_use". 0 = never marked.
     pub never_use_since: u64,
-    /// True when the lab has been flagged as a retirement candidate.
     pub retirement_candidate: bool,
 }
 

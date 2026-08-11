@@ -6,13 +6,11 @@ use std::fmt::Write as _;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PrivacyTier {
-    /// Fully independent index, no tracking, no account required.
     Independent,
     /// Aggregates multiple sources; privacy depends on instance operator.
     MetaSearch,
     /// Paid service; strong privacy commitment but requires payment.
     Paid,
-    /// Traditional search engine; tracking and personalization enabled.
     Mainstream,
 }
 
@@ -21,7 +19,6 @@ pub struct SearchEngine {
     pub id: &'static str,
     pub name: &'static str,
     pub url_template: String,
-    /// Suggestion endpoint template. {query} is replaced with the search term.
     pub suggest_template: Option<String>,
     pub privacy_tier: PrivacyTier,
     pub requires_key: bool,

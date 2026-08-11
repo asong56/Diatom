@@ -2,25 +2,16 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrivacyConfig {
-    /// Inject noise into Canvas API outputs (toDataURL, getImageData).
     pub canvas_noise: bool,
-    /// Clamp AudioContext precision to prevent timing fingerprinting.
     pub audio_noise: bool,
-    /// Normalise font metric APIs (measureText) to generic values.
     pub font_noise: bool,
-    /// Return a hardened navigator.hardwareConcurrency value.
     pub hw_concurrency_spoof: Option<u32>,
     /// Suppress WebRTC local IP leak via STUN.
     pub webrtc_block: bool,
-    /// Override timezone to UTC in JS APIs.
     pub timezone_spoof: bool,
-    /// Block access to battery status API.
     pub battery_block: bool,
-    /// Limit screen resolution to common bucket values.
     pub screen_normalize: bool,
-    /// Block access to USB/WebUSB/WebHID/WebMIDI.
     pub peripheral_block: bool,
-    /// Suppress SharedArrayBuffer (timing oracle for Spectre).
     pub sab_block: bool,
 
     /// the field was missing from the struct, causing a compile error.

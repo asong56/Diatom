@@ -19,9 +19,7 @@ pub struct ProxyConfig {
     pub protocol: ProxyProtocol,
     pub host: String,
     pub port: u16,
-    /// Optional username for authenticated proxies.
     pub username: Option<String>,
-    /// Optional password (stored encrypted in vault; here as plaintext in memory only).
     pub password: Option<String>,
 }
 
