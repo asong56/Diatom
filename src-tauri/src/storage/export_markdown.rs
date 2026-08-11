@@ -163,7 +163,11 @@ fn html_to_markdown(html: &str) -> String {
         rest = &after_lt[gt + 1..];
 
         let closing = tag_content.starts_with('/');
-        let name_part = if closing { &tag_content[1..] } else { tag_content };
+        let name_part = if closing {
+            &tag_content[1..]
+        } else {
+            tag_content
+        };
         let name: String = name_part
             .chars()
             .take_while(|c| c.is_ascii_alphanumeric())
@@ -194,8 +198,7 @@ fn html_to_markdown(html: &str) -> String {
                 if !closing {
                     pending_href = extract_attr(tag_content, "href");
                     link_start = Some(out.len());
-                } else if let (Some(href), Some(start)) = (pending_href.take(), link_start.take())
-                {
+                } else if let (Some(href), Some(start)) = (pending_href.take(), link_start.take()){
                     let text = out[start..].trim().to_string();
                     out.truncate(start);
                     if text.is_empty() {
@@ -363,9 +366,8 @@ mod tests {
 
     #[test]
     fn script_and_style_are_stripped() {
-        let md = html_to_markdown(
-            "<style>body{color:red}</style><p>text</p><script>alert(1)</script>",
-        );
+        let md =
+            html_to_markdown("<style>body{color:red}</style><p>text</p><script>alert(1)</script>",);
         assert!(md.contains("text"));
         assert!(!md.contains("alert"));
         assert!(!md.contains("color:red"));
