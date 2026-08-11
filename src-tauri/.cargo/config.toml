@@ -2,17 +2,9 @@
 rustflags = ["-C", "prefer-dynamic=no"]
 
 [profile.release]
-# Panic = abort removes the unwinding machinery (~50-100 KB in binary)
-# Already set in Cargo.toml; confirmed here at workspace level
 panic = "abort"
 
 [profile.release-small]
-# Maximum binary size reduction:
-# - opt-level="z": optimize for size (smaller than "s" in practice with LTO)
-# - lto=true: dead-code elimination across crates
-# - codegen-units=1: single codegen unit allows maximum optimization
-# - strip=true: remove all symbols and debug info
-# - panic=abort: no unwind tables
 inherits = "release"
 opt-level = "z"
 lto = true
