@@ -8,7 +8,6 @@ const PATTERN: &str = "Noise_XX_25519_AESGCM_BLAKE2b";
 /// Maximum Noise message size (snow's hard limit is 65535 bytes).
 const MAX_MSG: usize = 65_000;
 
-/// A 32-byte Curve25519 static keypair stored as raw bytes.
 #[derive(Clone)]
 pub struct NoiseKeypair {
     pub public: [u8; 32],
@@ -16,7 +15,6 @@ pub struct NoiseKeypair {
 }
 
 impl NoiseKeypair {
-    /// Generate a new random keypair.
     pub fn generate() -> Self {
         let builder = Builder::new(PATTERN.parse().expect("valid pattern"));
         let kp = builder.generate_keypair().expect("keypair generation");
@@ -30,7 +28,6 @@ impl NoiseKeypair {
         }
     }
 
-    /// Load from raw bytes (e.g., from the encrypted Diatom keychain store).
     pub fn from_bytes(public: [u8; 32], secret: [u8; 32]) -> Self {
         Self {
             public,
@@ -50,7 +47,6 @@ impl NoiseKeypair {
     }
 }
 
-/// Handshake state machine — wraps snow's HandshakeState.
 pub struct NoiseHandshake {
     state: HandshakeState,
     is_initiator: bool,
@@ -79,8 +75,7 @@ impl NoiseHandshake {
         })
     }
 
-    /// Write the next handshake message into `buf`.  Returns the number of
-    /// bytes written.  Caller is responsible for framing (length prefix etc.).
+    // Caller is responsible for framing (length prefix etc.).
     pub fn write_message(&mut self, payload: &[u8]) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; MAX_MSG];
         let n = self
@@ -91,8 +86,7 @@ impl NoiseHandshake {
         Ok(buf)
     }
 
-    /// Feed the peer's handshake message.  Returns any payload embedded by
-    /// the peer (typically empty in Noise_XX).
+
     pub fn read_message(&mut self, msg: &[u8]) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; MAX_MSG];
         let n = self
@@ -107,7 +101,6 @@ impl NoiseHandshake {
         self.state.is_handshake_finished()
     }
 
-    /// Transition to transport mode.  Fails if handshake is not complete.
     pub fn into_transport(self) -> Result<NoiseSession> {
         if !self.state.is_handshake_finished() {
             bail!("handshake not complete");
@@ -126,14 +119,12 @@ impl NoiseHandshake {
     }
 }
 
-/// Encrypted transport session after a successful Noise handshake.
 pub struct NoiseSession {
     transport: TransportState,
     pub remote_public: [u8; 32],
 }
 
 impl NoiseSession {
-    /// Encrypt `plaintext` → returns ciphertext (no framing, caller frames).
     pub fn encrypt(&mut self, plaintext: &[u8]) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; plaintext.len() + 16 + 2]; // AESGCM tag + overhead
         let n = self
@@ -144,7 +135,6 @@ impl NoiseSession {
         Ok(buf)
     }
 
-    /// Decrypt `ciphertext` → returns plaintext.
     pub fn decrypt(&mut self, ciphertext: &[u8]) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; ciphertext.len()];
         let n = self
@@ -165,7 +155,6 @@ impl NoiseSession {
             .join(":")
     }
 
-    /// Write one encrypted frame to a sync-Write.
     pub fn write_frame<W: Write>(&mut self, writer: &mut W, plaintext: &[u8]) -> Result<()> {
         let ct = self.encrypt(plaintext)?;
         let len = ct.len() as u32;
@@ -176,7 +165,6 @@ impl NoiseSession {
         Ok(())
     }
 
-    /// Read one encrypted frame from a sync-Read.
     pub fn read_frame<R: Read>(&mut self, reader: &mut R) -> Result<Vec<u8>> {
         let mut len_buf = [0u8; 4];
         reader.read_exact(&mut len_buf).context("frame len read")?;

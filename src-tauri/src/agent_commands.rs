@@ -1,16 +1,5 @@
-//! `agent_commands.rs` — Tauri command handlers for the micro-agent.
-//!
-//! Registered in `main.rs`:
-//!
-//! ```rust
-//! .manage(agent_commands::ActiveAgent::new())
-//! .invoke_handler(tauri::generate_handler![
-//!     // … existing commands …
-//!     agent_commands::cmd_agent_start,
-//!     agent_commands::cmd_agent_abort,
-//!     agent_commands::cmd_agent_tool_result,
-//! ])
-//! ```
+// Tauri command handlers for the micro-agent, registered via
+// generate_handler![] in main.rs.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -22,8 +11,8 @@ use tokio::sync::Mutex;
 
 static NEXT_PLAN_ID: AtomicU64 = AtomicU64::new(1);
 
-/// Stored in Tauri's managed state (separate from `AppState` to avoid lock
-/// contention; the agent runner holds its own async task handle).
+// Separate from AppState to avoid lock contention — the agent runner holds
+// its own async task handle.
 pub struct ActiveAgent {
     pub runner: Mutex<Option<AgentRunner>>,
 }
@@ -36,15 +25,12 @@ impl ActiveAgent {
     }
 }
 
-/// Bridges `diatom_agent::AgentIo` to Tauri's event system and webview eval.
 struct TauriAgentIo {
     app: AppHandle,
 }
 
 impl AgentIo for TauriAgentIo {
     fn emit(&self, event: AgentEvent) {
-        // Emit on the Tauri global event bus.  JS listens via:
-        //   window.__TAURI__.event.listen('agent-event', handler)
         if let Err(e) = self.app.emit("agent-event", &event) {
             log::warn!("[agent-commands] emit error: {e}");
         }
@@ -59,13 +45,10 @@ impl AgentIo for TauriAgentIo {
     }
 
     fn request_page_context(&self) -> PageContext {
-        // `AgentIo::request_page_context` is a synchronous trait method, so we
-        // cannot `.await` here. The async read-back pattern requires making this
-        // method async, which is a larger structural refactor.
-        //
-        // We inject the extraction expression speculatively. The model calls the
-        // `read_page` tool on its first turn to obtain the actual DOM summary,
-        // which is functionally equivalent and does not block the Tokio runtime.
+        // request_page_context is a sync trait method so it can't .await — making
+        // it async is a bigger refactor. Instead we inject the extraction
+        // expression speculatively; the model gets the real DOM summary on its
+        // first `read_page` tool call, which is functionally equivalent.
         if let Some(win) = self.app.get_webview_window("main") {
             let _ = win.eval(
                 "window.__diatom_agent_ctx = \
@@ -73,19 +56,12 @@ impl AgentIo for TauriAgentIo {
             );
         }
 
-        // Model discovers actual DOM state via `read_page` tool call.
         PageContext::default()
     }
 }
 
-/// Start a new agent run.  Aborts any currently running plan first.
-///
-/// ```
-/// invoke('cmd_agent_start', { goal: 'Book cheapest flight BJ→SH', model: '' })
-///   .then(planId => console.log('started plan', planId))
-/// ```
-///
-/// Pass `model: ""` to use the user's currently configured SLM model.
+// Aborts any currently running plan first. Empty model string = use the
+// user's currently configured SLM model.
 #[tauri::command]
 pub async fn cmd_agent_start(
     goal: String,
@@ -95,8 +71,6 @@ pub async fn cmd_agent_start(
 ) -> Result<u64, String> {
     let plan_id = NEXT_PLAN_ID.fetch_add(1, Ordering::Relaxed);
 
-    // Resolve the model name: explicit argument wins; otherwise fall back to
-    // the DB setting written by `cmd_slm_set_model`.
     let model = if model.is_empty() {
         app.state::<crate::state::AppState>()
             .db
@@ -124,9 +98,7 @@ pub async fn cmd_agent_start(
     Ok(plan_id)
 }
 
-/// Cancel the currently running agent plan.
-///
-/// Returns `true` if a plan was running and was cancelled, `false` otherwise.
+
 #[tauri::command]
 pub async fn cmd_agent_abort(plan_id: u64, active_agent: State<'_, ActiveAgent>) -> bool {
     let mut guard = active_agent.runner.lock().await;
@@ -139,16 +111,7 @@ pub async fn cmd_agent_abort(plan_id: u64, active_agent: State<'_, ActiveAgent>)
     }
 }
 
-/// Called by the JS bridge after executing a tool call in the page.
-///
-/// Returns `true` when the result was accepted by the waiting runner,
-/// `false` when there was no active runner (late or duplicate delivery).
-///
-/// ```
-/// invoke('cmd_agent_tool_result', {
-///   planId: 7, ok: true, output: 'Clicked Submit', imageb64: null
-/// })
-/// ```
+// false return means late or duplicate delivery — no active runner waiting.
 #[tauri::command]
 pub async fn cmd_agent_tool_result(
     plan_id: u64, // reserved for future multi-agent support

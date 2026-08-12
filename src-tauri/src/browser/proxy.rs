@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::sync::Mutex;
 
-/// Supported proxy protocols.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ProxyProtocol {
@@ -13,7 +12,6 @@ pub enum ProxyProtocol {
     Https,
 }
 
-/// Proxy configuration for a single tab slot.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyConfig {
     pub protocol: ProxyProtocol,
@@ -34,7 +32,6 @@ impl ProxyConfig {
         format!("{} {}:{}", proto, self.host, self.port)
     }
 
-    /// Validate the config (basic sanity — not a connectivity check).
     pub fn validate(&self) -> Result<()> {
         if self.host.is_empty() {
             anyhow::bail!("proxy host must not be empty");
@@ -49,7 +46,6 @@ impl ProxyConfig {
     }
 }
 
-/// Registry mapping tab_id → ProxyConfig (or None = no override, use workspace default).
 #[derive(Debug, Default)]
 pub struct TabProxyRegistry {
     entries: Mutex<HashMap<String, Option<ProxyConfig>>>,
@@ -60,7 +56,6 @@ impl TabProxyRegistry {
         Self::default()
     }
 
-    /// Set or clear the proxy for a tab.
     pub fn set(&self, tab_id: &str, proxy: Option<ProxyConfig>) -> Result<()> {
         if let Some(ref p) = proxy {
             p.validate().context("proxy validation")?;
@@ -72,12 +67,10 @@ impl TabProxyRegistry {
         Ok(())
     }
 
-    /// Get the proxy for a tab (None = use workspace/global default).
     pub fn get(&self, tab_id: &str) -> Option<ProxyConfig> {
         self.entries.lock().unwrap().get(tab_id).cloned().flatten()
     }
 
-    /// Remove all proxy entries for a closed tab.
     pub fn remove(&self, tab_id: &str) {
         self.entries.lock().unwrap().remove(tab_id);
     }
@@ -103,7 +96,6 @@ impl TabProxyRegistry {
     }
 }
 
-/// Persist tab proxy assignments to the DB (encrypted, keyed by tab_id).
 pub fn save_proxy(db: &crate::storage::db::Db, tab_id: &str, proxy: &ProxyConfig) -> Result<()> {
     let key = format!("tab_proxy:{}", tab_id);
     let json = serde_json::to_string(proxy)?;
@@ -111,7 +103,6 @@ pub fn save_proxy(db: &crate::storage::db::Db, tab_id: &str, proxy: &ProxyConfig
     Ok(())
 }
 
-/// Load tab proxy assignment from DB.
 pub fn load_proxy(db: &crate::storage::db::Db, tab_id: &str) -> Option<ProxyConfig> {
     let key = format!("tab_proxy:{}", tab_id);
     db.get_setting(&key)

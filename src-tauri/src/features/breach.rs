@@ -4,7 +4,6 @@ use sha1::{Digest, Sha1};
 
 const PWNED_PASSWORDS_URL: &str = "https://api.pwnedpasswords.com/range/";
 const PWNED_EMAIL_URL: &str = "https://haveibeenpwned.com/api/v3/breachedaccount/";
-/// Cache TTL: 7 days in seconds.
 const CACHE_TTL_SECS: i64 = 7 * 24 * 3_600;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,7 +25,6 @@ pub struct EmailBreachResult {
     pub breaches: Vec<EmailBreachEntry>,
 }
 
-/// Compute SHA-1 of a password and return (full_hash_upper, prefix_5_chars).
 fn sha1_prefix(password: &str) -> (String, String) {
     let mut hasher = Sha1::new();
     hasher.update(password.as_bytes());
@@ -73,14 +71,12 @@ pub async fn check_password_cached(
 ) -> Result<PasswordBreachResult> {
     let (full_hash, prefix) = sha1_prefix(password);
 
-    // Try DB cache first
     if let Some(gz_bytes) = db.breach_cache_get(&prefix, CACHE_TTL_SECS) {
         let body = decompress_gzip(&gz_bytes).context("breach cache decompress")?;
         let text = String::from_utf8_lossy(&body);
         return parse_hibp_range_response(&full_hash, &prefix, &text);
     }
 
-    // Cache miss — fetch from HIBP
     let url = format!("{}{}", PWNED_PASSWORDS_URL, prefix);
     let body_text = client
         .get(&url)
@@ -247,10 +243,7 @@ pub async fn check_email(
         breaches,
     })
 }
-/// Return a generic browser UA to prevent Diatom correlation on HIBP calls.
-///
-/// Uses a CSPRNG-backed random pick via `rand::thread_rng()` so each call
-/// independently selects a UA regardless of call timing.
+// CSPRNG pick so each call independently selects a UA, preventing timing correlation.
 fn random_generic_ua() -> &'static str {
     use rand::Rng;
     const UAS: &[&str] = &[
@@ -288,7 +281,6 @@ mod tests {
         assert!(!encoded.contains('@'));
     }
 
-    /// Ensure random_generic_ua never panics and always returns a non-empty string.
     #[test]
     fn random_ua_is_always_non_empty() {
         for _ in 0..20 {
@@ -298,7 +290,6 @@ mod tests {
 
     #[test]
     fn parse_hibp_range_hit() {
-        // "password" SHA-1 = 5BAA61E4C9B93F3F0682250B6CF8331B7EE68FD8
         let (hash, _prefix) = sha1_prefix("password");
         let body = "1E4C9B93F3F0682250B6CF8331B7EE68FD8:3730471\nDEADBEEF:1\n";
         let result = parse_hibp_range_response(&hash, "5BAA6", body).unwrap();

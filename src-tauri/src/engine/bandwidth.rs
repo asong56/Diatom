@@ -13,7 +13,6 @@ pub struct BandwidthRule {
 }
 
 impl BandwidthRule {
-    /// Bytes per second derived from limit_kbps.
     pub fn bytes_per_sec(&self) -> u64 {
         (self.limit_kbps as u64) * 1024 / 8
     }
@@ -37,15 +36,13 @@ impl TokenBucket {
         }
     }
 
-    /// Refill tokens based on elapsed time since last call.
     fn refill(&mut self) {
         let elapsed = self.last_refill.elapsed().as_secs_f64();
         self.tokens = (self.tokens + elapsed * self.refill_rate).min(self.capacity as f64);
         self.last_refill = Instant::now();
     }
 
-    /// Attempt to consume `bytes` tokens. Returns the delay needed if depleted.
-    /// Returns Duration::ZERO if tokens are available immediately.
+    // Returns Duration::ZERO if tokens are available immediately.
     fn consume(&mut self, bytes: u64) -> Duration {
         self.refill();
         if self.tokens >= bytes as f64 {
@@ -135,13 +132,11 @@ impl BandwidthLimiter {
         max_delay
     }
 
-    /// Set the global bandwidth limit in kbps. 0 = no limit.
     pub fn set_global_limit(&self, kbps: u32) {
         *self.global_limit_kbps.lock().unwrap() = kbps;
         *self.global_bucket.lock().unwrap() = None;
     }
 
-    /// Add or replace a per-domain rule.
     pub fn upsert_rule(&self, rule: BandwidthRule) {
         let mut rules = self.rules.lock().unwrap();
         if let Some(existing) = rules
@@ -155,7 +150,6 @@ impl BandwidthLimiter {
         self.buckets.lock().unwrap().remove(&rule.domain_pattern);
     }
 
-    /// Remove a per-domain rule.
     pub fn remove_rule(&self, domain_pattern: &str) {
         self.rules
             .lock()
@@ -170,7 +164,6 @@ impl BandwidthLimiter {
             .any(|d| domain.eq_ignore_ascii_case(d) || domain.ends_with(&format!(".{}", d)))
     }
 
-    /// Load rules from DB.
     pub fn load_from_db(&self, db: &crate::storage::db::Db) {
         if let Some(json) = db.get_setting("bandwidth_rules") {
             if let Ok(rules) = serde_json::from_str::<Vec<BandwidthRule>>(&json) {
@@ -185,7 +178,6 @@ impl BandwidthLimiter {
         }
     }
 
-    /// Persist rules to DB.
     pub fn save_to_db(&self, db: &crate::storage::db::Db) -> Result<()> {
         let rules = self.rules.lock().unwrap();
         db.set_setting("bandwidth_rules", &serde_json::to_string(&*rules)?)?;

@@ -242,6 +242,11 @@ impl TotpStore {
         })
     }
 
+    // Alias used by cmd_totp_code — same as generate().
+    pub fn current_code(&self, id: &str) -> Result<TotpCode> {
+        self.generate(id)
+    }
+
     pub fn match_domain(&self, domain: &str) -> Vec<TotpCode> {
         let dlc = domain.to_lowercase();
         self.entries
@@ -670,6 +675,8 @@ fn hotp_sha512(key: &[u8], counter: u64) -> Result<u32> {
     ]))
 }
 
+// Hard-codes 30s/SHA1 — only safe for the TotpWidget path where we only
+// have the raw secret (no TotpEntry), and the caller guarantees RFC 6238 defaults.
 pub fn totp_now(secret_b32: &str) -> Result<String> {
     let counter = crate::storage::db::unix_now() as u64 / 30;
     generate_code(secret_b32, TotpAlgorithm::Sha1, 6, counter)

@@ -30,7 +30,7 @@ impl Db {
         Ok(())
     }
 
-    /// List bundles for a workspace. Use `spawn_blocking` for > 1000 bundles.
+    // Use spawn_blocking for > 1000 bundles.
     pub fn list_bundles(&self, workspace_id: &str, limit: u32) -> Result<Vec<BundleRow>> {
         let conn = self.0.lock().unwrap();
         let mut stmt = conn.prepare(
@@ -56,7 +56,7 @@ impl Db {
         .context("get_bundle_by_id")
     }
 
-    /// Full-text search — only HOT-tier entries have FTS5 rows.
+    // Only HOT-tier entries have FTS5 rows.
     pub fn search_bundles_fts(&self, query: &str, workspace_id: &str) -> Result<Vec<BundleRow>> {
         let conn = self.0.lock().unwrap();
         let mut stmt = conn.prepare(
@@ -73,7 +73,6 @@ impl Db {
             .context("search_bundles_fts")
     }
 
-    /// Mark a bundle accessed now and promote it back to the hot tier.
     pub fn touch_bundle_access(&self, id: &str) -> Result<()> {
         let now = unix_now();
         self.0.lock().unwrap().execute(
@@ -83,13 +82,8 @@ impl Db {
         Ok(())
     }
 
-    /// Deep Dig: search cold-tier bundles by keyword fingerprint.
-    ///
-    /// Cold bundles have no FTS5 rows; instead we LIKE-match their tfidf_tags
-    /// JSON string. Each whitespace-separated query token must appear in
-    /// tfidf_tags. Maximum 5 tokens, 20 results.
-    ///
-    /// [AUDIT] Uses parameterised LIKE patterns — no SQL injection risk.
+    // Cold bundles have no FTS5 rows, so this LIKE-matches the tfidf_tags JSON
+    // instead (max 5 tokens, 20 results). Parameterised — no SQL injection risk.
     pub fn search_cold_keyword(&self, query: &str, workspace_id: &str) -> Result<Vec<BundleRow>> {
         let tokens: Vec<String> = query
             .split_whitespace()
@@ -184,5 +178,75 @@ impl Db {
         let rows = stmt.query_map([], |r| r.get(0))?;
         rows.collect::<rusqlite::Result<_>>()
             .context("all_dom_block_domains")
+    }
+
+    // --- reshuffle_rules ---
+
+    pub fn insert_reshuffle_rule(
+        &self,
+        domain_pattern: &str,
+        selector: &str,
+        replacement_json: &str,
+    ) -> Result<String> {
+        let id = new_id();
+        self.0.lock().unwrap().execute(
+            "INSERT INTO reshuffle_rules(id,domain_pattern,selector,replacement,enabled,created_at)
+             VALUES(?1,?2,?3,?4,1,?5)",
+            params![id, domain_pattern, selector, replacement_json, unix_now()],
+        )?;
+        Ok(id)
+    }
+
+    pub fn list_reshuffle_rules(&self) -> Result<Vec<(String, String, String, String, bool)>> {
+        let conn = self.0.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id,domain_pattern,selector,replacement,enabled
+             FROM reshuffle_rules ORDER BY created_at ASC",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, i64>(4)? != 0,
+            ))
+        })?;
+        rows.collect::<rusqlite::Result<_>>()
+            .context("list_reshuffle_rules")
+    }
+
+    pub fn set_reshuffle_rule_enabled(&self, id: &str, enabled: bool) -> Result<()> {
+        self.0.lock().unwrap().execute(
+            "UPDATE reshuffle_rules SET enabled=?1 WHERE id=?2",
+            params![enabled as i64, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_reshuffle_rule(&self, id: &str) -> Result<()> {
+        self.0
+            .lock()
+            .unwrap()
+            .execute("DELETE FROM reshuffle_rules WHERE id=?1", [id])?;
+        Ok(())
+    }
+
+    // Returns a random HOT-tier bundle (title + url + first 200 chars of tfidf_tags as snippet).
+    pub fn random_museum_card(&self) -> Result<Option<(String, String, String)>> {
+        let conn = self.0.lock().unwrap();
+        conn.query_row(
+            "SELECT title, url, tfidf_tags FROM museum_bundles
+             WHERE index_tier = 'hot'
+             ORDER BY RANDOM() LIMIT 1",
+            [],
+            |r| {
+                let tags: String = r.get(2)?;
+                let snippet: String = tags.chars().take(200).collect();
+                Ok((r.get(0)?, r.get(1)?, snippet))
+            },
+        )
+        .optional()
+        .context("random_museum_card")
     }
 }

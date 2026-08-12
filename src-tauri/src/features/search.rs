@@ -78,13 +78,11 @@ pub fn builtin_engines() -> Vec<SearchEngine> {
     ]
 }
 
-/// Get the currently selected default search engine ID from the DB.
 pub fn get_default(db: &crate::storage::db::Db) -> String {
     db.get_setting("default_search_engine")
         .unwrap_or_else(|| "brave".to_owned())
 }
 
-/// Set the default search engine. Validates the ID exists.
 pub fn set_default(db: &crate::storage::db::Db, engine_id: &str) -> Result<()> {
     if engine_id.starts_with("searxng:") {
         let endpoint = engine_id.trim_start_matches("searxng:");
@@ -100,8 +98,6 @@ pub fn set_default(db: &crate::storage::db::Db, engine_id: &str) -> Result<()> {
     Ok(())
 }
 
-/// Set a custom SearXNG instance endpoint.
-///
 /// [F-10] Validates HTTPS-only to prevent SSRF attacks via user-controlled URL.
 pub fn set_searxng_endpoint(db: &crate::storage::db::Db, endpoint: &str) -> Result<()> {
     validate_searxng_endpoint(endpoint)?;
@@ -144,19 +140,16 @@ pub fn validate_searxng_endpoint(url: &str) -> Result<()> {
     Ok(())
 }
 
-/// Build a search URL for the given engine and query.
 pub fn build_search_url(engine: &SearchEngine, query: &str) -> String {
     let encoded = percent_encode(query);
     engine.url_template.replace("{query}", &encoded)
 }
 
-/// Build a suggestion URL (returns None if the engine has no suggest template).
 pub fn build_suggest_url(engine: &SearchEngine, query: &str) -> Option<String> {
     let tmpl = engine.suggest_template.as_ref()?;
     Some(tmpl.replace("{query}", &percent_encode(query)))
 }
 
-/// Percent-encode a query string for safe URL embedding.
 fn percent_encode(s: &str) -> String {
     let mut out = String::with_capacity(s.len() * 3);
     for byte in s.as_bytes() {

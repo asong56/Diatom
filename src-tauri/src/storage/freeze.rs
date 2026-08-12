@@ -59,7 +59,6 @@ pub struct FreezeBundle {
     pub bundle_path: PathBuf,
 }
 
-/// Main entry point: strip, compress, encrypt, write, return row.
 pub fn freeze_page(
     raw_html: &str,
     url: &str,
@@ -127,8 +126,6 @@ fn strip_trackers(html: &str) -> String {
             .unwrap()
     });
 
-    /// Find the end of an HTML tag starting at `start` in `html`, correctly
-    /// handling `>` inside single- and double-quoted attribute values.
     fn find_tag_end(html: &str, start: usize) -> usize {
         #[derive(PartialEq)]
         enum S {
@@ -480,15 +477,12 @@ mod tests {
         assert_eq!(dec, plain);
     }
 
-    /// Two different bundle IDs must produce different ciphertexts
-    /// even with the same master key and same plaintext.
     #[test]
     fn distinct_bundle_ids_produce_distinct_keys() {
         let master = [0xBEu8; 32];
         let plain = b"same content";
         let ct1 = derive_bundle_key_and_encrypt(&master, "bundle-aaa", plain).unwrap();
         let ct2 = derive_bundle_key_and_encrypt(&master, "bundle-bbb", plain).unwrap();
-        // Keys differ → decrypting ct1 with bundle-bbb key must fail
         assert!(
             derive_bundle_key_and_decrypt(&master, "bundle-bbb", ct1).is_err(),
             "decrypting with wrong bundle_id must fail"
@@ -533,7 +527,6 @@ mod tests {
         assert!(thawed.contains("test freeze"));
     }
 
-    /// parse_ewbn must reject an oversized payload_len before allocation.
     #[test]
     fn parse_ewbn_rejects_oversized_payload() {
         let mut raw = Vec::new();
@@ -547,7 +540,6 @@ mod tests {
         );
     }
 
-    /// Compile-time hex codec sanity check: hex::encode → hex::decode is identity.
     #[test]
     fn hex_codec_roundtrip() {
         let original = b"diatom-master-key-test-32-bytes!";

@@ -6,8 +6,7 @@ pub async fn cmd_tabs_list(state: St<'_>) -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({ "tabs": tabs }))
 }
 
-/// Full tab state: list + active_id + count.
-/// JS always calls this variant rather than `cmd_tabs_list`.
+// JS always calls this variant rather than cmd_tabs_list.
 #[tauri::command]
 pub async fn cmd_tabs_state(state: St<'_>) -> Result<serde_json::Value, String> {
     let store = state.tabs.lock().unwrap();
@@ -18,8 +17,7 @@ pub async fn cmd_tabs_state(state: St<'_>) -> Result<serde_json::Value, String> 
     }))
 }
 
-/// Open a new tab and return its id.
-/// `cmd_tab_open` was a legacy alias for this command; only one is needed.
+
 #[tauri::command]
 pub async fn cmd_tab_create(url: String, state: St<'_>) -> Result<String, String> {
     Ok(state.tabs.lock().unwrap().open(url))
@@ -37,7 +35,6 @@ pub async fn cmd_tab_activate(tab_id: String, state: St<'_>) -> Result<(), Strin
     Ok(())
 }
 
-/// Record a navigation event so dwell time and history can be updated.
 #[tauri::command]
 pub async fn cmd_tab_update(
     tab_id: String,
@@ -133,11 +130,8 @@ pub async fn cmd_tab_proxy_remove(tab_id: String, state: St<'_>) -> Result<(), S
     Ok(())
 }
 
-/// Capture a screenshot of the active webview for the agent vision path.
-/// Returns a base64-encoded PNG string.
-///
-/// Tauri v2's `capture_image()` returns raw RGBA bytes; we PNG-encode them
-/// before returning so the JS `OffscreenCanvas` consumer receives a valid image.
+// Tauri's capture_image() returns raw RGBA; PNG-encoded here so the JS
+// OffscreenCanvas consumer gets a valid image.
 #[tauri::command]
 pub async fn cmd_tab_screenshot(app: tauri::AppHandle) -> Result<String, String> {
     use tauri::Manager;
@@ -176,6 +170,81 @@ pub async fn cmd_dom_crush(domain: String, selector: String, state: St<'_>) -> R
 #[tauri::command]
 pub async fn cmd_dom_blocks_for(domain: String, state: St<'_>) -> Result<Vec<String>, String> {
     crate::browser::dom_crusher::rules_for_domain(&state.db, &domain).map_err(es)
+}
+
+#[tauri::command]
+pub async fn cmd_reshuffle_rule_add(
+    domain_pattern: String,
+    selector: String,
+    replacement: serde_json::Value,
+    state: St<'_>,
+) -> Result<String, String> {
+    use crate::browser::dom_crusher::{ReplacementContent, validate_selector, clean_selector};
+    let clean = clean_selector(&selector);
+    validate_selector(&clean).map_err(es)?;
+    // Validate the replacement JSON deserialises into a known variant.
+    let _: ReplacementContent = serde_json::from_value(replacement.clone())
+        .map_err(|e| format!("invalid replacement: {e}"))?;
+    let json = serde_json::to_string(&replacement).map_err(es)?;
+    state.db.insert_reshuffle_rule(&domain_pattern, &clean, &json).map_err(es)
+}
+
+#[tauri::command]
+pub async fn cmd_reshuffle_rules_list(
+    state: St<'_>,
+) -> Result<Vec<crate::browser::dom_crusher::ReshuffleRule>, String> {
+    crate::browser::dom_crusher::list_rules(&state.db).map_err(es)
+}
+
+#[tauri::command]
+pub async fn cmd_reshuffle_rule_toggle(
+    id: String,
+    enabled: bool,
+    state: St<'_>,
+) -> Result<(), String> {
+    state.db.set_reshuffle_rule_enabled(&id, enabled).map_err(es)
+}
+
+#[tauri::command]
+pub async fn cmd_reshuffle_rule_delete(id: String, state: St<'_>) -> Result<(), String> {
+    state.db.delete_reshuffle_rule(&id).map_err(es)
+}
+
+#[tauri::command]
+pub async fn cmd_museum_random_card(
+    state: St<'_>,
+) -> Result<Option<serde_json::Value>, String> {
+    match state.db.random_museum_card().map_err(es)? {
+        Some((title, url, snippet)) => Ok(Some(serde_json::json!({
+            "title":   title,
+            "url":     url,
+            "snippet": snippet,
+        }))),
+        None => Ok(None),
+    }
+}
+
+// Called by the JS navigation hook with the current page's hostname.
+// Returns a ready-to-eval script string (empty string = no rules for this domain).
+#[tauri::command]
+pub async fn cmd_reshuffle_script_for(
+    domain: String,
+    state: St<'_>,
+) -> Result<String, String> {
+    let all = crate::browser::dom_crusher::list_rules(&state.db).map_err(es)?;
+    let matching: Vec<_> = all
+        .into_iter()
+        .filter(|r| r.enabled && {
+            let p = &r.domain_pattern;
+            if p == "*" { true }
+            else if let Some(suffix) = p.strip_prefix("*.") {
+                domain.ends_with(suffix)
+            } else {
+                domain == *p || domain.ends_with(&format!(".{p}"))
+            }
+        })
+        .collect();
+    Ok(crate::browser::dom_crusher::reshuffle_script(&matching))
 }
 
 #[tauri::command]

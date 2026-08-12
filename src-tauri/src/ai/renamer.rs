@@ -19,10 +19,7 @@ pub struct RenameResult {
 /// The SLM HTTP port used by Diatom's local inference server.
 const SLM_PORT: u16 = 11_435;
 
-/// Request a filename suggestion from the local SLM.
-///
-/// Sends a structured JSON prompt to cmd_slm_chat. The model is instructed to
-/// return ONLY a JSON object: {"suggested_name": "filename.ext"}.
+// Sends a structured prompt to cmd_slm_chat; model must return ONLY {"suggested_name": "..."}.
 pub async fn suggest_via_slm(ctx: &DownloadContext) -> Result<RenameResult> {
     let prompt = format!(
         "You are a file renaming assistant. Suggest a clear, descriptive filename.\n\
@@ -86,9 +83,7 @@ pub async fn suggest_via_slm(ctx: &DownloadContext) -> Result<RenameResult> {
     })
 }
 
-/// Generate a deterministic slug from the page title when SLM is unavailable.
-///
-/// Example: "TensorFlow 2.0 Release Notes — Google AI" → "tensorflow-2-0-release-notes.pdf"
+// e.g. "TensorFlow 2.0 Release Notes — Google AI" -> "tensorflow-2-0-release-notes.pdf"
 pub fn suggest_from_title(ctx: &DownloadContext) -> RenameResult {
     let ext = Path::new(&ctx.original_filename)
         .extension()

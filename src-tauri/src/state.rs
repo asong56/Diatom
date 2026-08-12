@@ -67,6 +67,7 @@ pub struct AppState {
     /// (Previously also handed to the DevPanel process for its bridge
     /// handshake — that consumer was removed along with `dev_panel.rs` and
     /// `diatom_bridge`'s protocol/client/server modules. This token now
+    /// serves MCP auth only.)
     pub mcp_session_token: String,
 
     pub platform: &'static str,
@@ -118,8 +119,6 @@ impl AppState {
             }
         }
 
-        // Use the canonical load method on StorageBudget so the parse-or-default
-        // logic is never duplicated across callers.
         let storage_budget = crate::storage::guard::StorageBudget::load_from_db(&db);
 
         let tab_budget_cfg = db
@@ -224,11 +223,10 @@ impl AppState {
         f(&*key)
     }
 
-    /// Returns a live dynamic UA when Sentinel has data; falls back to the
-    /// compiled-in platform constant otherwise.
-
-    /// (last_refresh==0 even when data was loaded from DB). Now gates on
-    /// has_data() so the first post-refresh UA is served immediately.
+    // Returns a live dynamic UA when Sentinel has data; falls back to the
+    // compiled-in platform constant otherwise. Gates on has_data() rather
+    // than last_refresh > 0, since last_refresh is 0 on a freshly loaded
+    // DB row even though real cached data is present.
     pub fn current_ua(&self, prefer_safari: bool) -> String {
         let cache = self.sentinel.lock().unwrap();
         if cache.has_data() {
@@ -242,8 +240,7 @@ impl AppState {
         crate::engine::blocker::platform_fallback_ua().to_owned()
     }
 
-    /// Returns the JS initialisation script for fingerprint normalisation.
-    /// Called once at startup; result is passed to Tauri's initialization_script.
+    // Called once at startup; passed to Tauri's initialization_script.
     pub fn fp_norm_script(&self) -> String {
         self.fp_norm.generate()
     }

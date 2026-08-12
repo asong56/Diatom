@@ -291,10 +291,22 @@ const MIGRATIONS: &[(u32, &str)] = &[
   );\
   ",
     ),
+    (
+        9,
+        "
+  CREATE TABLE IF NOT EXISTS reshuffle_rules (
+    id              TEXT PRIMARY KEY,
+    domain_pattern  TEXT NOT NULL,
+    selector        TEXT NOT NULL,
+    replacement     TEXT NOT NULL,
+    enabled         INTEGER NOT NULL DEFAULT 1,
+    created_at      INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_reshuffle_domain ON reshuffle_rules(domain_pattern);
+  ",
+    ),
 ];
 
-/// A cloneable handle to a single SQLite WAL-mode connection.
-///
 /// All methods acquire `self.0.lock()` for the duration of the call.
 /// For long-running queries (FTS5 full scans, cold-tier LIKE sweeps) call
 /// sites inside async Tauri commands should wrap the call in

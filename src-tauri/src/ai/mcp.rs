@@ -195,7 +195,6 @@ pub fn available_tools() -> Vec<McpTool> {
     ]
 }
 
-/// Generate a single-session random auth token and write to data_dir/mcp.token
 pub fn generate_and_write_token(data_dir: &std::path::Path) -> Result<String> {
     let bytes: [u8; 32] = rand::random();
     let token = hex::encode(bytes);
@@ -303,7 +302,6 @@ async fn handle_tool_call(
         "browser_research" => {
             let question = args["question"].as_str().ok_or("Missing question")?;
             let limit = args["museum_limit"].as_u64().unwrap_or(5).min(20) as usize;
-            // Search Museum for relevant context
             let museum_hits = db
                 .search_bundles_fts(question, "default")
                 .unwrap_or_default()
@@ -384,11 +382,9 @@ async fn handle_tool_call(
     }
 }
 
-/// Spawn the MCP HTTP server. Binds ONLY to 127.0.0.1.
-///
-/// Tries MCP_PORT first; if that port is in use it falls back to any
-/// available ephemeral port so a second Diatom instance doesn't silently fail.
-/// The actual bound port is stored in the database for the frontend to read.
+// Binds ONLY to 127.0.0.1. Falls back to an ephemeral port if MCP_PORT is
+// taken (so a second Diatom instance doesn't silently fail); actual bound
+// port is stored in the DB for the frontend to read.
 pub async fn run_mcp_server(token: String, db: Arc<crate::storage::db::Db>) {
     use std::net::SocketAddr;
 

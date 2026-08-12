@@ -8,7 +8,6 @@ use tokio::net::TcpListener;
 ///   - Instruction-following quality (MMLU ≥ 60%)
 ///   - Privacy-safe licence (Apache 2.0 / MIT)
 
-/// Built-in Candle Wasm models — no Ollama required, run entirely in WASM sandbox.
 pub const CANDLE_WASM_MODELS: &[SlmModel] = &[
     SlmModel {
         id: "diatom-wasm-fast",
@@ -164,7 +163,6 @@ pub struct ModelInfo {
 
 pub const SLM_PORT: u16 = 11435;
 
-/// SLM server state shared across request handlers.
 #[derive(Clone)]
 pub struct SlmServer {
     pub backend: SlmBackend,
@@ -430,7 +428,6 @@ pub async fn run_server(server: Arc<SlmServer>, shutdown: tokio_util::sync::Canc
             }
         }
     };
-    // Store the actual port so callers can connect to the right address.
     let _actual_port = listener.local_addr().map(|a| a.port()).unwrap_or(SLM_PORT);
 
     loop {
@@ -454,7 +451,6 @@ pub async fn run_server(server: Arc<SlmServer>, shutdown: tokio_util::sync::Canc
     }
 }
 
-/// Read a full HTTP/1.1 request from `stream`, then dispatch to `handle_request`.
 async fn handle_connection(server: Arc<SlmServer>, mut stream: tokio::net::TcpStream) {
     use tokio::io::AsyncReadExt;
 
@@ -571,7 +567,6 @@ async fn handle_connection(server: Arc<SlmServer>, mut stream: tokio::net::TcpSt
     let _ = stream.write_all(response.as_bytes()).await;
 }
 
-/// Find the position of `\r\n\r\n` in `buf`, returning the index of the `\r`.
 fn find_header_end(buf: &[u8]) -> Option<usize> {
     buf.windows(4).position(|w| w == b"\r\n\r\n")
 }
@@ -652,8 +647,7 @@ async fn handle_request(server: &SlmServer, raw: &str) -> (&'static str, String)
 ").map(|i| i + 2))
                 .unwrap_or(raw.len());
             let body_str = &raw[body_start..];
-            // Parse {model, prompt, max_tokens, temperature, stream}
-            if let Ok(v) = serde_json::from_str::<serde_json::Value>(body_str) {
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(body_str) {
                 let prompt = v["prompt"].as_str().unwrap_or("").to_owned();
                 let model  = v["model"].as_str().unwrap_or("diatom-balanced").to_owned();
                 let req = ChatRequest {

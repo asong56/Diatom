@@ -14,7 +14,6 @@ pub struct PrivacyConfig {
     pub peripheral_block: bool,
     pub sab_block: bool,
 
-    /// the field was missing from the struct, causing a compile error.
     /// When true, forces CandleWasm backend regardless of Ollama availability.
     #[serde(default)]
     pub extreme_mode: bool,

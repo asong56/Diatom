@@ -25,24 +25,21 @@ pub struct PluginManifest {
     pub installed_at: i64,
 }
 
-/// Result of a plugin's `on-page-text` transformation.
 #[derive(Debug)]
 pub struct PluginTextResult {
     pub plugin_id: Uuid,
     pub transformed: String,
 }
 
-/// Result of a plugin's `get-panel-html` call.
 #[derive(Debug)]
 pub struct PluginPanelResult {
     pub plugin_id: Uuid,
     /// Raw HTML string returned by the plugin.  Sanitised by the caller
     /// (chrome layer) before injection using the same DOMParser pipeline as
+    /// the existing diatom-api.js injection.
     pub html: String,
 }
 
-/// A sandboxed Wasm plugin instance.
-///
 /// Wasmtime sandboxing is feature-gated (`plugin-sandbox` feature flag) to
 /// keep the default binary under 8 MB. Without the feature, `call_*` methods
 /// return a capability-check error. All data structures, manifest handling,
@@ -91,19 +88,16 @@ impl WasmPlugin {
         })
     }
 
-    /// Call the plugin's `on-page-load` hook.
     pub fn on_page_load(&self, _url: &str, _title: &str) -> Result<()> {
         self.check_sandbox_available()
     }
 
-    /// Call the plugin's `on-page-text` hook.
-    /// Returns the (possibly transformed) text.
+    // Returns the (possibly transformed) text.
     pub fn on_page_text(&self, text: &str) -> Result<String> {
         self.check_sandbox_available()?;
         Ok(text.to_owned())
     }
 
-    /// Call the plugin's `get-panel-html` hook.
     pub fn get_panel_html(&self) -> Result<String> {
         self.check_sandbox_available()?;
         Ok(String::new())
@@ -123,7 +117,6 @@ impl WasmPlugin {
         )
     }
 
-    /// Return the BLAKE3 hash of the plugin's Wasm bytes (for display in UI).
     pub fn wasm_hash(&self) -> &str {
         &self.manifest.wasm_hash
     }
@@ -133,7 +126,6 @@ impl WasmPlugin {
     }
 }
 
-/// In-memory registry of loaded plugins.  Persisted to the DB by commands.rs.
 #[derive(Default)]
 pub struct PluginRegistry {
     plugins: Arc<Mutex<HashMap<Uuid, WasmPlugin>>>,

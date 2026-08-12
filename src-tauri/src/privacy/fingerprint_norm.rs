@@ -1,5 +1,4 @@
-/// Normalised fingerprint constants.
-/// All values match the statistical mode of desktop hardware in 2025.
+// Values match the statistical mode of desktop hardware in 2025.
 pub struct FingerprintNorm {
     pub hardware_concurrency: u32,
     pub device_memory: u32,
@@ -25,18 +24,11 @@ impl Default for FingerprintNorm {
 }
 
 impl FingerprintNorm {
-    /// Generate the JavaScript injection snippet.
-    ///
-    /// The snippet:
-    ///   • Is idempotent (guarded by `__DIATOM_FP_NORM__`).
-    ///   • Uses `Object.defineProperty` with `configurable: false` so site
-    ///     scripts cannot re-read the original value through the prototype.
-    ///   • Overrides Canvas `toDataURL` / `toBlob` with a pass-through that
-    ///     applies a deterministic, imperceptible pixel shift — identical
-    ///     output every call, unique per domain (keyed by a stable per-domain
-    ///     salt derived from the hostname, not from randomness).
-    ///   • Does NOT override `Date`, timezone, or language — changing those
-    ///     breaks calendar applications and localisation.
+    // Canvas toDataURL/toBlob get a deterministic, per-domain pixel shift
+    // (salted by hostname, not randomness) so output is stable but unique.
+    // configurable:false stops site scripts reading the original via the
+    // prototype. Date/timezone/language are deliberately left alone —
+    // overriding those breaks calendars and localisation.
     pub fn generate(&self) -> String {
         let hw = self.hardware_concurrency;
         let mem = self.device_memory;

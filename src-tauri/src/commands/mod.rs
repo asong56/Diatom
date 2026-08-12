@@ -1,7 +1,6 @@
 mod ai;
 mod auth;
-/// Tauri command handlers, split by subsystem.
-///
+// Tauri command handlers, split by subsystem.
 /// Each file owns one domain of commands.  `main.rs` registers them all via
 /// `tauri::generate_handler![commands::cmd_X, ...]`; the flat re-exports below
 /// keep that call-site unchanged.
@@ -39,12 +38,9 @@ pub use system::*;
 
 use crate::state::AppState;
 
-/// Short type alias — removes the 33-char `tauri::State<'_, AppState>` noise
-/// from every command signature.  `pub(super)` so sub-modules can use it with
-/// `use super::St;`.
+// Removes the 33-char tauri::State<'_, AppState> noise from every command signature.
 pub(super) type St<'r> = tauri::State<'r, AppState>;
 
-/// Convert any `Display` error to `String` for Tauri command returns.
 #[inline(always)]
 pub(super) fn es<E: std::fmt::Display>(e: E) -> String {
     e.to_string()

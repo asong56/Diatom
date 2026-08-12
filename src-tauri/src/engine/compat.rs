@@ -41,9 +41,8 @@ pub const BUILTIN_COMPAT_HINTS: &[&str] = &[
     "12306.cn",
 ];
 
-/// Community compat-hint list URLs (same pull mechanism as filter subscriptions).
-/// Diatom downloads these weekly; the list maintainer takes legal responsibility
-/// for the domain classifications. Diatom acts only as a downloader (cf. §4).
+// Downloaded weekly; the list maintainer takes legal responsibility for the
+// domain classifications — Diatom acts only as a downloader (cf. §4).
 pub const COMMUNITY_COMPAT_LISTS: &[(&str, &str)] = &[(
     "Diatom Community Compat List",
     "https://raw.githubusercontent.com/Ansel-S/diatom-compat-lists/main/hints.txt",
@@ -55,7 +54,6 @@ impl Default for CompatTier {
     }
 }
 
-/// Reported by the injected diatom-api.js after page load.
 #[derive(Debug, Clone, Deserialize)]
 pub struct PageHealthReport {
     pub url: String,
@@ -77,7 +75,6 @@ impl PageHealthReport {
 
 #[derive(Default)]
 pub struct CompatStore {
-    /// Domains the user has marked as "always open in system browser".
     legacy_domains: HashSet<String>,
     auto_detected: HashSet<String>,
 }
@@ -120,9 +117,7 @@ pub fn system_browser_open(url: &str) -> Result<()> {
     Ok(())
 }
 
-/// Build the compat hint HTML banner injected into degraded pages.
-/// The "Open in system browser" button calls window.__diatom_compat_handoff()
-/// which is defined by diatom-api.js and invokes cmd_compat_handoff via IPC.
+// "Open in system browser" button calls window.__diatom_compat_handoff(), defined in diatom-api.js.
 pub fn compat_hint_banner(domain: &str) -> String {
     let escaped_domain = crate::utils::escape_html(domain);
     format!(
@@ -159,7 +154,6 @@ pub const PAYMENT_DOMAINS: &[&str] = &[
     "95516.com",
 ];
 
-/// Check if a domain is a known payment/banking system requiring plugin support.
 pub fn is_payment_domain(domain: &str) -> bool {
     let d = domain.to_lowercase();
     PAYMENT_DOMAINS.iter().any(|p| d.contains(p))

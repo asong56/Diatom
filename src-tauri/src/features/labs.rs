@@ -55,7 +55,6 @@ macro_rules! lab {
 /// All built-in lab definitions. Allocated once at startup via `LazyLock`.
 pub static ALL_LABS: LazyLock<Vec<Lab>> = LazyLock::new(build_labs);
 
-/// Return a reference to the immutable built-in lab list.
 #[inline]
 pub fn all_labs() -> &'static [Lab] {
     &ALL_LABS
@@ -644,17 +643,13 @@ fn feedback_key(lab_id: &str) -> String {
     format!("lab_feedback_{}", lab_id)
 }
 
-/// Load persisted feedback for `lab_id`. Returns default if none stored.
 pub fn load_feedback(db: &crate::storage::db::Db, lab_id: &str) -> LabFeedback {
     db.get_setting(&feedback_key(lab_id))
         .and_then(|s| serde_json::from_str(&s).ok())
         .unwrap_or_default()
 }
 
-/// Record that the user found `lab_id` useful.
-///
-/// Clears any "never_use" counter — one "useful" signal resets the retirement
-/// clock entirely.
+// One "useful" signal clears the "never_use" retirement counter entirely.
 pub fn mark_useful(db: &crate::storage::db::Db, lab_id: &str) -> anyhow::Result<()> {
     if !all_labs().iter().any(|l| l.id == lab_id) {
         anyhow::bail!("unknown lab id: {}", lab_id);

@@ -91,10 +91,7 @@ static KNOWN_MIRRORS: &[(&str, &str, HiddenNetwork, &str)] = &[
     ),
 ];
 
-/// Look up whether the given hostname has a known hidden-service mirror.
-/// Returns `None` if no mirror is catalogued for this domain.
-///
-/// Matching is suffix-based: "en.wikipedia.org" matches "wikipedia.org".
+// Suffix-based match: "en.wikipedia.org" matches "wikipedia.org".
 pub fn lookup(host: &str) -> Option<OnionSuggestion> {
     let host_lower = host.to_lowercase();
     let host_clean = host_lower.strip_prefix("www.").unwrap_or(&host_lower);
@@ -112,8 +109,7 @@ pub fn lookup(host: &str) -> Option<OnionSuggestion> {
     None
 }
 
-/// Called by the JS navigation hook when the user loads a new URL.
-/// Returns a suggestion if a hidden-service mirror is available.
+
 pub async fn cmd_onion_suggest(host: String) -> Result<Option<OnionSuggestion>, String> {
     Ok(lookup(&host))
 }

@@ -98,8 +98,7 @@ impl Db {
             .context("vault_logins_raw")
     }
 
-    /// Update only the breach fields for a single login — avoids re-encrypting
-    /// the credential payload on a background check.
+    // Avoids re-encrypting the credential payload on a background check.
     pub fn vault_login_set_breach(
         &self,
         id: &str,
@@ -116,7 +115,6 @@ impl Db {
         Ok(())
     }
 
-    /// Attach (or replace) a passkey credential to an existing login record.
     pub fn vault_login_set_passkey(
         &self,
         id: &str,
@@ -135,7 +133,6 @@ impl Db {
         Ok(())
     }
 
-    /// Remove passkey from a login record (credential deleted by user or RP).
     pub fn vault_login_clear_passkey(&self, id: &str) -> Result<()> {
         self.0.lock().unwrap().execute(
             "UPDATE vault_logins

@@ -61,7 +61,6 @@ pub struct VaultLogin {
     pub updated_at: i64,
 }
 
-/// Decrypted vault card entry.
 #[derive(Debug, Clone, Serialize, Deserialize, Zeroize)]
 #[zeroize(drop)]
 pub struct VaultCard {
@@ -77,7 +76,6 @@ pub struct VaultCard {
     pub updated_at: i64,
 }
 
-/// Decrypted vault secure note.
 #[derive(Debug, Clone, Serialize, Deserialize, Zeroize)]
 #[zeroize(drop)]
 pub struct VaultNote {
@@ -289,7 +287,6 @@ pub struct VaultStore {
 }
 
 impl VaultStore {
-    /// Load all entries from DB, decrypting with master_key.
     pub fn load_from_db(db: &crate::storage::db::Db, key: &[u8; 32]) -> Self {
         let mut logins = HashMap::new();
         let mut cards = HashMap::new();
@@ -548,7 +545,6 @@ impl VaultStore {
             .collect()
     }
 
-    /// Return logins whose URLs match `domain` (exact or subdomain).
 
     pub fn match_domain(&self, domain: &str) -> Vec<LoginSummary> {
         let dlc = domain.to_lowercase();

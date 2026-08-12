@@ -2,25 +2,12 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, sync::LazyLock};
 
-/// Compile-time embedded blocklist — startup seed.
-///
-/// This list is loaded at process start and serves as the minimum protection
-/// baseline before the dynamic list is fetched.  It is intentionally static
-/// and conservative: only domains with extremely high confidence of malice and
-/// near-zero false-positive risk are included here.
-///
-/// # Dynamic extension
-///
-/// At runtime `AppState.threat_list` (a `RwLock<HashSet<String>>`) is
-/// populated by the sentinel loop's URLhaus fetch (see `sentinel.rs`).
-/// `check_local()` checks BOTH this static set and the live set, so new
-/// threats are picked up as soon as the next fetch completes — without
-/// requiring a recompile or restart.
-///
-/// # Update cadence
-/// The static list is updated before each release via the standard release
-/// checklist. Do NOT add domains here speculatively; the dynamic list is the
-/// right place for time-sensitive threat intelligence.
+// Compile-time seed list — minimum protection baseline before the dynamic
+// list loads. Intentionally conservative (only near-zero-false-positive
+// domains). check_local() also checks AppState.threat_list, populated live
+// by the sentinel loop's URLhaus fetch, so new threats land without a
+// recompile. Don't add domains here speculatively — that's what the dynamic
+// list is for.
 static EMBEDDED_THREATS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     [
         "coinhive.com",
@@ -187,16 +174,9 @@ static EMBEDDED_THREATS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     .collect()
 });
 
-/// Fast-path pre-check: the 10 most commonly blocked domains checked as a
-/// static sorted array before the HashSet lookup. These are the domains that
-/// appear most frequently in typical browsing sessions and are almost always
-/// present in the embedded list. A linear scan of 10 elements is faster than
-/// hashing + HashSet lookup for the common case of a benign domain.
-///
-/// Impact: ~15 ns → ~3 ns on the hot path for unknown-safe domains.
-/// Fast-path pre-check: the 16 most commonly blocked domains checked as a
-/// static sorted array before the HashSet lookup.
-
+// 16 most commonly blocked domains, checked as a sorted array before the
+// HashSet — a short linear scan beats hashing for the common benign-domain
+// case (~15ns -> ~3ns on the hot path).
 const FAST_PATH_DOMAINS: &[&str] = &[
     "coinhive.com",
     "coin-hive.com",
@@ -232,8 +212,7 @@ pub struct ThreatResult {
     pub check_source: String,
 }
 
-/// Normalise a domain for threat lookups: lowercase, strip www. and m. prefixes
-/// so that mobile subdomains like "m.phishing.com" match the entry "phishing.com".
+// Strips www./m. so "m.phishing.com" matches the "phishing.com" list entry.
 fn normalise(domain: &str) -> &str {
     let d = domain.trim();
     let d = d.strip_prefix("www.").unwrap_or(d);
@@ -241,12 +220,6 @@ fn normalise(domain: &str) -> &str {
     d
 }
 
-/// Check domain against the embedded + live threat list.
-/// The live list is passed in from AppState (caller reads from DB / cache).
-///
-/// Optimisation: fast-path linear scan of the top-10 most common blocked domains
-/// before falling through to the HashSet. On the hot path (benign domains), the
-/// fast-path scan completes in ~3 ns and avoids heap allocation.
 pub fn check_local(domain: &str, live_list: &HashSet<String>) -> ThreatLevel {
     let d = domain.to_lowercase();
     let d = normalise(&d);
@@ -268,7 +241,7 @@ pub fn check_local(domain: &str, live_list: &HashSet<String>) -> ThreatLevel {
     ThreatLevel::Clean
 }
 
-/// Query Quad9 DoH for a domain. NXDOMAIN → Malicious. Any error → assume Clean.
+// Any error is treated as Clean, not Malicious — DoH failures shouldn't block browsing.
 pub async fn check_quad9(domain: &str) -> Result<ThreatLevel> {
     let query = build_dns_query(domain)?;
     let client = reqwest::Client::builder()
@@ -288,7 +261,6 @@ pub async fn check_quad9(domain: &str) -> Result<ThreatLevel> {
     Ok(parse_dns_response(&bytes))
 }
 
-/// Build a minimal binary DNS A-record query for `domain`.
 fn build_dns_query(domain: &str) -> Result<Vec<u8>> {
     let mut msg = Vec::with_capacity(64);
     let dns_id: [u8; 2] = rand::random();
@@ -314,7 +286,6 @@ fn build_dns_query(domain: &str) -> Result<Vec<u8>> {
     Ok(msg)
 }
 
-/// Parse a binary DNS response: check RCODE. NXDOMAIN (3) → Malicious.
 fn parse_dns_response(bytes: &[u8]) -> ThreatLevel {
     if bytes.len() < 4 {
         return ThreatLevel::Clean;
@@ -326,7 +297,6 @@ fn parse_dns_response(bytes: &[u8]) -> ThreatLevel {
     }
 }
 
-/// Check if a domain was registered very recently (potential phishing setup).
 pub async fn check_domain_age(domain: &str) -> ThreatLevel {
     let url = format!("https://api.whoapi.com/?domain={domain}&r=whois&apikey=free");
     let client = match reqwest::Client::builder()
@@ -357,8 +327,7 @@ pub async fn check_domain_age(domain: &str) -> ThreatLevel {
     ThreatLevel::Clean
 }
 
-/// Evaluate a domain through all available threat signals.
-/// Returns the highest-severity finding.
+// Returns the highest-severity finding across all signals.
 pub async fn evaluate_domain(
     domain: &str,
     live_list: &HashSet<String>,
@@ -415,7 +384,6 @@ pub async fn evaluate_domain(
     }
 }
 
-/// Fetch the latest URLhaus domain-only export and return as a HashSet.
 pub async fn fetch_live_list() -> Result<HashSet<String>> {
     let url = "https://urlhaus.abuse.ch/downloads/hostfile/";
     let client = reqwest::Client::builder()

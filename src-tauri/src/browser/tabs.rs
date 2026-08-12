@@ -38,7 +38,6 @@ impl Tab {
         }
     }
 
-    /// Decompress the ZRAM snapshot.
     pub fn decompress(&self) -> Option<String> {
         let bytes = self.zram.as_ref()?;
         let decompressed = decompress_size_prepended(bytes).ok()?;
@@ -53,7 +52,6 @@ impl Tab {
         self.last_active = crate::storage::db::unix_now();
     }
 
-    /// Compressed size (bytes), or 0 if awake.
     pub fn zram_size(&self) -> usize {
         self.zram.as_ref().map(|z| z.len()).unwrap_or(0)
     }
@@ -78,8 +76,7 @@ impl TabStore {
             .expect("tab must exist immediately after insertion")
     }
 
-    /// Convenience wrapper for JS-initiated tab opens.
-    /// Generates a new ULid-style ID and uses the default workspace.
+    // Generates a new ULid-style ID and uses the default workspace.
     pub fn open(&mut self, url: String) -> String {
         let id = crate::storage::db::new_id();
         let ws = self
@@ -126,15 +123,13 @@ impl TabStore {
         }
     }
 
-    /// Wake a tab: restore it to Awake, release compressed ZRAM bytes,
-    /// and reset memory weight estimate to the default.
+
     pub fn wake(&mut self, id: &str) {
         if let Some(tab) = self.tabs.get_mut(id) {
             tab.wake();
         }
     }
 
-    /// Return a JSON-serialisable snapshot of all tabs (LRU order).
     pub fn list(&self) -> Vec<TabInfo> {
         self.all_lru()
             .into_iter()
@@ -150,7 +145,6 @@ impl TabStore {
             .collect()
     }
 
-    /// Update URL + title after navigation; reset mem_weight estimate.
     pub fn update(&mut self, id: &str, url: &str, title: &str, dwell_ms: Option<u64>) {
         if let Some(tab) = self.tabs.get_mut(id) {
             tab.url = url.to_owned();
@@ -165,7 +159,6 @@ impl TabStore {
         }
     }
 
-    /// Shallow sleep: mark JS timers as paused (the frontend handles actual suspension).
     pub fn shallow_sleep(&mut self, id: &str) {
         if let Some(tab) = self.tabs.get_mut(id) {
             tab.sleep = SleepState::ShallowSleep;
@@ -213,7 +206,6 @@ impl TabStore {
             .find(|t| t.sleep == SleepState::Awake)
     }
 
-    /// All tabs, ordered by LRU (most recent first).
     pub fn all_lru(&self) -> Vec<&Tab> {
         self.order
             .iter()
@@ -236,8 +228,7 @@ impl TabStore {
             .count()
     }
 
-    /// Average memory weight of all awake tabs (bytes).
-    /// Used by the tab budget formula: ω_avg.
+    // Used by the tab budget formula: ω_avg.
     pub fn avg_mem_weight(&self) -> u64 {
         let awake: Vec<u64> = self
             .tabs

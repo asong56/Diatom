@@ -9,6 +9,14 @@ repository  = "https://github.com/asong56/Diatom"
 keywords    = ["browser", "privacy", "tauri", "rust"]
 categories  = ["web-programming"]
 
+[lib]
+name = "diatom"
+path = "src/lib.rs"
+
+[[bin]]
+name = "diatom"
+path = "src/main.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

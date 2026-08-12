@@ -121,6 +121,12 @@ fn run() -> anyhow::Result<()> {
             commands::cmd_tab_screenshot,
             commands::cmd_dom_crush,
             commands::cmd_dom_blocks_for,
+            commands::cmd_reshuffle_rule_add,
+            commands::cmd_reshuffle_rules_list,
+            commands::cmd_reshuffle_rule_toggle,
+            commands::cmd_reshuffle_rule_delete,
+            commands::cmd_reshuffle_script_for,
+            commands::cmd_museum_random_card,
             commands::cmd_dom_block_remove,
             commands::cmd_boosts_for_domain,
             commands::cmd_boosts_list,
@@ -169,7 +175,6 @@ fn run() -> anyhow::Result<()> {
             let app_handle = app.handle().clone();
             let state: tauri::State<AppState> = app.state();
 
-            // Fetch built-in filter lists; exits cleanly on window close.
             let blocker = state.live_blocker.clone();
             let shutdown = state.shutdown_token.clone();
             tauri::async_runtime::spawn(async move {

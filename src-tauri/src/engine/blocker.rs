@@ -1,4 +1,3 @@
-/// Generic Chrome UA used for filter list update requests.
 
 pub const FILTER_FETCH_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
      AppleWebKit/537.36 (KHTML, like Gecko) \
@@ -236,7 +235,7 @@ pub async fn boot_fetch_builtin_lists(
         "blocker: building merged automaton — {} patterns ({} builtin + {} from lists; target 60k+)",
         total,
         base_count,
-        total - base_count
+        total.saturating_sub(base_count)
     );
 
     match AhoCorasickBuilder::new()
@@ -274,7 +273,6 @@ pub fn is_blocked_live(url: &str, live: &std::sync::RwLock<Option<AhoCorasick>>)
     is_blocked(url)
 }
 
-/// A compiled cosmetic filter set.
 pub struct CosmeticEngine {
     pub global: Vec<String>,
 
@@ -472,13 +470,11 @@ pub fn upgrade_https(url: &str) -> String {
     }
 }
 
-/// Upgrade an http:// URL to https://, except localhost. Returns a new String.
 pub fn upgrade_https_owned(url: &str) -> String {
     upgrade_https(url).to_owned()
 }
 
-/// Strip known tracking parameters from a URL.
-/// Delegates to the canonical implementation in `url_stripper`.
+// Delegates to the canonical implementation in url_stripper.
 pub fn strip_params(url: &str) -> String {
     crate::engine::url_stripper::strip(url).into_owned()
 }

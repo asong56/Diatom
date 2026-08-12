@@ -55,12 +55,10 @@ impl StorageBudget {
     }
 }
 
-/// Which indexing tier a Museum entry currently occupies.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IndexTier {
     Hot,
-    /// Compact fingerprint only: title + URL + top-N keywords.
     Cold,
 }
 
@@ -83,7 +81,6 @@ pub struct StorageReport {
     pub hard_blocked: bool,
 }
 
-/// Compute current storage usage from the DB.
 pub fn report(db: &crate::storage::db::Db, budget: &StorageBudget) -> StorageReport {
     let conn = db.0.lock().unwrap();
 
@@ -168,8 +165,7 @@ pub fn report(db: &crate::storage::db::Db, budget: &StorageBudget) -> StorageRep
     }
 }
 
-/// Delete oldest bundles by frozen_at until under target_pct of the bundle budget.
-/// Returns (bundles_deleted, bytes_freed).
+// Returns (bundles_deleted, bytes_freed).
 pub fn evict_lru(
     db: &crate::storage::db::Db,
     budget: &StorageBudget,
@@ -282,14 +278,12 @@ pub fn degrade_cold_indexes(db: &crate::storage::db::Db, budget: &StorageBudget)
     Ok(degraded)
 }
 
-/// Decide which tier a newly frozen page should start in.
-/// Pages frozen for the first time always start HOT.
+// Pages frozen for the first time always start HOT.
 pub fn initial_tier() -> IndexTier {
     IndexTier::Hot
 }
 
-/// Touch the last_accessed_at timestamp when a user visits a page.
-/// Promotes cold entries back to hot.
+// Also promotes cold entries back to hot.
 pub fn touch_access(db: &crate::storage::db::Db, museum_id: &str) -> Result<()> {
     let now = crate::storage::db::unix_now();
     let conn = db.0.lock().unwrap();

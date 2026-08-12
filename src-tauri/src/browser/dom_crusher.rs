@@ -8,7 +8,6 @@ const DISALLOWED_ROOTS: &[&str] = &[
     ":root", ":host", "html ", "html>", "html,", "body ", "body>", "body,", "* {", "*{",
 ];
 
-/// Validate a CSS selector before storing it.
 pub fn validate_selector(selector: &str) -> Result<()> {
     let s = selector.trim();
     if s.is_empty() {
@@ -32,7 +31,6 @@ pub fn validate_selector(selector: &str) -> Result<()> {
     Ok(())
 }
 
-/// Normalise whitespace and strip trailing punctuation from a selector.
 pub fn clean_selector(selector: &str) -> String {
     selector
         .split_whitespace()
@@ -42,8 +40,7 @@ pub fn clean_selector(selector: &str) -> String {
         .to_owned()
 }
 
-/// Validate, clean, and insert a DOM-crusher block rule for `domain`.
-/// Returns the new rule ID.
+// Returns the new rule ID.
 pub fn add_rule(db: &crate::storage::db::Db, domain: &str, selector: &str) -> Result<String> {
     let clean = clean_selector(selector);
     validate_selector(&clean).context("invalid selector")?;
@@ -51,7 +48,6 @@ pub fn add_rule(db: &crate::storage::db::Db, domain: &str, selector: &str) -> Re
         .context("insert_dom_block")
 }
 
-/// Return all CSS selectors currently blocking elements on `domain`.
 pub fn rules_for_domain(db: &crate::storage::db::Db, domain: &str) -> Result<Vec<String>> {
     Ok(db
         .dom_blocks_for(domain)
@@ -59,6 +55,18 @@ pub fn rules_for_domain(db: &crate::storage::db::Db, domain: &str) -> Result<Vec
         .into_iter()
         .map(|b| b.selector)
         .collect())
+}
+
+pub fn list_rules(db: &crate::storage::db::Db) -> Result<Vec<ReshuffleRule>> {
+    db.list_reshuffle_rules()
+        .context("list_reshuffle_rules")?
+        .into_iter()
+        .map(|(id, domain_pattern, selector, replacement_json, enabled)| {
+            let replacement: ReplacementContent = serde_json::from_str(&replacement_json)
+                .context("deserialise replacement")?;
+            Ok(ReshuffleRule { rule_id: id, domain_pattern, selector, replacement, enabled })
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,8 +90,7 @@ pub enum ReplacementContent {
     Blank,
 }
 
-/// Build the DOM Reshuffler injection script for a set of rules.
-/// Returns an empty string when `rules` is empty (no script tag needed).
+// Returns an empty string when rules is empty (no script tag needed).
 pub fn reshuffle_script(rules: &[ReshuffleRule]) -> String {
     if rules.is_empty() {
         return String::new();
@@ -93,6 +100,12 @@ pub fn reshuffle_script(rules: &[ReshuffleRule]) -> String {
         r#"(function diatomReshuffler() {{
   const RULES = {rules_json};
   const host = location.hostname;
+
+  function esc(s) {{
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }}
 
   function matchesDomain(pattern) {{
     if (pattern === '*') return true;
@@ -115,9 +128,37 @@ pub fn reshuffle_script(rules: &[ReshuffleRule]) -> String {
         case 'museum_card':
           el.innerHTML = '<div style="padding:1rem;background:var(--c-surface,#1e293b);border:1px solid rgba(96,165,250,.2);border-radius:.5rem;color:#94a3b8;font-size:.75rem">📚 Museum archive (loading...)</div>';
           window.__TAURI__?.core?.invoke('cmd_museum_random_card').then(card => {{
-            if (card) el.innerHTML = `<div style="padding:.75rem;background:var(--c-surface,#1e293b);border:1px solid rgba(96,165,250,.2);border-radius:.5rem"><a href="${{card.url}}" style="color:#60a5fa;text-decoration:none;font-size:.8rem;font-weight:500">${{card.title}}</a><p style="color:#94a3b8;font-size:.72rem;margin:.3rem 0 0">${{card.snippet}}</p></div>`;
+            if (card) el.innerHTML =
+              `<div style="padding:.75rem;background:var(--c-surface,#1e293b);border:1px solid rgba(96,165,250,.2);border-radius:.5rem">` +
+              `<a href="${{esc(card.url)}}" style="color:#60a5fa;text-decoration:none;font-size:.8rem;font-weight:500">${{esc(card.title)}}</a>` +
+              `<p style="color:#94a3b8;font-size:.72rem;margin:.3rem 0 0">${{esc(card.snippet)}}</p></div>`;
           }}).catch(() => {{}});
           break;
+        case 'totp_widget': {{
+          const filter = rule.replacement.issuer_filter || null;
+          window.__TAURI__?.core?.invoke('cmd_totp_list').then(res => {{
+            const entries = res?.entries || [];
+            const match = filter
+              ? entries.find(e => e.issuer?.toLowerCase().includes(filter.toLowerCase()))
+              : entries[0];
+            if (!match) {{ el.style.cssText = 'display:none!important;'; return; }}
+            function render() {{
+              window.__TAURI__?.core?.invoke('cmd_totp_code', {{ account_id: match.id }}).then(c => {{
+                if (!c) return;
+                const secs = Math.max(0, c.valid_until - Math.floor(Date.now()/1000));
+                el.innerHTML =
+                  `<div style="display:inline-flex;align-items:center;gap:.5rem;padding:.3rem .6rem;` +
+                  `background:var(--c-surface,#1e293b);border:1px solid rgba(96,165,250,.2);border-radius:.4rem;font-family:monospace">` +
+                  `<span style="color:#60a5fa;font-size:1.1rem;letter-spacing:.15em">${{esc(c.code)}}</span>` +
+                  `<span style="color:#94a3b8;font-size:.7rem">${{secs}}s</span></div>`;
+              }}).catch(() => {{}});
+            }}
+            render();
+            // Refresh each period so the displayed code stays current.
+            setInterval(render, (match.period || 30) * 1000);
+          }}).catch(() => {{}});
+          break;
+        }}
       }}
     }});
   }}

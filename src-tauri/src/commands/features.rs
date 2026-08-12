@@ -99,11 +99,9 @@ pub async fn cmd_panic_config_set(
     crate::features::panic::save_config(&state.db, &config).map_err(es)
 }
 
-/// Check a password against HIBP k-anonymity API with DB caching.
-///
-/// This command is for ad-hoc password checks (e.g. from the Vault UI).
-/// Background scans that tie results back to a specific login record should
-/// use `scan_login_and_persist` directly from the scan task.
+// This command is for ad-hoc password checks (e.g. from the Vault UI).
+// Background scans that tie results back to a specific login record should
+// use `scan_login_and_persist` directly from the scan task.
 #[tauri::command]
 pub async fn cmd_breach_check_password(
     password: String,

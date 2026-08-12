@@ -18,8 +18,7 @@ impl Default for TabBudgetConfig {
 }
 
 impl TabBudgetConfig {
-    /// Load from the database key `"tab_limit"`.
-    /// Returns the default when the key is absent or unparseable.
+    // Falls back to the default when the key is absent or unparseable.
     pub fn load(db: &crate::storage::db::Db) -> Self {
         let max_tabs = db
             .get_setting("tab_limit")
@@ -29,7 +28,6 @@ impl TabBudgetConfig {
         TabBudgetConfig { max_tabs }
     }
 
-    /// Persist the current config to the database.
     pub fn save(&self, db: &crate::storage::db::Db) -> anyhow::Result<()> {
         db.set_setting("tab_limit", &self.max_tabs.to_string())
     }
@@ -45,7 +43,6 @@ pub struct TabBudget {
 }
 
 impl TabBudget {
-    /// Returns `true` when no more tabs may be opened.
     pub fn is_at_limit(&self, current_count: u32) -> bool {
         current_count >= self.t_max
     }

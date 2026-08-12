@@ -17,7 +17,7 @@
 
 #[cfg(test)]
 mod url_stripping {
-    use diatom::engine::url_stripper::strip_tracking_params;
+    use diatom::engine::strip_tracking_params;
 
     #[test]
     fn strips_utm_params() {

@@ -1,4 +1,4 @@
-use super::{St, es};
+use super::St;
 
 #[tauri::command]
 pub async fn cmd_totp_list(state: St<'_>) -> Result<serde_json::Value, String> {
@@ -58,7 +58,7 @@ pub async fn cmd_totp_import(format: String, data: String, state: St<'_>) -> Res
 
 #[tauri::command]
 pub async fn cmd_biometric_verify(reason: String) -> Result<bool, String> {
-    crate::auth::passkey::verify(&reason).await.map_err(es)
+    Ok(crate::auth::passkey::cmd_local_auth_impl(reason).await)
 }
 
 #[tauri::command]

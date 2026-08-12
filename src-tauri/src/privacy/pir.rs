@@ -23,17 +23,12 @@ const BLOCKLIST_CATALOGUE: &[&str] = &[
     "https://raw.githubusercontent.com/crazy-max/WindowsSpyBlocker/master/data/hosts/spy.txt",
 ];
 
-/// A PIR-private fetch result.
 pub struct PirResult {
     pub content: String,
     pub cover_count: usize,
 }
 
-/// Fetch `target_url` with PIR-T cover traffic.
-///
-/// - `k`: number of total requests (1 real + k−1 cover).  Minimum 1 (no cover).
-/// - `client`: shared reqwest client (caller manages keep-alive pooling).
-/// - `max_jitter_ms`: random delay per request to prevent timing correlation.
+// k = total requests (1 real + k-1 cover); max_jitter_ms randomises timing per request.
 pub async fn pir_fetch(
     client: &reqwest::Client,
     target_url: &str,
@@ -104,8 +99,7 @@ pub async fn pir_fetch(
     })
 }
 
-/// Convenience wrapper: PIR-fetch a blocklist URL using the app's HTTP client.
-/// Returns the raw text content.
+
 pub async fn fetch_blocklist_private(
     client: &reqwest::Client,
     url: &str,

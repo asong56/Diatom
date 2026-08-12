@@ -24,11 +24,9 @@ impl Default for PanicConfig {
     }
 }
 
-/// Activate panic mode: minimize all windows and emit the overlay event.
-///
-/// The frontend receives `diatom:panic-activate` and injects a full-viewport
-/// decoy DOM node over the WebView so the underlying page is not visible even
-/// in the window thumbnail. No network requests are made.
+// The frontend receives `diatom:panic-activate` and injects a full-viewport
+// decoy DOM node over the WebView so the underlying page is not visible even
+// in the window thumbnail. No network requests are made.
 pub fn activate(app: &AppHandle, config: &PanicConfig) {
     if PANIC_ACTIVE.swap(true, Ordering::SeqCst) {
         return;
@@ -52,7 +50,6 @@ pub fn activate(app: &AppHandle, config: &PanicConfig) {
     );
 }
 
-/// Restore from panic mode: un-minimize windows and remove the decoy overlay.
 pub fn restore(app: &AppHandle) {
     if !PANIC_ACTIVE.swap(false, Ordering::SeqCst) {
         return; // Not in panic — nothing to restore
@@ -70,7 +67,6 @@ pub fn restore(app: &AppHandle) {
     let _ = app.emit("diatom:panic-restore", serde_json::json!({}));
 }
 
-/// Toggle panic state — called by the global hotkey handler.
 pub fn toggle(app: &AppHandle, config: &PanicConfig) {
     if PANIC_ACTIVE.load(Ordering::SeqCst) {
         restore(app);
@@ -79,14 +75,12 @@ pub fn toggle(app: &AppHandle, config: &PanicConfig) {
     }
 }
 
-/// Load PanicConfig from the DB settings table.
 pub fn load_config(db: &crate::storage::db::Db) -> PanicConfig {
     db.get_setting("panic_button_config")
         .and_then(|j| serde_json::from_str(&j).ok())
         .unwrap_or_default()
 }
 
-/// Persist PanicConfig to the DB settings table.
 pub fn save_config(db: &crate::storage::db::Db, cfg: &PanicConfig) -> anyhow::Result<()> {
     db.set_setting("panic_button_config", &serde_json::to_string(cfg)?)?;
     Ok(())

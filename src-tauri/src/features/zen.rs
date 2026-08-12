@@ -70,16 +70,14 @@ impl Default for ZenConfig {
 }
 
 impl ZenConfig {
-    /// Load from DB, falling back to defaults if no row exists yet.
-    pub fn load_from_db(db: &crate::storage::db::Db) -> Self {
+        pub fn load_from_db(db: &crate::storage::db::Db) -> Self {
         match db.zen_load() {
             Some(raw) => Self::from_raw(&raw),
             None => ZenConfig::default(),
         }
     }
 
-    /// Construct from a DB `ZenRaw` row.
-    pub fn from_raw(raw: &crate::storage::db::ZenRaw) -> Self {
+        pub fn from_raw(raw: &crate::storage::db::ZenRaw) -> Self {
         let blocked_categories: Vec<String> = serde_json::from_str(&raw.blocked_cats_json)
             .unwrap_or_else(|_| vec!["social".into(), "entertainment".into()]);
         ZenConfig {
@@ -97,8 +95,7 @@ impl ZenConfig {
         }
     }
 
-    /// Persist current state to DB.
-    pub fn save_to_db(&self, db: &crate::storage::db::Db) {
+        pub fn save_to_db(&self, db: &crate::storage::db::Db) {
         let cats_json = serde_json::to_string(&self.blocked_categories)
             .unwrap_or_else(|_| "[\"social\",\"entertainment\"]".to_owned());
         if let Err(e) = db.zen_save(
@@ -127,8 +124,7 @@ impl ZenConfig {
         self.state == ZenState::Active
     }
 
-    /// Returns the category name if `domain` should be blocked, else `None`.
-    pub fn blocks_domain(&self, domain: &str) -> Option<&'static str> {
+        pub fn blocks_domain(&self, domain: &str) -> Option<&'static str> {
         if !self.is_active() {
             return None;
         }
@@ -205,11 +201,7 @@ impl Default for EmotionFilterStrength {
     }
 }
 
-/// Generate the JS snippet that applies the emotion filter to the page.
-///
-/// The filter identifies lexically high-emotion words and reduces their
-/// visual salience via CSS `opacity` and `blur`. It does not modify or
-/// remove any content.
+// Reduces visual salience of high-emotion words via CSS opacity/blur — never modifies or removes content.
 pub fn emotion_filter_script(strength: &EmotionFilterStrength) -> String {
     let (opacity, blur) = match strength {
         EmotionFilterStrength::Subtle => ("0.75", "0px"),

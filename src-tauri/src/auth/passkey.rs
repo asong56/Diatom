@@ -11,7 +11,6 @@ pub enum BiometricUnavailableReason {
     CheckFailed,
 }
 
-/// Check if platform biometric authentication is available.
 pub fn is_biometric_available() -> bool {
     #[cfg(target_os = "macos")]
     {
@@ -29,7 +28,6 @@ pub fn is_biometric_available() -> bool {
     }
 }
 
-/// Return the reason auth is unavailable, or None if it is available.
 pub fn biometric_unavailable_reason() -> Option<BiometricUnavailableReason> {
     if is_biometric_available() {
         return None;
@@ -159,11 +157,13 @@ async fn windows_authenticate(reason: &str) -> Result<bool> {
 
     let reason_hs = HSTRING::from(reason);
     let result = tokio::task::spawn_blocking(move || -> bool {
-        let async_op =
-            UserConsentVerifier::RequestVerificationAsync(&reason_hs).unwrap_or_else(|e| {
+        let async_op = match UserConsentVerifier::RequestVerificationAsync(&reason_hs) {
+            Ok(op) => op,
+            Err(e) => {
                 tracing::warn!("passkey: RequestVerificationAsync failed: {:?}", e);
-                return false.into(); // will not compile — handled below
-            });
+                return false;
+            }
+        };
         match async_op.get() {
             Ok(UserConsentVerificationResult::Verified) => true,
             Ok(other) => {
@@ -182,10 +182,8 @@ async fn windows_authenticate(reason: &str) -> Result<bool> {
     Ok(result)
 }
 
-/// Called by the frontend to request local authentication before a sensitive
-/// operation. Returns true if authenticated.
-/// Returns false (never silently allows) if unavailable or denied.
-/// Callers should check `cmd_biometric_available()` first to get the reason string.
+// Never silently allows: false on unavailable or denied. Callers should
+// check cmd_biometric_available() first for the reason string.
 pub async fn cmd_local_auth_impl(reason: String) -> bool {
     if !is_biometric_available() {
         let why = biometric_unavailable_reason();

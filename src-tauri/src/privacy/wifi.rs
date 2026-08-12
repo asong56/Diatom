@@ -13,7 +13,6 @@ pub enum SecurityType {
 }
 
 impl SecurityType {
-    /// Returns true if this security type should trigger GhostPipe activation.
     pub fn is_untrusted(&self) -> bool {
         matches!(
             self,
@@ -30,7 +29,6 @@ pub struct WifiInfo {
     pub signal_dbm: Option<i32>,
 }
 
-/// A trusted network identified by (SSID, BSSID) pair.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TrustedNetwork {
     pub ssid: String,
@@ -38,8 +36,7 @@ pub struct TrustedNetwork {
     pub added_at: i64,
 }
 
-/// Detect the currently connected Wi-Fi network.
-/// Returns None if not connected to Wi-Fi or detection fails.
+
 pub fn detect_current_network() -> Option<WifiInfo> {
     #[cfg(target_os = "macos")]
     {
@@ -218,7 +215,6 @@ fn linux_wifi() -> Option<WifiInfo> {
     None
 }
 
-/// Returns true if `s` matches the pattern `XX:XX:XX:XX:XX:XX` (MAC address).
 #[cfg(target_os = "linux")]
 fn is_mac_address(s: &str) -> bool {
     if s.len() != 17 {
@@ -244,14 +240,12 @@ fn parse_kv(text: &str, key: &str) -> Option<String> {
         .map(|v| v.trim().to_owned())
 }
 
-/// Check whether a given (ssid, bssid) pair is in the trusted networks list.
 pub fn is_trusted(db: &crate::storage::db::Db, ssid: &str, bssid: &str) -> bool {
     trusted_networks(db)
         .iter()
         .any(|n| n.ssid == ssid && n.bssid == bssid)
 }
 
-/// Add a network to the trusted list.
 pub fn trust_network(db: &crate::storage::db::Db, ssid: &str, bssid: &str) -> Result<()> {
     let mut networks = trusted_networks(db);
     let entry = TrustedNetwork {
@@ -268,7 +262,6 @@ pub fn trust_network(db: &crate::storage::db::Db, ssid: &str, bssid: &str) -> Re
     persist_trusted_networks(db, &networks)
 }
 
-/// Remove a network from the trusted list.
 pub fn distrust_network(db: &crate::storage::db::Db, ssid: &str, bssid: &str) -> Result<()> {
     let networks: Vec<TrustedNetwork> = trusted_networks(db)
         .into_iter()
